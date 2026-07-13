@@ -55,6 +55,6 @@ jobs:
       - name: Deploy a Firebase
         run: >
           npx --yes firebase-tools deploy
-          --only hosting,firestore:rules,storage
+          --only hosting,firestore:rules
           --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
           --non-interactive
