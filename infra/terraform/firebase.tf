@@ -19,3 +19,15 @@ data "google_firebase_web_app_config" "default" {
   project    = var.project_id
   web_app_id = google_firebase_web_app.default.app_id
 }
+
+# Sitio de Firebase Hosting (por defecto = id de proyecto). En proyectos nuevos
+# no se crea solo; sin él, el deploy falla con "site with no site name".
+resource "google_firebase_hosting_site" "default" {
+  provider = google-beta
+  project  = var.project_id
+  site_id  = var.project_id
+  depends_on = [
+    google_firebase_project.default,
+    google_project_service.services,
+  ]
+}
