@@ -131,6 +131,8 @@ export interface Template {
   fields: string[];
   /** agrupación del catálogo de creación (categoría de servicio de SDP). */
   group?: string;
+  /** ¿visible para el solicitante en el catálogo de autoservicio? (false = solo staff). */
+  showToRequester?: boolean;
 }
 
 export interface Sla {

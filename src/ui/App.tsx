@@ -57,7 +57,7 @@ export function App() {
   useEffect(() => { void useAuth.getState().init(); }, []);
   useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
   const [, setTheme] = useState<'light' | 'dark' | null>(null);
-  const [view, setView] = useState<'home' | 'tickets' | 'admin'>('home');
+  const [view, setView] = useState<'home' | 'tickets' | 'requests' | 'admin'>('home');
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
 
@@ -93,7 +93,7 @@ export function App() {
   if (!tenant) return card('Sin datos.');
 
   const isReq = role === 'requester';
-  const activeView: 'home' | 'tickets' | 'admin' = isReq ? 'tickets' : view;
+  const activeView: 'home' | 'tickets' | 'requests' | 'admin' = isReq ? 'requests' : view;
   const openCount = tenant.tickets.length;
   const myReqCount = tenant.tickets.filter((t) => t.requesterId === effectiveUserId).length;
 
@@ -127,24 +127,32 @@ export function App() {
 
       <div className="shell">
         <aside className="side">
-          <div className="cap">Menú</div>
-          {!isReq && <button className={'modlink' + (activeView === 'home' ? ' on' : '')} onClick={() => setView('home')}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>
-            <span className="ml-l">Inicio</span></button>}
-          <button className={'modlink' + (activeView === 'tickets' ? ' on' : '')} onClick={() => setView('tickets')}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v16" /></svg>
-            <span className="ml-l">{isReq ? 'Mis solicitudes' : 'Solicitudes'}</span><span className="n">{isReq ? myReqCount : openCount}</span></button>
-          {role === 'tenant_admin' && <button className={'modlink' + (activeView === 'admin' ? ' on' : '')} onClick={() => setView('admin')}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 00-.1-1.1l2-1.5-2-3.4-2.3 1a7 7 0 00-1.9-1.1L14.3 2h-4l-.4 2.3a7 7 0 00-1.9 1.1l-2.3-1-2 3.4 2 1.5A7 7 0 005.6 12c0 .4 0 .7.1 1.1l-2 1.5 2 3.4 2.3-1c.6.5 1.2.8 1.9 1.1l.4 2.4h4l.4-2.4c.7-.3 1.3-.6 1.9-1.1l2.3 1 2-3.4-2-1.5c.1-.4.1-.7.1-1.1z" /></svg>
-            <span className="ml-l">Administración</span></button>}
-          <div className="foot">
-            {myTenants.length > 1 ? 'Perteneces a varias instancias.' : `Instancia ${tenant.name}.`} Todo aquí es propio de <b>{tenant.name}</b>.
+          <div className="side-top">
+            <div className="cap">Menú</div>
+            {!isReq && <button className={'modlink' + (activeView === 'home' ? ' on' : '')} onClick={() => setView('home')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>
+              <span className="ml-l">Inicio</span></button>}
+            {!isReq && <button className={'modlink' + (activeView === 'tickets' ? ' on' : '')} onClick={() => setView('tickets')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v16" /></svg>
+              <span className="ml-l">Solicitudes</span><span className="n">{openCount}</span></button>}
+            <button className={'modlink' + (activeView === 'requests' ? ' on' : '')} onClick={() => setView('requests')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>
+              <span className="ml-l">Mis solicitudes</span><span className="n">{myReqCount}</span></button>
+          </div>
+          <div className="side-bottom">
+            {role === 'tenant_admin' && <button className={'modlink' + (activeView === 'admin' ? ' on' : '')} onClick={() => setView('admin')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 00-.1-1.1l2-1.5-2-3.4-2.3 1a7 7 0 00-1.9-1.1L14.3 2h-4l-.4 2.3a7 7 0 00-1.9 1.1l-2.3-1-2 3.4 2 1.5A7 7 0 005.6 12c0 .4 0 .7.1 1.1l-2 1.5 2 3.4 2.3-1c.6.5 1.2.8 1.9 1.1l.4 2.4h4l.4-2.4c.7-.3 1.3-.6 1.9-1.1l2.3 1 2-3.4-2-1.5c.1-.4.1-.7.1-1.1z" /></svg>
+              <span className="ml-l">Administración</span></button>}
+            <div className="foot">
+              {myTenants.length > 1 ? 'Perteneces a varias instancias.' : `Instancia ${tenant.name}.`}
+            </div>
           </div>
         </aside>
 
         <main className="main">
           {activeView === 'home' && !isReq && <Dashboard tenant={tenant} user={user} go={(f) => { setFilter(f); setView('tickets'); }} />}
-          {activeView === 'tickets' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} />}
+          {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} asRequester={false} />}
+          {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} asRequester={true} />}
           {activeView === 'admin' && role === 'tenant_admin' && <><AdminNav /><AdminArea tenant={tenant} /></>}
         </main>
       </div>
@@ -226,35 +234,35 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   </>;
 }
 
-function Workspace({ tenant, role, user, filter, setFilter }:
-  { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: 'all' | 'unassigned' | 'mine'; setFilter: (f: 'all' | 'unassigned' | 'mine') => void }) {
+function Workspace({ tenant, role, user, filter, setFilter, asRequester }:
+  { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: 'all' | 'unassigned' | 'mine'; setFilter: (f: 'all' | 'unassigned' | 'mine') => void; asRequester: boolean }) {
   const selectedId = useStore((s) => s.selectedTicketId);
   const select = useStore((s) => s.select);
-  const isReq = role === 'requester';
   const all = tenant.tickets;
   let list = all;
-  if (isReq) list = all.filter((t) => t.requesterId === user.uid);
+  if (asRequester) list = all.filter((t) => t.requesterId === user.uid);
   else if (filter === 'unassigned') list = all.filter((t) => !t.technicianId);
   else if (filter === 'mine') list = all.filter((t) => t.technicianId === user.uid);
   const selected = list.find((t) => t.id === selectedId) ?? null;
   const counts = { all: all.length, unassigned: all.filter((t) => !t.technicianId).length, mine: all.filter((t) => t.technicianId === user.uid).length };
   const tabs: [typeof filter, string][] = [['all', 'Todas'], ['unassigned', 'Sin asignar'], ['mine', 'Mías']];
+  const canAct = !asRequester && role !== 'requester';
 
   return <>
     <div className="hd">
-      <h1>{isReq ? 'Mis solicitudes' : 'Solicitudes'}</h1>
-      <span className="sub">{tenant.name} · {list.length} de {all.length}</span>
-      {!isReq && <div className="tabs" style={{ marginLeft: 'auto', marginBottom: 0 }}>
+      <h1>{asRequester ? 'Mis solicitudes' : 'Solicitudes'}</h1>
+      <span className="sub">{tenant.name} · {list.length}{!asRequester ? ` de ${all.length}` : ''}</span>
+      {!asRequester && <div className="tabs" style={{ marginLeft: 'auto', marginBottom: 0 }}>
         {tabs.map(([k, l]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l} <span className="tabn">{counts[k]}</span></button>)}
       </div>}
     </div>
     <div className="work">
       <div className="listwrap">
-        {list.length === 0 && <div className="empty">No hay solicitudes en esta vista.</div>}
+        {list.length === 0 && <div className="empty">{asRequester ? 'No has creado ninguna solicitud todavía.' : 'No hay solicitudes en esta vista.'}</div>}
         {list.map((t) => <TicketRow key={t.id} tenant={tenant} t={t} sel={t.id === selectedId} onClick={() => select(t.id)} />)}
       </div>
       <div>
-        {selected ? <TicketDetail tenant={tenant} t={selected} canAct={!isReq} />
+        {selected ? <TicketDetail tenant={tenant} t={selected} canAct={canAct} />
           : <div className="card"><div className="empty">Selecciona una solicitud para ver el detalle.</div></div>}
       </div>
     </div>
@@ -360,8 +368,12 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
+  // Perfilado de catálogo: el solicitante solo ve tipologías permitidas
+  // (visibles para solicitante). Técnico/admin ven todas.
+  const canSee = (t: Template) => role !== 'requester' || t.showToRequester !== false;
   const groups = new Map<string, Template[]>();
   for (const t of tenant.templates) {
+    if (!canSee(t)) continue;
     if (q && !t.name.toLowerCase().includes(q.toLowerCase())) continue;
     const g = tplGroup(t); if (!groups.has(g)) groups.set(g, []); groups.get(g)!.push(t);
   }

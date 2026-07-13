@@ -95,9 +95,9 @@ function fieldLabel(name: string): string {
 // campos de sistema (solo lectura) que no cuentan como "campos de formulario"
 const SYSTEM_FIELDS = new Set(['created_time', 'due_by_time', 'first_response_due_by_time', 'responded_time', 'completed_time', 'resolved_time', 'last_updated_time']);
 
-interface SeedTpl { id: string; name: string; type: TicketType; lifecycleId: string | null; slaId: string | null; fields: string[]; ticketCount?: number; group?: string }
+interface SeedTpl { id: string; name: string; type: TicketType; lifecycleId: string | null; slaId: string | null; fields: string[]; ticketCount?: number; group?: string; showToRequester?: boolean }
 
-async function templateFieldsAndLifecycle(id: string): Promise<{ fields: string[]; lifecycleId: string | null; group: string }> {
+async function templateFieldsAndLifecycle(id: string): Promise<{ fields: string[]; lifecycleId: string | null; group: string; showToRequester: boolean }> {
   const d = (await api(`request_templates/${id}`)).request_template as Record<string, unknown>;
   const layouts = (d.layouts as { sections?: { fields?: { name?: string }[] }[] }[]) ?? [];
   const names = new Set<string>();
@@ -107,7 +107,7 @@ async function templateFieldsAndLifecycle(id: string): Promise<{ fields: string[
   const lc = d.lifecycle as { id?: string } | null;
   const sc = d.service_category as { name?: string } | null;
   const group = sc?.name ?? (d.is_service_template ? 'Solicitudes de servicio' : 'Plantillas generales de incidentes');
-  return { fields: [...names].map(fieldLabel), lifecycleId: lc?.id ? String(lc.id) : null, group };
+  return { fields: [...names].map(fieldLabel), lifecycleId: lc?.id ? String(lc.id) : null, group, showToRequester: d.show_to_requester !== false };
 }
 
 async function ticketCount(templateId: string): Promise<number> {
@@ -147,10 +147,11 @@ async function main() {
   const lifecycleType = new Map<string, TicketType>();
   let i = 0;
   for (const tp of tpls) {
-    const { fields, lifecycleId, group } = await templateFieldsAndLifecycle(tp.id);
+    const { fields, lifecycleId, group, showToRequester } = await templateFieldsAndLifecycle(tp.id);
     tp.fields = fields;
     tp.lifecycleId = lifecycleId;
     tp.group = group;
+    tp.showToRequester = showToRequester;
     tp.ticketCount = await ticketCount(tp.id);
     if (lifecycleId) lifecycleType.set(lifecycleId, tp.type);
     i++;
