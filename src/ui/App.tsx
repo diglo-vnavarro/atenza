@@ -376,7 +376,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
         <div><div className="k">Solicitante</div><span style={{ fontSize: 13 }}>{req?.name ?? '—'}</span></div>
         <div><div className="k">Técnico</div><span style={{ fontSize: 13 }}>{tech?.name ?? 'Sin asignar'}</span></div>
         {group && <div><div className="k">Grupo</div><span style={{ fontSize: 13 }}>{group.name}</span></div>}
-        {t.category && <div><div className="k">Categoría</div><span style={{ fontSize: 13 }}>{t.category}</span></div>}
+        {t.category && <div><div className="k">Categoría</div><span style={{ fontSize: 13 }}>{[t.category, t.subcategory, t.item].filter(Boolean).join(' › ')}</span></div>}
         <div><div className="k">Vencimiento</div><span className={dueSev === 'crit' ? 'sev-crit' : dueSev === 'warn' ? 'sev-warn' : ''} style={{ fontSize: 13, fontWeight: 600 }}>{due}</span></div>
       </div>
       {ss && <div style={{ marginTop: 12 }}>
@@ -462,7 +462,12 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
   const [tpl, setTpl] = useState<Template | null>(tenant.templates.length === 1 ? tenant.templates[0]! : null);
   const [q, setQ] = useState('');
   const [subject, setSubject] = useState('');
-  const [category, setCategory] = useState(tenant.categories[0] ?? 'General');
+  const tree = tenant.categoryTree ?? [];
+  const [category, setCategory] = useState(tree[0]?.name ?? tenant.categories[0] ?? 'General');
+  const [subcategory, setSubcategory] = useState('');
+  const [item, setItem] = useState('');
+  const catNode = tree.find((c) => c.name === category) ?? null;
+  const subNode = catNode?.subs.find((s) => s.name === subcategory) ?? null;
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium');
   const [description, setDescription] = useState('');
   const requesters = tenant.members.filter((m) => m.role === 'requester');
@@ -479,7 +484,7 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
     const g = tplGroup(t); if (!groups.has(g)) groups.set(g, []); groups.get(g)!.push(t);
   }
   const grpList = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const submit = () => { if (!subject.trim() || !tpl) return; create({ subject, description, category, priority, requesterId, templateId: tpl.id }); onClose(); };
+  const submit = () => { if (!subject.trim() || !tpl) return; create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, requesterId, templateId: tpl.id }); onClose(); };
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -507,7 +512,9 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
             <button className="backbtn" onClick={() => setTpl(tenant.templates.length === 1 ? tpl : null)}>‹ {tplGroup(tpl)} · {tpl.name}</button>
             <label>Asunto<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
             <label>Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>
-            <label>Categoría<select value={category} onChange={(e) => setCategory(e.target.value)}>{tenant.categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+            <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+            {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>}
+            {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
             <label>Prioridad<select value={priority} onChange={(e) => setPriority(e.target.value as 'high' | 'medium' | 'low')}><option value="high">Alta</option><option value="medium">Media</option><option value="low">Baja</option></select></label>
             {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
@@ -525,12 +532,61 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', null], ['Horas operativas', null], ['Grupos de días festivos', null], ['Departamentos', null], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', null], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
-  ['Personalización', '🎨', [['Estado', null], ['Categoría › Subcategoría › Artículo', null], ['Prioridad', null], ['Impacto', null], ['Urgencia', null], ['Campos adicionales', null]]],
+  ['Personalización', '🎨', [['Estado', null], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad', null], ['Impacto', null], ['Urgencia', null], ['Campos adicionales', null]]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', null], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+
+// Editor de árbol Categoría › Subcategoría › Artículo (3 columnas, como SDP).
+function CategoryAdmin({ tenant }: { tenant: TenantData }) {
+  const setTree = useStore((s) => s.setCategoryTree);
+  const tree = tenant.categoryTree ?? [];
+  const [selCat, setSelCat] = useState<string | null>(tree[0]?.name ?? null);
+  const [selSub, setSelSub] = useState<string | null>(null);
+  const [nc, setNc] = useState(''); const [ns, setNs] = useState(''); const [ni, setNi] = useState('');
+  const cat = tree.find((c) => c.name === selCat) ?? null;
+  const sub = cat?.subs.find((s) => s.name === selSub) ?? null;
+
+  const addCat = () => { const n = nc.trim(); if (!n || tree.some((c) => c.name === n)) return; setTree([...tree, { name: n, subs: [] }]); setNc(''); setSelCat(n); };
+  const rmCat = (name: string) => { setTree(tree.filter((c) => c.name !== name)); if (selCat === name) { setSelCat(null); setSelSub(null); } };
+  const addSub = () => { const n = ns.trim(); if (!cat || !n || cat.subs.some((s) => s.name === n)) return; setTree(tree.map((c) => (c.name === cat.name ? { ...c, subs: [...c.subs, { name: n, items: [] }] } : c))); setNs(''); setSelSub(n); };
+  const rmSub = (name: string) => { if (!cat) return; setTree(tree.map((c) => (c.name === cat.name ? { ...c, subs: c.subs.filter((s) => s.name !== name) } : c))); if (selSub === name) setSelSub(null); };
+  const addItem = () => { const n = ni.trim(); if (!cat || !sub || !n || sub.items.includes(n)) return; setTree(tree.map((c) => (c.name === cat.name ? { ...c, subs: c.subs.map((s) => (s.name === sub.name ? { ...s, items: [...s.items, n] } : s)) } : c))); setNi(''); };
+  const rmItem = (name: string) => { if (!cat || !sub) return; setTree(tree.map((c) => (c.name === cat.name ? { ...c, subs: c.subs.map((s) => (s.name === sub.name ? { ...s, items: s.items.filter((i) => i !== name) } : s)) } : c))); };
+
+  return <>
+    <div className="banner" style={{ marginBottom: 14 }}>Jerarquía de 3 niveles como SDP: <b>Categoría › Subcategoría › Artículo</b>. Selecciona para desplegar y editar cada nivel.</div>
+    <div className="tree">
+      <div className="tcol">
+        <div className="tcol-h">Categoría</div>
+        {tree.map((c) => <div key={c.name} className={'titem' + (selCat === c.name ? ' on' : '')}>
+          <button className="titem-b" onClick={() => { setSelCat(c.name); setSelSub(null); }}>{c.name}</button>
+          <button className="xbtn" onClick={() => rmCat(c.name)} aria-label="Eliminar">✕</button><span className="chev">›</span></div>)}
+        <div className="tadd"><input value={nc} onChange={(e) => setNc(e.target.value)} placeholder="Añadir categoría…" onKeyDown={(e) => e.key === 'Enter' && addCat()} /><button className="ghost" onClick={addCat}>＋</button></div>
+      </div>
+      <div className="tcol">
+        <div className="tcol-h">Subcategoría</div>
+        {!cat ? <div className="empty">Elige una categoría.</div> : <>
+          {cat.subs.map((s) => <div key={s.name} className={'titem' + (selSub === s.name ? ' on' : '')}>
+            <button className="titem-b" onClick={() => setSelSub(s.name)}>{s.name}</button>
+            <button className="xbtn" onClick={() => rmSub(s.name)} aria-label="Eliminar">✕</button><span className="chev">›</span></div>)}
+          <div className="tadd"><input value={ns} onChange={(e) => setNs(e.target.value)} placeholder="Añadir subcategoría…" onKeyDown={(e) => e.key === 'Enter' && addSub()} /><button className="ghost" onClick={addSub}>＋</button></div>
+        </>}
+      </div>
+      <div className="tcol">
+        <div className="tcol-h">Artículo</div>
+        {!sub ? <div className="empty">Elige una subcategoría.</div> : <>
+          {sub.items.map((it) => <div key={it} className="titem">
+            <span className="titem-b" style={{ padding: '9px 13px' }}>{it}</span>
+            <button className="xbtn" onClick={() => rmItem(it)} aria-label="Eliminar">✕</button></div>)}
+          <div className="tadd"><input value={ni} onChange={(e) => setNi(e.target.value)} placeholder="Añadir artículo…" onKeyDown={(e) => e.key === 'Enter' && addItem()} /><button className="ghost" onClick={addItem}>＋</button></div>
+        </>}
+      </div>
+    </div>
+  </>;
+}
 
 function AdminConfig({ tenant }: { tenant: TenantData }) {
   const [sec, setSec] = useState<string | null>(null);
@@ -547,6 +603,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
   return <div>
     <div className="crumb"><button className="crumb-b" onClick={() => setSec(null)}>‹ Configuración</button><span className="sep">·</span><b>{ADMIN_TITLE[sec] ?? sec}</b></div>
     {sec === 'plantillas' && <CatalogAdmin tenant={tenant} />}
+    {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}
     {sec === 'miembros' && <MembersAdmin tenant={tenant} />}

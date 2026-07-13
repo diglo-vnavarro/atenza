@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef } from '../model.js';
 import type { User } from '../access.js';
 import { canTransition, initialState } from '../lifecycle.js';
-import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group } from '../data/seed.js';
+import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
 
@@ -11,7 +11,7 @@ export interface ImportSnapshot { categories: string[]; templates: Template[]; s
 export type Role = 'tenant_admin' | 'technician' | 'requester';
 
 interface NewTicket {
-  subject: string; description: string; category: string;
+  subject: string; description: string; category: string; subcategory?: string; item?: string;
   priority: 'high' | 'medium' | 'low'; requesterId: string; technicianId?: string | null;
   templateId?: string;
 }
@@ -47,6 +47,7 @@ interface State {
   updateState: (key: string, patch: Partial<LifecycleState>) => void;
   setNodePos: (lcId: string, key: string, x: number, y: number) => void;
   addCategory: (name: string) => void;
+  setCategoryTree: (tree: CatNode[]) => void;
   addTemplate: (name: string, type: TicketType, lifecycleId: string | null) => void;
   updateTemplate: (id: string, patch: Partial<Template>) => void;
   removeTemplate: (id: string) => void;
@@ -148,6 +149,7 @@ export const useStore = create<State>()(
           const ticket: StoredTicket = {
             id, type: tpl?.type ?? 'incident', subject: nt.subject, description: nt.description,
             requesterId: nt.requesterId, technicianId: nt.technicianId ?? null, category: nt.category,
+            subcategory: nt.subcategory, item: nt.item,
             priority: nt.priority, templateId: tpl?.id ?? 'tpl-inc', status: init,
             slaId: SLA_BY_PRIORITY[nt.priority] ?? null, statusHistory: [{ state: init, from: now, to: null }],
           };
@@ -249,6 +251,11 @@ export const useStore = create<State>()(
           const n = name.trim(); if (!n) return;
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => (t.categories.includes(n) ? t : { ...t, categories: [...t.categories, n] })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { categories: t.categories }).catch(errlog); }
+        },
+        setCategoryTree: (tree) => {
+          const categories = tree.map((c) => c.name);
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, categoryTree: tree, categories })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { categoryTree: tree, categories }).catch(errlog); }
         },
         addTemplate: (name, type, lifecycleId) => {
           const defs: FieldDef[] = [
@@ -358,6 +365,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v2', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v3', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

@@ -12,13 +12,19 @@ export interface UiMember {
 }
 export interface Capacity { used: number; cap: number; off?: string }
 export interface Group { id: string; name: string }
+/** Jerarquía Categoría › Subcategoría › Artículo (como SDP). */
+export interface CatSub { name: string; items: string[] }
+export interface CatNode { name: string; subs: CatSub[] }
 /** Ticket con su id (en Firestore el id es la clave del documento). */
 export type StoredTicket = Ticket & { id: string };
 export interface TenantData {
   id: string; name: string; key: string; active: boolean;
   members: UiMember[]; lifecycles: Lifecycle[]; templates: Template[];
   slas: Sla[]; groups: Group[]; tickets: StoredTicket[];
+  /** lista plana (compat); se deriva de categoryTree cuando existe. */
   categories: string[];
+  /** árbol Categoría › Subcategoría › Artículo. */
+  categoryTree?: CatNode[];
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
@@ -135,6 +141,22 @@ const opsLc: Lifecycle = {
 
 const IT_CATEGORIES = ['Aplicaciones', 'Arquitectura', 'Comunicaciones', 'Correo Electrónico', 'Datos', 'Dispositivos', 'General', 'Hardware', 'Internet', 'Microsoft Office', 'Móviles', 'Operaciones', 'Reclamaciones de Clientes', 'Redes', 'VDI'];
 const LEASYS_CATEGORIES = ['Portal', 'Facturación', 'Contratos', 'Firma electrónica', 'Avisos', 'General'];
+const IT_CAT_TREE: CatNode[] = [
+  { name: 'Aplicaciones', subs: [
+    { name: 'Google Workspace', items: ['Calendar', 'Docs', 'Drive', 'Gmail', 'Meet', 'Sheets'] },
+    { name: 'Microsoft Office', items: ['Word', 'Excel', 'Outlook', 'Teams'] },
+    { name: 'Herramientas de negocio', items: ['CRM', 'ERP'] },
+  ] },
+  { name: 'Correo Electrónico', subs: [{ name: 'Buzones', items: ['Alta', 'Baja', 'Buzón compartido'] }, { name: 'Distribución', items: ['Listas'] }] },
+  { name: 'Hardware', subs: [{ name: 'Equipo', items: ['Portátil', 'Sobremesa', 'Móvil'] }, { name: 'Periféricos', items: ['Monitor', 'Teclado', 'Impresora'] }] },
+  { name: 'Redes', subs: [{ name: 'VPN', items: ['Acceso', 'Caída'] }, { name: 'WiFi', items: ['Cobertura'] }] },
+  { name: 'Reclamaciones de Clientes', subs: [{ name: 'REO', items: ['Alta', 'Seguimiento'] }, { name: 'Recovery', items: ['Gestión'] }] },
+];
+const LEASYS_CAT_TREE: CatNode[] = [
+  { name: 'Portal', subs: [{ name: 'Acceso', items: ['Alta usuario', 'Reset contraseña'] }, { name: 'Incidencias', items: ['Error de carga'] }] },
+  { name: 'Facturación', subs: [{ name: 'Facturas', items: ['Duplicado', 'Rectificación'] }] },
+  { name: 'Contratos', subs: [{ name: 'Alta', items: ['Nuevo contrato'] }, { name: 'Modificación', items: ['Cambio de datos'] }] },
+];
 
 const itSlas: Sla[] = [
   { id: 'sla-high', name: 'Alta (High)', responseMins: 30, resolveMins: 120 },
@@ -163,7 +185,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES,
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE,
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -187,7 +209,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES,
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE,
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [

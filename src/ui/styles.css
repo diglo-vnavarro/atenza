@@ -336,6 +336,22 @@ input,textarea{font-family:var(--sans); font-size:13px; color:var(--ink); backgr
 .taskmv{display:inline-flex; flex-direction:column; margin-left:auto;}
 .taskmv .xbtn{padding:0 5px; font-size:11px; line-height:1.25;}
 
+/* ---- v2 (e): árbol Categoría › Subcategoría › Artículo ---- */
+.tree{display:grid; grid-template-columns:1fr 1fr 1fr; border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--surface);}
+@media (max-width:800px){ .tree{grid-template-columns:1fr;} }
+.tcol{border-right:1px solid var(--line); min-height:320px; max-height:460px; overflow-y:auto;}
+.tcol:last-child{border-right:0;}
+.tcol-h{font-family:var(--mono); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); padding:11px 13px; border-bottom:1px solid var(--line); background:var(--surface-2); position:sticky; top:0;}
+.titem{display:flex; align-items:center; gap:4px; border-bottom:1px solid var(--line); padding-right:8px;}
+.titem:hover{background:var(--sink);}
+.titem.on{background:var(--accent-soft);}
+.titem.on .titem-b{color:var(--accent); font-weight:600;}
+.titem-b{flex:1; min-width:0; border:0; background:none; text-align:left; font-size:13px; color:var(--ink-soft); padding:9px 13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.titem .chev{color:var(--ink-faint); font-size:13px;}
+.tadd{display:flex; gap:6px; padding:9px 13px;}
+.tadd input{flex:1; font-size:12px; padding:6px 8px; border:1px solid var(--line); border-radius:7px; background:var(--surface); color:var(--ink);}
+.tadd .ghost{padding:6px 10px;}
+
 /* ---- React Flow (editor de ciclos) ---- */
 .rf-wrap .react-flow{background:var(--raise);}
 .rf-state{display:flex; align-items:center; gap:9px; width:184px; min-height:56px; padding:10px 14px; border:2px solid; border-radius:13px; position:relative; font-family:var(--sans);}
