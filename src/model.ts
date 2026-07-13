@@ -156,6 +156,30 @@ export interface StatusDef {
   description?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Reglas de notificación: qué avisos se emiten en cada evento del ticket, por
+// qué canal (pantalla / correo) y a quién (solicitante / técnico / grupo).
+// ---------------------------------------------------------------------------
+export type NotifEvent = 'created' | 'assigned' | 'status' | 'resolved' | 'comment' | 'internal_note' | 'sla_breach';
+export interface NotifChannel { screen?: boolean; mail?: boolean }
+export interface NotifRule {
+  event: NotifEvent;
+  requester: NotifChannel;
+  technician: NotifChannel;
+  group: NotifChannel;
+}
+/** Aviso en pantalla generado para un destinatario concreto (colección notifications). */
+export interface AppNotification {
+  id: string;
+  at: number;
+  event: NotifEvent;
+  ticketId: string;
+  subject: string;
+  forUid: string;
+  text: string;
+  read?: boolean;
+}
+
 export type FieldType = 'text' | 'textarea' | 'select' | 'bool' | 'date' | 'number' | 'person' | 'attachment' | 'reference';
 export interface FieldDef {
   id: string;

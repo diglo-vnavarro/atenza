@@ -126,7 +126,7 @@ export function App() {
         </label>
         <div className="spring" />
         <button className="newtop" onClick={() => setShowNew(true)}>＋ Nueva solicitud</button>
-        <button className="iconbtn" title="Notificaciones" aria-label="Notificaciones">🔔</button>
+        <Bell tenant={tenant} meUid={effectiveUserId} />
         <button className="iconbtn" onClick={toggleTheme} title="Tema" aria-label="Cambiar tema">◐</button>
         {firebaseEnabled ? <>
           <span className="who-mini">{displayMember?.name ?? authUser?.email}</span>
@@ -551,16 +551,73 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
   );
 }
 
+// Campana de avisos en pantalla (los del usuario actual).
+function Bell({ tenant, meUid }: { tenant: TenantData; meUid: string }) {
+  const markRead = useStore((s) => s.markNotifRead);
+  const markAll = useStore((s) => s.markAllNotifsRead);
+  const select = useStore((s) => s.select);
+  const [open, setOpen] = useState(false);
+  const mine = (tenant.notifications ?? []).filter((n) => n.forUid === meUid);
+  const unread = mine.filter((n) => !n.read).length;
+  return <div className="bellwrap">
+    <button className="iconbtn" title="Avisos" aria-label="Avisos" onClick={() => setOpen((o) => !o)}>🔔{unread > 0 && <span className="belldot">{unread > 9 ? '9+' : unread}</span>}</button>
+    {open && <>
+      <div className="bell-scrim" onClick={() => setOpen(false)} />
+      <div className="bell-pop">
+        <div className="bell-h"><b>Avisos</b>{unread > 0 && <button className="linkbtn" onClick={() => markAll()}>Marcar todo leído</button>}</div>
+        <div className="bell-list">
+          {mine.length === 0 && <div className="empty">Sin avisos.</div>}
+          {mine.slice(0, 30).map((n) => <button key={n.id} className={'bell-item' + (n.read ? '' : ' unread')} onClick={() => { markRead(n.id); select(n.ticketId); setOpen(false); }}>
+            <div className="bell-txt">{n.text}</div>
+            <div className="bell-sub">{n.subject}</div>
+          </button>)}
+        </div>
+      </div>
+    </>}
+  </div>;
+}
+
+const NOTIF_EVENTS: [import('../model.js').NotifEvent, string][] = [
+  ['created', 'Solicitud creada'], ['assigned', 'Asignada a técnico'], ['status', 'Cambio de estado'],
+  ['resolved', 'Resuelta'], ['comment', 'Respuesta / comentario'], ['internal_note', 'Nota interna'], ['sla_breach', 'SLA incumplido'],
+];
+// Reglas de notificación: matriz evento × destinatario × canal (pantalla/correo).
+function NotifAdmin({ tenant }: { tenant: TenantData }) {
+  const setRules = useStore((s) => s.setNotifRules);
+  const rules = tenant.notifRules ?? [];
+  const get = (ev: string) => rules.find((r) => r.event === ev) ?? { event: ev as import('../model.js').NotifEvent, requester: {}, technician: {}, group: {} };
+  const toggle = (ev: string, who: 'requester' | 'technician' | 'group', ch: 'screen' | 'mail') => {
+    const cur = get(ev); const next = { ...cur, [who]: { ...cur[who], [ch]: !cur[who][ch] } };
+    const others = rules.filter((r) => r.event !== ev);
+    setRules([...others, next].sort((a, b) => NOTIF_EVENTS.findIndex((e) => e[0] === a.event) - NOTIF_EVENTS.findIndex((e) => e[0] === b.event)));
+  };
+  const cell = (ev: string, who: 'requester' | 'technician' | 'group') => { const c = get(ev)[who]; return <div className="ncell">
+    <button className={'cbtn' + (c.screen ? ' on' : '')} onClick={() => toggle(ev, who, 'screen')}>pantalla</button>
+    <button className={'cbtn mail' + (c.mail ? ' on' : '')} onClick={() => toggle(ev, who, 'mail')}>correo</button>
+  </div>; };
+  return <>
+    <div className="banner" style={{ marginBottom: 14 }}>Quién recibe aviso en cada evento y por qué canal. <b>pantalla</b> = campana en la app (activa) · <b>correo</b> = email (requiere la extensión de envío; se activa a continuación).</div>
+    <div className="card" style={{ overflow: 'hidden' }}>
+      <table className="mgmt ntbl"><thead><tr><th style={{ width: '30%' }}>Evento</th><th>Solicitante</th><th>Técnico asignado</th><th>Grupo de soporte</th></tr></thead>
+        <tbody>{NOTIF_EVENTS.map(([ev, label]) => <tr key={ev}>
+          <td style={{ fontWeight: 600 }}>{label}{ev === 'sla_breach' && <span className="pill" style={{ marginLeft: 6 }}>programado</span>}</td>
+          <td>{cell(ev, 'requester')}</td><td>{cell(ev, 'technician')}</td><td>{cell(ev, 'group')}</td>
+        </tr>)}</tbody>
+      </table>
+    </div>
+  </>;
+}
+
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', null], ['Horas operativas', null], ['Grupos de días festivos', null], ['Departamentos', null], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', null], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad', null], ['Impacto', null], ['Urgencia', null], ['Campos adicionales', null]]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
-  ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', null], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
+  ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -660,6 +717,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'plantillas' && <CatalogAdmin tenant={tenant} />}
     {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
     {sec === 'estado' && <StatusAdmin tenant={tenant} />}
+    {sec === 'notif' && <NotifAdmin tenant={tenant} />}
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}
     {sec === 'miembros' && <MembersAdmin tenant={tenant} />}

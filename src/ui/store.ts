@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef } from '../model.js';
+import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification } from '../model.js';
 import type { User } from '../access.js';
 import { canTransition, initialState } from '../lifecycle.js';
 import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode } from '../data/seed.js';
@@ -37,6 +37,9 @@ interface State {
   transition: (ticketId: string, to: string) => void;
   setStatus: (ticketId: string, statusName: string) => void;
   setStatuses: (list: StatusDef[]) => void;
+  setNotifRules: (rules: NotifRule[]) => void;
+  markNotifRead: (id: string) => void;
+  markAllNotifsRead: () => void;
   addComment: (ticketId: string, text: string, authorName: string, internal: boolean) => void;
   setResolution: (ticketId: string, text: string) => void;
   addTask: (ticketId: string, text: string) => void;
@@ -97,6 +100,7 @@ function editLc(t: TenantData, idx: number, fn: (lc: Lifecycle) => Lifecycle): T
 const CLOUD = firebaseEnabled;
 const errlog = (e: unknown) => console.error('[cloud write]', e);
 let unsubs: Array<() => void> = [];
+let notifSeq = 0;
 
 export const useStore = create<State>()(
   persist(
@@ -104,6 +108,31 @@ export const useStore = create<State>()(
       const activeT = (s: State) => s.db.tenants.find((t) => t.id === s.activeTenantId);
       const curLc = (s: State): Lifecycle | undefined => { const t = activeT(s); return t?.lifecycles[Math.min(s.adminLcIndex, (t?.lifecycles.length ?? 1) - 1)]; };
       const syncCurLc = () => { if (!CLOUD) return; const s = get(); const t = activeT(s); const lc = curLc(s); if (t && lc?.id) void cloud.writeLifecycle(t.id, lc).catch(errlog); };
+
+      // Motor de notificaciones: en cada evento evalúa las reglas del tenant,
+      // resuelve destinatarios (solicitante / técnico / grupo) y crea un aviso en
+      // pantalla para cada uno con canal `screen` (salvo el propio actor). El correo
+      // queda pendiente de la extensión Trigger Email (ver README).
+      const NOTIF_LABEL: Record<NotifEvent, string> = {
+        created: 'Nueva solicitud', assigned: 'Te han asignado una solicitud', status: 'Cambio de estado',
+        resolved: 'Solicitud resuelta', comment: 'Nuevo comentario', internal_note: 'Nueva nota interna', sla_breach: 'SLA incumplido',
+      };
+      const emitNotifs = (t: TenantData, event: NotifEvent, ticket: StoredTicket) => {
+        const rule = (t.notifRules ?? []).find((r) => r.event === event);
+        if (!rule) return;
+        const actor = get().currentUserId;
+        const targets = new Set<string>();
+        if (rule.requester.screen && ticket.requesterId && ticket.requesterId !== actor) targets.add(ticket.requesterId);
+        if (rule.technician.screen && ticket.technicianId && ticket.technicianId !== actor) targets.add(ticket.technicianId);
+        if (rule.group.screen && ticket.groupId) for (const m of t.members) if ((m.groupIds ?? []).includes(ticket.groupId) && m.uid !== actor) targets.add(m.uid);
+        if (targets.size === 0) return;
+        const notifs: AppNotification[] = [...targets].map((forUid) => ({
+          id: 'n-' + Date.now() + '-' + (notifSeq++), at: Date.now(), event, ticketId: ticket.id,
+          subject: ticket.subject, forUid, text: `${NOTIF_LABEL[event]} · ${ticket.id}`,
+        }));
+        set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, notifications: [...notifs, ...(tt.notifications ?? [])] })) }));
+        if (CLOUD) for (const n of notifs) void cloud.writeNotification(t.id, n).catch(errlog);
+      };
 
       return {
         db: seed,
@@ -128,7 +157,7 @@ export const useStore = create<State>()(
             const filter = role === 'requester' ? uid : null;
             const un = await cloud.subscribeTenant(tid, filter, (tdata) => {
               set((s) => ({ db: { ...s.db, tenants: [...s.db.tenants.filter((t) => t.id !== tid), tdata] } }));
-            });
+            }, uid);
             unsubs.push(un);
           }
         },
@@ -157,6 +186,7 @@ export const useStore = create<State>()(
           };
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
           if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
+          emitNotifs(t, 'created', ticket);
         },
 
         assign: (ticketId, techUid) => {
@@ -171,6 +201,7 @@ export const useStore = create<State>()(
           }
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, technicianId: techUid, status, statusHistory: hist } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { technicianId: techUid, status, statusHistory: hist }).catch(errlog);
+          if (techUid) emitNotifs(t, 'assigned', { ...tk, technicianId: techUid, status });
         },
 
         transition: (ticketId, to) => {
@@ -182,6 +213,7 @@ export const useStore = create<State>()(
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist }).catch(errlog);
+          emitNotifs(t, 'status', { ...tk, status: to, statusHistory: hist });
         },
         // Cambio de estado directo al catálogo (sin exigir transición del ciclo).
         setStatus: (ticketId, to) => {
@@ -190,10 +222,27 @@ export const useStore = create<State>()(
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist }).catch(errlog);
+          emitNotifs(t, to === 'Resuelta' ? 'resolved' : 'status', { ...tk, status: to, statusHistory: hist });
         },
         setStatuses: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, statuses: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { statuses: list }).catch(errlog); }
+        },
+        setNotifRules: (rules) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, notifRules: rules })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { notifRules: rules }).catch(errlog); }
+        },
+        markNotifRead: (id) => {
+          const t = activeT(get()); if (!t) return;
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (tt) => ({ ...tt, notifications: (tt.notifications ?? []).map((n) => (n.id === id ? { ...n, read: true } : n)) })) }));
+          if (CLOUD) void cloud.markNotifReadDoc(t.id, id).catch(errlog);
+        },
+        markAllNotifsRead: () => {
+          const t = activeT(get()); if (!t) return;
+          const me = get().currentUserId;
+          const unread = (t.notifications ?? []).filter((n) => n.forUid === me && !n.read);
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (tt) => ({ ...tt, notifications: (tt.notifications ?? []).map((n) => (n.forUid === me ? { ...n, read: true } : n)) })) }));
+          if (CLOUD) for (const n of unread) void cloud.markNotifReadDoc(t.id, n.id).catch(errlog);
         },
 
         // Parche genérico de un campo del ticket (local + write-through en nube).
@@ -203,6 +252,7 @@ export const useStore = create<State>()(
           const comments = [...(tk.comments ?? []), { author: s.currentUserId, authorName, at: Date.now(), text: body, internal }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, comments } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { comments }).catch(errlog);
+          emitNotifs(t, internal ? 'internal_note' : 'comment', tk);
         },
         setResolution: (ticketId, text) => {
           const s = get(); const t = activeT(s); if (!t) return;
@@ -379,6 +429,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v3', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v4', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

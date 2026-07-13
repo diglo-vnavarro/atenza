@@ -15,7 +15,7 @@
 // El store llama a estas funciones solo en modo nube (firebaseEnabled).
 // ============================================================================
 import { getFirebaseApp } from '../firebase.js';
-import type { Lifecycle, Template, Sla, StatusDef } from '../model.js';
+import type { Lifecycle, Template, Sla, StatusDef, NotifRule, AppNotification } from '../model.js';
 import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode } from './seed.js';
 
 let _fs: Awaited<ReturnType<typeof loadFs>> | null = null;
@@ -27,7 +27,7 @@ async function loadFs() {
 async function fs() { return (_fs ??= await loadFs()); }
 
 // ---- config del tenant que vive en el doc raíz ----
-interface TenantDoc { name: string; key: string; active: boolean; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; capacity: Record<string, Capacity>; counter: number }
+interface TenantDoc { name: string; key: string; active: boolean; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; notifRules?: NotifRule[]; capacity: Record<string, Capacity>; counter: number }
 
 /** Rol del usuario en un tenant (para decidir el filtro de tickets al suscribir). */
 export async function getMemberRole(tid: string, uid: string): Promise<string | null> {
@@ -42,7 +42,7 @@ export async function seedTenantToFirestore(t: TenantData): Promise<void> {
   const { m, db } = await fs();
   const batch = m.writeBatch(db);
   const tRef = m.doc(db, 'tenants', t.id);
-  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, categories: t.categories, categoryTree: t.categoryTree ?? [], statuses: t.statuses ?? [], capacity: t.capacity, counter: t.counter };
+  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, categories: t.categories, categoryTree: t.categoryTree ?? [], statuses: t.statuses ?? [], notifRules: t.notifRules ?? [], capacity: t.capacity, counter: t.counter };
   batch.set(tRef, tdoc);
   for (const mem of t.members) batch.set(m.doc(db, `tenants/${t.id}/members`, mem.uid), mem);
   for (const tk of t.tickets) batch.set(m.doc(db, `tenants/${t.id}/tickets`, tk.id), tk);
@@ -78,10 +78,10 @@ export type Unsub = () => void;
  *  TenantData; llama a `onData` en cada cambio. Devuelve función de desuscripción.
  *  El técnico/admin ve todos los tickets; el solicitante solo los suyos (las
  *  reglas filtran el `get`; para la lista se pasa `requesterId` y se consulta acotado). */
-export async function subscribeTenant(tid: string, requesterFilterUid: string | null, onData: (t: TenantData) => void): Promise<Unsub> {
+export async function subscribeTenant(tid: string, requesterFilterUid: string | null, onData: (t: TenantData) => void, meUid?: string): Promise<Unsub> {
   const { m, db } = await fs();
   const acc: Partial<TenantData> & { id: string } = {
-    id: tid, members: [], tickets: [], lifecycles: [], templates: [], slas: [], groups: [], categories: [], capacity: {},
+    id: tid, members: [], tickets: [], lifecycles: [], templates: [], slas: [], groups: [], categories: [], capacity: {}, notifications: [],
     name: tid, key: tid, active: true, counter: 1000,
   };
   const emit = () => onData(acc as TenantData);
@@ -90,7 +90,7 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
 
   subs.push(m.onSnapshot(m.doc(db, 'tenants', tid), (d) => {
     const t = d.data() as TenantDoc | undefined;
-    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.categories = t.categories ?? []; acc.categoryTree = t.categoryTree ?? []; acc.statuses = t.statuses ?? []; acc.capacity = t.capacity ?? {}; acc.counter = t.counter ?? 1000; }
+    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.categories = t.categories ?? []; acc.categoryTree = t.categoryTree ?? []; acc.statuses = t.statuses ?? []; acc.notifRules = t.notifRules ?? []; acc.capacity = t.capacity ?? {}; acc.counter = t.counter ?? 1000; }
     emit();
   }));
   subs.push(m.onSnapshot(col('members'), (s) => { acc.members = s.docs.map((d) => d.data() as UiMember); emit(); }));
@@ -105,7 +105,22 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
     : col('tickets');
   subs.push(m.onSnapshot(tq, (s) => { acc.tickets = s.docs.map((d) => ({ ...(d.data() as StoredTicket), id: d.id })); emit(); }));
 
+  // avisos en pantalla para el usuario actual (los más recientes primero)
+  if (meUid) {
+    const nq = m.query(col('notifications'), m.where('forUid', '==', meUid));
+    subs.push(m.onSnapshot(nq, (s) => { acc.notifications = s.docs.map((d) => d.data() as AppNotification).sort((a, b) => b.at - a.at).slice(0, 50); emit(); }));
+  }
+
   return () => subs.forEach((u) => u());
+}
+
+export async function writeNotification(tid: string, n: AppNotification): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, `tenants/${tid}/notifications`, n.id), n);
+}
+export async function markNotifReadDoc(tid: string, id: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.updateDoc(m.doc(db, `tenants/${tid}/notifications`, id), { read: true });
 }
 
 // ---- escrituras por entidad (fluyen de vuelta por las subscripciones) ----

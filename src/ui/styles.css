@@ -360,6 +360,27 @@ input,textarea{font-family:var(--sans); font-size:13px; color:var(--ink); backgr
 .mgmt .cell-in:hover,.mgmt .cell-in:focus{border-color:var(--line); background:var(--surface-2); outline:none;}
 .colorin{width:40px; height:26px; border:1px solid var(--line); border-radius:6px; background:none; padding:2px; cursor:pointer;}
 
+/* ---- v2 (g): campana de avisos + reglas de notificación ---- */
+.bellwrap{position:relative; display:inline-flex;}
+.belldot{position:absolute; top:-5px; right:-5px; background:var(--crit); color:#fff; font-size:9px; font-weight:700; border-radius:9px; padding:1px 4px; min-width:15px; text-align:center; line-height:1.3;}
+.bell-scrim{position:fixed; inset:0; z-index:40;}
+.bell-pop{position:absolute; top:40px; right:0; width:320px; max-width:88vw; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 14px 44px rgba(10,12,24,.2); z-index:41; overflow:hidden;}
+.bell-h{display:flex; align-items:center; justify-content:space-between; padding:11px 14px; border-bottom:1px solid var(--line); font-size:13.5px;}
+.bell-list{max-height:360px; overflow-y:auto;}
+.bell-item{display:block; width:100%; text-align:left; border:0; background:none; padding:10px 14px; border-bottom:1px solid var(--line); color:inherit;}
+.bell-item:hover{background:var(--sink);}
+.bell-item.unread{background:color-mix(in srgb, var(--accent) 7%, transparent);}
+.bell-item.unread .bell-txt::before{content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--accent); margin-right:7px; vertical-align:middle;}
+.bell-txt{font-size:13px; font-weight:600; color:var(--ink);}
+.bell-sub{font-size:12px; color:var(--ink-faint); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+
+.ntbl td,.ntbl th{vertical-align:middle;}
+.ncell{display:flex; gap:6px;}
+.cbtn{display:inline-flex; align-items:center; font-size:11px; font-weight:600; padding:3px 9px; border-radius:20px; border:1px solid var(--line); background:var(--surface); color:var(--ink-faint);}
+.cbtn:hover{border-color:var(--accent);}
+.cbtn.on{border-color:transparent; background:var(--accent-soft); color:var(--accent);}
+.cbtn.mail.on{background:var(--ok-bg); color:var(--ok);}
+
 /* ---- React Flow (editor de ciclos) ---- */
 .rf-wrap .react-flow{background:var(--raise);}
 .rf-state{display:flex; align-items:center; gap:9px; width:184px; min-height:56px; padding:10px 14px; border:2px solid; border-radius:13px; position:relative; font-family:var(--sans);}
