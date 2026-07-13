@@ -303,6 +303,39 @@ input,textarea{font-family:var(--sans); font-size:13px; color:var(--ink); backgr
 .pv-field .pv-req{color:var(--crit);}
 .pv-inp{background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:8px 10px; font-size:12px; color:var(--ink-faint);}
 
+/* ---- v2: Administración landing (config por áreas) ---- */
+.cfg-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:18px 26px; margin-top:4px;}
+.cfg-cat h3{display:flex; align-items:center; gap:10px; font-size:14.5px; font-weight:700; color:var(--accent); margin:0 0 10px;}
+.cfg-ic{width:30px; height:30px; border-radius:8px; background:var(--accent-soft); display:grid; place-items:center; flex:none; font-size:15px;}
+.cfg-links{display:flex; flex-wrap:wrap; column-gap:5px; row-gap:7px; line-height:1.5;}
+.cfg-lk{border:0; background:none; color:var(--ink-soft); font-size:12.8px; padding:2px 5px; border-radius:6px; text-align:left;}
+.cfg-lk:hover{color:var(--accent); background:var(--accent-soft);}
+.cfg-lk.soon{color:var(--ink-faint); opacity:.6; cursor:not-allowed;}
+.cfg-links .sep{color:var(--line-2);}
+.cfg-note{font-size:12px; color:var(--ink-faint); margin-top:16px;}
+.crumb{display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--ink-faint); margin-bottom:12px;}
+.crumb .sep{color:var(--line-2);}
+.crumb b{color:var(--ink-soft);}
+.crumb-b{border:0; background:none; color:var(--accent); font-weight:600; font-size:12.5px; padding:2px 4px; border-radius:6px;}
+.crumb-b:hover{background:var(--accent-soft);}
+
+/* ---- v2: vista previa realista del formulario ---- */
+.preview{padding:0; overflow:hidden;}
+.pv-head{font-family:var(--mono); font-size:10px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--ink-faint); padding:11px 15px; border-bottom:1px solid var(--line); background:var(--surface);}
+.pv-body{padding:14px 15px;}
+.pv-sec-t{font-size:13px; font-weight:700; color:var(--ink); margin-bottom:12px;}
+.pv-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px 16px;}
+.pv-field{display:flex; flex-direction:column; gap:5px;}
+.pv-field.full{grid-column:1 / -1;}
+.pv-inp{background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:8px 10px; font-size:12.5px; color:var(--ink-faint); display:flex; align-items:center; justify-content:space-between;}
+.pv-inp.tall{height:52px; align-items:flex-start;}
+.pv-inp .chev{color:var(--ink-faint);}
+.pv-rte{background:var(--surface); border:1px solid var(--line); border-radius:7px; overflow:hidden;}
+.pv-bar{display:flex; gap:9px; align-items:center; padding:6px 10px; border-bottom:1px solid var(--line); color:var(--ink-soft); font-size:12px;}
+.pv-area{height:66px;}
+.taskmv{display:inline-flex; flex-direction:column; margin-left:auto;}
+.taskmv .xbtn{padding:0 5px; font-size:11px; line-height:1.25;}
+
 /* ---- React Flow (editor de ciclos) ---- */
 .rf-wrap .react-flow{background:var(--raise);}
 .rf-state{display:flex; align-items:center; gap:9px; width:184px; min-height:56px; padding:10px 14px; border:2px solid; border-radius:13px; position:relative; font-family:var(--sans);}

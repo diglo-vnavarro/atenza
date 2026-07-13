@@ -57,7 +57,7 @@ export function App() {
   useEffect(() => { void useAuth.getState().init(); }, []);
   useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
   const [, setTheme] = useState<'light' | 'dark' | null>(null);
-  const [view, setView] = useState<'home' | 'tickets' | 'requests' | 'admin'>('home');
+  const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'admin'>('home');
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
 
@@ -93,8 +93,9 @@ export function App() {
   if (!tenant) return card('Sin datos.');
 
   const isReq = role === 'requester';
-  const activeView: 'home' | 'tickets' | 'requests' | 'admin' = isReq ? 'requests' : view;
+  const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'admin' = isReq ? 'requests' : view;
   const openCount = tenant.tickets.length;
+  const myAssignedCount = tenant.tickets.filter((t) => t.technicianId === effectiveUserId).length;
   const myReqCount = tenant.tickets.filter((t) => t.requesterId === effectiveUserId).length;
 
   return (
@@ -135,8 +136,11 @@ export function App() {
             {!isReq && <button className={'modlink' + (activeView === 'tickets' ? ' on' : '')} onClick={() => setView('tickets')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v16" /></svg>
               <span className="ml-l">Solicitudes</span><span className="n">{openCount}</span></button>}
+            {!isReq && <button className={'modlink' + (activeView === 'assigned' ? ' on' : '')} onClick={() => setView('assigned')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
+              <span className="ml-l">Asignadas a mí</span><span className="n">{myAssignedCount}</span></button>}
             <button className={'modlink' + (activeView === 'requests' ? ' on' : '')} onClick={() => setView('requests')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16v16H4z" /><path d="M8 9h8M8 13h5" /></svg>
               <span className="ml-l">Mis solicitudes</span><span className="n">{myReqCount}</span></button>
           </div>
           <div className="side-bottom">
@@ -150,10 +154,11 @@ export function App() {
         </aside>
 
         <main className="main">
-          {activeView === 'home' && !isReq && <Dashboard tenant={tenant} user={user} go={(f) => { setFilter(f); setView('tickets'); }} />}
-          {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} asRequester={false} />}
-          {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} asRequester={true} />}
-          {activeView === 'admin' && role === 'tenant_admin' && <><AdminNav /><AdminArea tenant={tenant} /></>}
+          {activeView === 'home' && !isReq && <Dashboard tenant={tenant} user={user} go={(v, f) => { if (f) setFilter(f); setView(v); }} />}
+          {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" />}
+          {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" />}
+          {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" />}
+          {activeView === 'admin' && role === 'tenant_admin' && <AdminConfig tenant={tenant} />}
         </main>
       </div>
 
@@ -163,7 +168,7 @@ export function App() {
 }
 
 // Panel de inicio: KPIs + widgets calculados a partir de los datos reales del tenant.
-function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<typeof buildUser>; go: (f: 'all' | 'unassigned' | 'mine') => void }) {
+function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<typeof buildUser>; go: (v: 'tickets' | 'assigned', f?: 'all' | 'unassigned' | 'mine') => void }) {
   const now = Date.now();
   const tickets = tenant.tickets;
   const isOverdue = (t: StoredTicket) => !!t.resolveDueAt && t.resolveDueAt < now;
@@ -192,10 +197,10 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   return <>
     <div className="hd"><h1>Panel de servicio</h1><span className="sub">{tenant.name} · {tickets.length} solicitudes activas</span></div>
     <div className="kpis">
-      <button className="kpi" onClick={() => go('all')}><div className="kl">Abiertas</div><div className="kv">{tickets.length}</div><div className="kstrip" style={{ background: 'var(--accent)' }} /></button>
-      <button className="kpi" onClick={() => go('unassigned')}><div className="kl">Sin asignar</div><div className="kv" style={{ color: 'var(--warn)' }}>{unassigned}</div><div className="kstrip" style={{ background: 'var(--warn)' }} /></button>
-      <button className="kpi" onClick={() => go('all')}><div className="kl">Vencidas (SLA)</div><div className="kv" style={{ color: 'var(--crit)' }}>{overdue}</div><div className="kstrip" style={{ background: 'var(--crit)' }} /></button>
-      <button className="kpi" onClick={() => go('mine')}><div className="kl">Mías</div><div className="kv">{mine}</div><div className="kstrip" style={{ background: 'var(--ok)' }} /></button>
+      <button className="kpi" onClick={() => go('tickets', 'all')}><div className="kl">Abiertas</div><div className="kv">{tickets.length}</div><div className="kstrip" style={{ background: 'var(--accent)' }} /></button>
+      <button className="kpi" onClick={() => go('tickets', 'unassigned')}><div className="kl">Sin asignar</div><div className="kv" style={{ color: 'var(--warn)' }}>{unassigned}</div><div className="kstrip" style={{ background: 'var(--warn)' }} /></button>
+      <button className="kpi" onClick={() => go('tickets', 'all')}><div className="kl">Vencidas (SLA)</div><div className="kv" style={{ color: 'var(--crit)' }}>{overdue}</div><div className="kstrip" style={{ background: 'var(--crit)' }} /></button>
+      <button className="kpi" onClick={() => go('assigned')}><div className="kl">Asignadas a mí</div><div className="kv">{mine}</div><div className="kstrip" style={{ background: 'var(--ok)' }} /></button>
     </div>
     <div className="dgrid">
       <div className="card dwide">
@@ -242,40 +247,42 @@ function dueLabel(ms?: number | null): [string, string] {
 }
 const fmtDate = (ms: number) => new Date(ms).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-function Workspace({ tenant, role, user, filter, setFilter, asRequester }:
-  { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: 'all' | 'unassigned' | 'mine'; setFilter: (f: 'all' | 'unassigned' | 'mine') => void; asRequester: boolean }) {
+function Workspace({ tenant, role, user, filter, setFilter, scope }:
+  { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: 'all' | 'unassigned' | 'mine'; setFilter: (f: 'all' | 'unassigned' | 'mine') => void; scope: 'queue' | 'assigned' | 'requester' }) {
   const selectedId = useStore((s) => s.selectedTicketId);
   const select = useStore((s) => s.select);
   const [vw, setVw] = useState<'list' | 'kanban'>('list');
   const all = tenant.tickets;
   let list = all;
-  if (asRequester) list = all.filter((t) => t.requesterId === user.uid);
+  if (scope === 'requester') list = all.filter((t) => t.requesterId === user.uid);
+  else if (scope === 'assigned') list = all.filter((t) => t.technicianId === user.uid);
   else if (filter === 'unassigned') list = all.filter((t) => !t.technicianId);
   else if (filter === 'mine') list = all.filter((t) => t.technicianId === user.uid);
   const selected = tenant.tickets.find((t) => t.id === selectedId) ?? null;
   const counts = { all: all.length, unassigned: all.filter((t) => !t.technicianId).length, mine: all.filter((t) => t.technicianId === user.uid).length };
   const tabs: [typeof filter, string][] = [['all', 'Todas'], ['unassigned', 'Sin asignar'], ['mine', 'Mías']];
-  const canAct = !asRequester && role !== 'requester';
+  const title = scope === 'requester' ? 'Mis solicitudes' : scope === 'assigned' ? 'Asignadas a mí' : 'Solicitudes';
+  const canAct = scope !== 'requester' && role !== 'requester';
   const meName = tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo';
 
   const stLabel = (t: StoredTicket) => { const lc = lifecycleOfTicket(tenant, t); const st = lc ? stateOf(lc, t.status) : undefined; return st?.label ?? t.status; };
 
   return <>
     <div className="hd">
-      <h1>{asRequester ? 'Mis solicitudes' : 'Solicitudes'}</h1>
-      <span className="sub">{tenant.name} · {list.length}{!asRequester ? ` de ${all.length}` : ''}</span>
+      <h1>{title}</h1>
+      <span className="sub">{tenant.name} · {list.length}{scope === 'queue' ? ` de ${all.length}` : ''}</span>
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <div className="seg">
           <button className={vw === 'list' ? 'on' : ''} onClick={() => setVw('list')}>Lista</button>
           <button className={vw === 'kanban' ? 'on' : ''} onClick={() => setVw('kanban')}>Kanban</button>
         </div>
-        {!asRequester && <div className="tabs" style={{ marginBottom: 0 }}>
+        {scope === 'queue' && <div className="tabs" style={{ marginBottom: 0 }}>
           {tabs.map(([k, l]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l} <span className="tabn">{counts[k]}</span></button>)}
         </div>}
       </div>
     </div>
 
-    {list.length === 0 ? <div className="card"><div className="empty">{asRequester ? 'No has creado ninguna solicitud todavía.' : 'No hay solicitudes en esta vista.'}</div></div>
+    {list.length === 0 ? <div className="card"><div className="empty">{scope === 'requester' ? 'No has creado ninguna solicitud todavía.' : scope === 'assigned' ? 'No tienes solicitudes asignadas.' : 'No hay solicitudes en esta vista.'}</div></div>
       : vw === 'list' ? <div className="listwrap tblwrap">
         <table className="mgmt">
           <thead><tr><th>ID</th><th>Asunto</th><th>Solicitante</th><th>Técnico</th><th>Grupo</th><th>Prioridad</th><th>Estado</th><th>Vence</th></tr></thead>
@@ -329,6 +336,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const setResolution = useStore((s) => s.setResolution);
   const addTask = useStore((s) => s.addTask);
   const toggleTask = useStore((s) => s.toggleTask);
+  const moveTask = useStore((s) => s.moveTask);
   const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'conversaciones'>('detalles');
   const [comment, setComment] = useState('');
   const [internal, setInternal] = useState(false);
@@ -418,7 +426,12 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
 
     {tab === 'tareas' && <div style={{ marginTop: 4 }}>
       {tasks.length === 0 && <div className="empty">Sin tareas.</div>}
-      {tasks.map((k) => <label key={k.id} className="taskrow"><input type="checkbox" checked={k.done} disabled={!canAct} onChange={() => toggleTask(t.id, k.id)} /><span style={{ textDecoration: k.done ? 'line-through' : 'none', color: k.done ? 'var(--ink-faint)' : 'var(--ink)' }}>{k.text}</span></label>)}
+      {tasks.length > 1 && <div style={{ fontSize: 11, color: 'var(--ink-faint)', margin: '2px 0 6px' }}>Más reciente primero · reordena con ↑↓</div>}
+      {tasks.map((k, i) => <div key={k.id} className="taskrow">
+        <input type="checkbox" checked={k.done} disabled={!canAct} onChange={() => toggleTask(t.id, k.id)} />
+        <span style={{ flex: 1, textDecoration: k.done ? 'line-through' : 'none', color: k.done ? 'var(--ink-faint)' : 'var(--ink)' }}>{k.text}</span>
+        {canAct && <span className="taskmv"><button className="xbtn" disabled={i === 0} onClick={() => moveTask(t.id, k.id, -1)} aria-label="Subir">↑</button><button className="xbtn" disabled={i === tasks.length - 1} onClick={() => moveTask(t.id, k.id, 1)} aria-label="Bajar">↓</button></span>}
+      </div>)}
       {canAct && <div className="designer" style={{ borderTop: 'none', paddingTop: 4 }}>
         <input style={{ flex: 1 }} value={task} onChange={(e) => setTask(e.target.value)} placeholder="Nueva tarea…" onKeyDown={(e) => { if (e.key === 'Enter' && task.trim()) { addTask(t.id, task); setTask(''); } }} />
         <button className="primary" onClick={() => { if (task.trim()) { addTask(t.id, task); setTask(''); } }}>Añadir</button>
@@ -508,22 +521,36 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
   );
 }
 
-function AdminNav() {
-  const adminSec = useStore((s) => s.adminSec);
-  const setAdminSec = useStore((s) => s.setAdminSec);
-  const secs: [string, string][] = [['lifecycle', 'Ciclos de vida'], ['sla', 'SLA'], ['catalog', 'Catálogo'], ['members', 'Miembros']];
-  return <>
-    <div className="cap">Administración</div>
-    {secs.map(([k, l]) => <button key={k} className={'qbtn' + (adminSec === k ? ' on' : '')} onClick={() => setAdminSec(k)}>{l}</button>)}
-  </>;
-}
+// Administración = landing de configuración por áreas (como SDP), no pestañas.
+const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
+  ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', null], ['Horas operativas', null], ['Grupos de días festivos', null], ['Departamentos', null], ['Moneda', null]]],
+  ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', null], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
+  ['Personalización', '🎨', [['Estado', null], ['Categoría › Subcategoría › Artículo', null], ['Prioridad', null], ['Impacto', null], ['Urgencia', null], ['Campos adicionales', null]]],
+  ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
+  ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', null], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
+  ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
+];
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
 
-function AdminArea({ tenant }: { tenant: TenantData }) {
-  const adminSec = useStore((s) => s.adminSec);
-  if (adminSec === 'sla') return <SlaAdmin tenant={tenant} />;
-  if (adminSec === 'catalog') return <CatalogAdmin tenant={tenant} />;
-  if (adminSec === 'members') return <MembersAdmin tenant={tenant} />;
-  return <GraphEditor tenant={tenant} />;
+function AdminConfig({ tenant }: { tenant: TenantData }) {
+  const [sec, setSec] = useState<string | null>(null);
+  if (!sec) return <div>
+    <div className="hd"><h1>Administración · {tenant.name}</h1><span className="sub">Configura sin código, por áreas.</span></div>
+    <div className="cfg-grid">
+      {ADMIN_AREAS.map((a) => <div key={a[0]} className="cfg-cat">
+        <h3><span className="cfg-ic">{a[1]}</span>{a[0]}</h3>
+        <div className="cfg-links">{a[2].map(([l, k], i) => <Fragment key={l}>{i > 0 && <span className="sep">·</span>}<button className={k ? 'cfg-lk' : 'cfg-lk soon'} disabled={!k} onClick={() => k && setSec(k)}>{l}</button></Fragment>)}</div>
+      </div>)}
+    </div>
+    <p className="cfg-note">Las opciones atenuadas llegan en el siguiente pase (Estado, jerarquía de Categorías, Reglas de notificación) — ya están en la maqueta.</p>
+  </div>;
+  return <div>
+    <div className="crumb"><button className="crumb-b" onClick={() => setSec(null)}>‹ Configuración</button><span className="sep">·</span><b>{ADMIN_TITLE[sec] ?? sec}</b></div>
+    {sec === 'plantillas' && <CatalogAdmin tenant={tenant} />}
+    {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
+    {sec === 'sla' && <SlaAdmin tenant={tenant} />}
+    {sec === 'miembros' && <MembersAdmin tenant={tenant} />}
+  </div>;
 }
 
 function SlaAdmin({ tenant }: { tenant: TenantData }) {
@@ -846,7 +873,18 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const [nft, setNft] = useState<FieldType>('text');
   const move = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= defs.length) return; const next = defs.slice(); [next[i], next[j]] = [next[j]!, next[i]!]; commit(next); };
   const preview = defs.filter((f) => f.requesterVisible !== false);
-  const pvInput = (t: FieldType) => t === 'textarea' ? <div className="pv-inp" style={{ height: 46 }} /> : t === 'bool' ? <div className="pv-inp">○ Sí&nbsp;&nbsp;○ No</div> : t === 'select' ? <div className="pv-inp">Selecciona… ▾</div> : t === 'attachment' ? <div className="pv-inp">📎 Adjuntar archivo</div> : t === 'date' ? <div className="pv-inp">dd/mm/aaaa</div> : <div className="pv-inp">{ftLabel(t)}</div>;
+  const pvInput = (f: FieldDef) => {
+    if (f.type === 'textarea') return f.label.toLowerCase().startsWith('descrip')
+      ? <div className="pv-rte"><div className="pv-bar"><b>B</b> <i>I</i> <u>U</u><span style={{ opacity: .5 }}> · PT Sans ▾ · 🔗 🖼</span></div><div className="pv-area" /></div>
+      : <div className="pv-inp tall" />;
+    if (f.type === 'bool') return <div className="pv-inp">◯ Sí&nbsp;&nbsp;&nbsp;◯ No</div>;
+    if (f.type === 'select' || f.type === 'reference') return <div className="pv-inp">Seleccionar… <span className="chev">▾</span></div>;
+    if (f.type === 'person') return <div className="pv-inp">Seleccionar persona… <span className="chev">▾</span></div>;
+    if (f.type === 'attachment') return <div className="pv-inp">📎 Adjuntar archivo</div>;
+    if (f.type === 'date') return <div className="pv-inp">dd/mm/aaaa</div>;
+    if (f.type === 'number') return <div className="pv-inp mono">0</div>;
+    return <div className="pv-inp" />;
+  };
 
   return <div className="card">
     <div className="te-head">
@@ -882,9 +920,12 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
         </div>
       </div>
       <div className="preview">
-        <h4>Vista previa · formulario del solicitante</h4>
-        {preview.length === 0 && <div className="empty">Ningún campo visible para el solicitante.</div>}
-        {preview.map((f) => <div key={f.id} className="pv-field"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f.type)}</div>)}
+        <div className="pv-head">Vista previa · formulario del solicitante</div>
+        <div className="pv-body">
+          <div className="pv-sec-t">Detalles de la solicitud</div>
+          {preview.length === 0 ? <div className="empty">Ningún campo visible para el solicitante.</div>
+            : <div className="pv-grid">{preview.map((f) => <div key={f.id} className={'pv-field' + (f.type === 'textarea' ? ' full' : '')}><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}</div>}
+        </div>
       </div>
     </div>
   </div>;

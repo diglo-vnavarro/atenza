@@ -39,6 +39,7 @@ interface State {
   setResolution: (ticketId: string, text: string) => void;
   addTask: (ticketId: string, text: string) => void;
   toggleTask: (ticketId: string, taskId: string) => void;
+  moveTask: (ticketId: string, taskId: string, dir: number) => void;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -195,13 +196,22 @@ export const useStore = create<State>()(
         addTask: (ticketId, text) => {
           const body = text.trim(); if (!body) return;
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
-          const tasks = [...(tk.tasks ?? []), { id: 'tk-' + Date.now(), text: body, done: false }];
+          // nuevas tareas al principio (orden descendente: última creada, la primera).
+          const tasks = [{ id: 'tk-' + Date.now(), text: body, done: false }, ...(tk.tasks ?? [])];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
         },
         toggleTask: (ticketId, taskId) => {
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
           const tasks = (tk.tasks ?? []).map((k) => (k.id === taskId ? { ...k, done: !k.done } : k));
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
+        },
+        moveTask: (ticketId, taskId, dir) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const tasks = [...(tk.tasks ?? [])]; const i = tasks.findIndex((k) => k.id === taskId); const j = i + dir;
+          if (i < 0 || j < 0 || j >= tasks.length) return;
+          [tasks[i], tasks[j]] = [tasks[j]!, tasks[i]!];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
         },
