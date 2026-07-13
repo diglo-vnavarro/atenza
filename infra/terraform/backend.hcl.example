@@ -1,0 +1,3 @@
+# Copia a backend.hcl y pon el nombre de tu bucket de estado (creado en el bootstrap).
+# Uso:  terraform init -backend-config=backend.hcl
+bucket = "atenza-tfstate-CAMBIAME"

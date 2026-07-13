@@ -1,0 +1,9 @@
+# Copia a terraform.tfvars y rellena con tus valores.
+project_id  = "atenza-prod"
+region      = "europe-west1"
+location    = "eur3"
+github_repo = "diglo-vnavarro/atenza"
+
+# Opcional: habilitar el proveedor Google vía Terraform (si no, hazlo en consola).
+# google_oauth_client_id     = "xxxxxxxx.apps.googleusercontent.com"
+# google_oauth_client_secret = "GOCSPX-xxxxxxxx"

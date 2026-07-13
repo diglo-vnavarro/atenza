@@ -1,0 +1,137 @@
+rules_version = '2';
+
+// ============================================================================
+// OrganiZate Ticketing — reglas de aislamiento multi-tenant (PROTOTIPO)
+//
+// Principio: TODO cuelga de /tenants/{tenantId}. El acceso se decide por la
+// PERTENENCIA a ese tenant (documento members/{uid}) y por el ROL en él.
+// NO hay ninguna comprobación de dominio de correo: un técnico o solicitante
+// externo funciona igual que uno interno siempre que sea miembro del tenant.
+// Esta es la diferencia estructural con OrganiZate (que bloquea @digloservicer.com).
+// ============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- helpers ------------------------------------------------------------
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+
+    function memberRef(tid) {
+      return /databases/$(database)/documents/tenants/$(tid)/members/$(uid());
+    }
+    function isMember(tid) {
+      return signedIn()
+        && exists(memberRef(tid))
+        && get(memberRef(tid)).data.status == 'active';
+    }
+    function roleIn(tid) { return get(memberRef(tid)).data.role; }
+    function isAdmin(tid) { return isMember(tid) && roleIn(tid) == 'tenant_admin'; }
+    // "técnico" incluye a tenant_admin (superconjunto operativo sobre tickets)
+    function isTech(tid) { return isMember(tid) && roleIn(tid) in ['technician', 'tenant_admin']; }
+    function isRequester(tid) { return isMember(tid) && roleIn(tid) == 'requester'; }
+
+    // superadmin de plataforma (Diglo), fuera de todo tenant
+    function isPlatformAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/platformAdmins/$(uid()));
+    }
+
+    function ticketData(tid, ticketId) {
+      return get(/databases/$(database)/documents/tenants/$(tid)/tickets/$(ticketId)).data;
+    }
+
+    // ---- plataforma ---------------------------------------------------------
+    match /platformAdmins/{u} {
+      allow read: if isPlatformAdmin();
+      allow write: if false; // se gestiona fuera de banda (consola / Cloud Function)
+    }
+
+    // índice uid -> tenants a los que pertenece (lo mantiene una Cloud Function)
+    match /userTenants/{u} {
+      allow read: if signedIn() && (u == uid() || isPlatformAdmin());
+      allow write: if false;
+    }
+
+    // ---- tenant -------------------------------------------------------------
+    match /tenants/{tid} {
+      allow get:    if isMember(tid) || isPlatformAdmin();
+      allow list:   if isPlatformAdmin();
+      allow create: if isPlatformAdmin();
+      allow update: if isAdmin(tid) || isPlatformAdmin();
+      allow delete: if isPlatformAdmin();
+
+      // --- miembros del tenant (identidad + rol AQUÍ) ---
+      match /members/{u} {
+        allow get:  if isMember(tid) || isPlatformAdmin();
+        allow list: if isTech(tid)   || isPlatformAdmin();
+        allow create, update, delete: if isAdmin(tid) || isPlatformAdmin();
+      }
+
+      // --- tickets ---
+      match /tickets/{ticketId} {
+        // Técnico/admin ven todo el tenant; el solicitante solo SUS tickets.
+        allow get: if isTech(tid)
+          || (isMember(tid) && resource.data.requesterId == uid())
+          || isPlatformAdmin();
+
+        // LIMITACIÓN conocida de Firestore: en un `list` las reglas no pueden
+        // inspeccionar el filtro de la consulta. Por eso el listado libre queda
+        // para técnico/admin; el solicitante recupera "sus" tickets vía una
+        // consulta acotada validada en Cloud Function (o un índice por usuario).
+        allow list: if isTech(tid) || isPlatformAdmin();
+
+        // Crear: cualquier miembro activo. El solicitante solo puede crear
+        // tickets a su propio nombre; técnico/admin pueden crear en nombre de otro.
+        allow create: if isMember(tid)
+          && request.resource.data.type in ['incident', 'service_request']
+          && (isTech(tid) || request.resource.data.requesterId == uid());
+
+        // Actualizar: técnico/admin sin límite. El solicitante solo su propio
+        // ticket y sin tocar la asignación (no puede reasignar ni auto-asignarse).
+        allow update: if isTech(tid)
+          || (isRequester(tid)
+              && resource.data.requesterId == uid()
+              && request.resource.data.requesterId == resource.data.requesterId
+              && request.resource.data.technicianId == resource.data.technicianId);
+
+        allow delete: if isAdmin(tid) || isPlatformAdmin();
+
+        // Sub-colecciones del ticket (conversaciones, trabajo, adjuntos):
+        // mismo criterio de visibilidad que el ticket padre.
+        match /{sub}/{docId} {
+          allow read: if isTech(tid)
+            || (isMember(tid) && ticketData(tid, ticketId).requesterId == uid())
+            || isPlatformAdmin();
+          allow create: if isTech(tid)
+            || (isMember(tid) && ticketData(tid, ticketId).requesterId == uid());
+          allow update, delete: if isTech(tid) || isPlatformAdmin();
+        }
+      }
+
+      // --- configuración del tenant (lectura: miembros; escritura: admin) ---
+      // Colecciones separadas a propósito: Firestore no permite alternancia en
+      // el segmento de ruta, y un comodín ancho ampliaría permisos por error.
+      match /catalog/{docId} {
+        allow read:  if isMember(tid) || isPlatformAdmin();
+        allow write: if isAdmin(tid)  || isPlatformAdmin();
+      }
+      match /slas/{docId} {
+        allow read:  if isMember(tid) || isPlatformAdmin();
+        allow write: if isAdmin(tid)  || isPlatformAdmin();
+      }
+      match /workflows/{docId} {
+        allow read:  if isMember(tid) || isPlatformAdmin();
+        allow write: if isAdmin(tid)  || isPlatformAdmin();
+      }
+      match /groups/{docId} {
+        allow read:  if isMember(tid) || isPlatformAdmin();
+        allow write: if isAdmin(tid)  || isPlatformAdmin();
+      }
+      match /approvals/{docId} {
+        allow read:  if isMember(tid) || isPlatformAdmin();
+        allow write: if isAdmin(tid)  || isPlatformAdmin();
+      }
+    }
+  }
+}
