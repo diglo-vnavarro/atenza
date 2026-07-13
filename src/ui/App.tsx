@@ -9,7 +9,7 @@ import { useAuth, doSignOut } from '../auth/auth.js';
 import { Login } from './Login.js';
 import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
-import type { SlaCategory, Stage } from '../model.js';
+import type { SlaCategory, Stage, Template } from '../model.js';
 import type { TenantData, StoredTicket, UiMember, Capacity } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
@@ -56,8 +56,8 @@ export function App() {
   const authReady = useAuth((s) => s.ready);
   useEffect(() => { void useAuth.getState().init(); }, []);
   useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
-  const [theme, setTheme] = useState<'light' | 'dark' | null>(null);
-  const [mode, setMode] = useState<'tickets' | 'admin'>('tickets');
+  const [, setTheme] = useState<'light' | 'dark' | null>(null);
+  const [view, setView] = useState<'home' | 'tickets' | 'admin'>('home');
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
 
@@ -92,102 +92,170 @@ export function App() {
   if (firebaseEnabled && !tenant) return card('Sincronizando datos…');
   if (!tenant) return card('Sin datos.');
 
+  const isReq = role === 'requester';
+  const activeView: 'home' | 'tickets' | 'admin' = isReq ? 'tickets' : view;
+  const openCount = tenant.tickets.length;
+  const myReqCount = tenant.tickets.filter((t) => t.requesterId === effectiveUserId).length;
+
   return (
     <div>
       <div className="top">
-        <div className="brand"><span className="glyph">A</span> Atenza <small>{firebaseEnabled ? 'nube' : 'piloto · local'}</small></div>
-        <div className="spring" />
-        {firebaseEnabled ? <>
-          <span className="lbl">Sesión</span>
-          <span style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>{displayMember?.name ?? authUser?.email}</span>
-          <button className="ghost" onClick={() => doSignOut()}>Salir</button>
-        </> : <>
-          <span className="lbl">Identidad</span>
-          <select value={currentUserId} onChange={(e) => { setUser(e.target.value); setMode('tickets'); }}>
-            {people.map((p) => <option key={p.uid} value={p.uid}>{p.name}</option>)}
-          </select>
-        </>}
-        {myTenants.length > 1 && <>
-          <span className="lbl">Instancia</span>
-          <select value={tenant.id} onChange={(e) => setTenant(e.target.value)}>
+        <div className="brand"><span className="glyph">A</span> Atenza <small>{firebaseEnabled ? 'nube' : 'local'}</small></div>
+        {myTenants.length > 1 && (
+          <select className="instsel" value={tenant.id} onChange={(e) => setTenant(e.target.value)} title="Instancia">
             {myTenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
-        </>}
+        )}
+        <label className="searchbox">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
+          <input placeholder="Buscar solicitudes, personas…" aria-label="Buscar" />
+        </label>
+        <div className="spring" />
+        <button className="newtop" onClick={() => setShowNew(true)}>＋ Nueva solicitud</button>
+        <button className="iconbtn" title="Notificaciones" aria-label="Notificaciones">🔔</button>
+        <button className="iconbtn" onClick={toggleTheme} title="Tema" aria-label="Cambiar tema">◐</button>
+        {firebaseEnabled ? <>
+          <span className="who-mini">{displayMember?.name ?? authUser?.email}</span>
+          <button className="ghost" onClick={() => doSignOut()}>Salir</button>
+        </> : (
+          <select value={currentUserId} onChange={(e) => { setUser(e.target.value); setView('home'); }} title="Identidad (demo)">
+            {people.map((p) => <option key={p.uid} value={p.uid}>{p.name}</option>)}
+          </select>
+        )}
         <span className="rolebadge">{role === 'tenant_admin' ? 'Admin' : role === 'technician' ? 'Técnico' : 'Solicitante'}</span>
-        <button className="iconbtn" onClick={toggleTheme} title="Tema">◐</button>
       </div>
 
       <div className="shell">
         <aside className="side">
-          {mode === 'tickets' ? (
-            <TicketQueues tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} onNew={() => { setShowNew(true); }} />
-          ) : (
-            <AdminNav />
-          )}
-          {role === 'tenant_admin' && (
-            <button className="qbtn" style={{ marginTop: 10 }} onClick={() => setMode(mode === 'admin' ? 'tickets' : 'admin')}>
-              {mode === 'admin' ? '← Volver a la bandeja' : '⚙ Administración'}
-            </button>
-          )}
+          <div className="cap">Menú</div>
+          {!isReq && <button className={'modlink' + (activeView === 'home' ? ' on' : '')} onClick={() => setView('home')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>
+            <span className="ml-l">Inicio</span></button>}
+          <button className={'modlink' + (activeView === 'tickets' ? ' on' : '')} onClick={() => setView('tickets')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v16" /></svg>
+            <span className="ml-l">{isReq ? 'Mis solicitudes' : 'Solicitudes'}</span><span className="n">{isReq ? myReqCount : openCount}</span></button>
+          {role === 'tenant_admin' && <button className={'modlink' + (activeView === 'admin' ? ' on' : '')} onClick={() => setView('admin')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 00-.1-1.1l2-1.5-2-3.4-2.3 1a7 7 0 00-1.9-1.1L14.3 2h-4l-.4 2.3a7 7 0 00-1.9 1.1l-2.3-1-2 3.4 2 1.5A7 7 0 005.6 12c0 .4 0 .7.1 1.1l-2 1.5 2 3.4 2.3-1c.6.5 1.2.8 1.9 1.1l.4 2.4h4l.4-2.4c.7-.3 1.3-.6 1.9-1.1l2.3 1 2-3.4-2-1.5c.1-.4.1-.7.1-1.1z" /></svg>
+            <span className="ml-l">Administración</span></button>}
           <div className="foot">
-            {myTenants.length > 1 ? 'Perteneces a varias instancias.' : `Solo tienes acceso a ${tenant.name}.`} Todo aquí es propio de <b>{tenant.name}</b>.
+            {myTenants.length > 1 ? 'Perteneces a varias instancias.' : `Instancia ${tenant.name}.`} Todo aquí es propio de <b>{tenant.name}</b>.
           </div>
         </aside>
 
         <main className="main">
-          {mode === 'admin' && role === 'tenant_admin'
-            ? <AdminArea tenant={tenant} />
-            : <Workspace tenant={tenant} role={role} user={user} filter={filter} showNew={showNew} setShowNew={setShowNew} />}
+          {activeView === 'home' && !isReq && <Dashboard tenant={tenant} user={user} go={(f) => { setFilter(f); setView('tickets'); }} />}
+          {activeView === 'tickets' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} />}
+          {activeView === 'admin' && role === 'tenant_admin' && <><AdminNav /><AdminArea tenant={tenant} /></>}
         </main>
       </div>
+
+      {showNew && <NewTicket tenant={tenant} role={role} user={user} onClose={() => setShowNew(false)} />}
     </div>
   );
 }
 
-function TicketQueues({ tenant, role, user, filter, setFilter, onNew }:
-  { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: string; setFilter: (f: any) => void; onNew: () => void }) {
-  const all = tenant.tickets;
-  if (role === 'requester') {
-    const mine = all.filter((t) => t.requesterId === user.uid);
-    return <>
-      <div className="cap">Solicitante</div>
-      <button className="qbtn on">Mis solicitudes <span className="n">{mine.length}</span></button>
-      <button className="newbtn" onClick={onNew}>＋ Nueva solicitud</button>
-    </>;
-  }
-  const q: [string, string, number][] = [
-    ['all', 'Todas', all.length],
-    ['unassigned', 'Sin asignar', all.filter((t) => !t.technicianId).length],
-    ['mine', 'Mías', all.filter((t) => t.technicianId === user.uid).length],
-  ];
+// Panel de inicio: KPIs + widgets calculados a partir de los datos reales del tenant.
+function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<typeof buildUser>; go: (f: 'all' | 'unassigned' | 'mine') => void }) {
+  const now = Date.now();
+  const tickets = tenant.tickets;
+  const isOverdue = (t: StoredTicket) => !!t.resolveDueAt && t.resolveDueAt < now;
+  const unassigned = tickets.filter((t) => !t.technicianId).length;
+  const overdue = tickets.filter(isOverdue).length;
+  const mine = tickets.filter((t) => t.technicianId === user.uid).length;
+
+  const techName = (uid: string) => tenant.members.find((m) => m.uid === uid)?.name ?? '—';
+  const byTech = new Map<string, { open: number; over: number }>();
+  for (const t of tickets) { if (!t.technicianId) continue; const e = byTech.get(t.technicianId) ?? { open: 0, over: 0 }; e.open++; if (isOverdue(t)) e.over++; byTech.set(t.technicianId, e); }
+  const techRows = [...byTech.entries()].map(([uid, v]) => ({ uid, name: techName(uid), ...v })).sort((a, b) => b.open - a.open).slice(0, 8);
+
+  const stateLabel = (t: StoredTicket) => { const lc = lifecycleOfTicket(tenant, t); const st = lc ? stateOf(lc, t.status) : undefined; return st?.label ?? t.status; };
+  const byState = new Map<string, number>();
+  for (const t of tickets) { const l = stateLabel(t); byState.set(l, (byState.get(l) ?? 0) + 1); }
+  const stateRows = [...byState.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const stateMax = Math.max(1, ...stateRows.map((r) => r[1]));
+  const STC = ['var(--accent)', '#0891b2', 'var(--warn)', '#be185d', '#0f766e', 'var(--st-closed)'];
+
+  const groupName = (id?: string | null) => tenant.groups.find((g) => g.id === id)?.name ?? 'Sin grupo';
+  const byGroup = new Map<string, number>();
+  for (const t of tickets) { const g = groupName(t.groupId); byGroup.set(g, (byGroup.get(g) ?? 0) + 1); }
+  const groupRows = [...byGroup.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const groupMax = Math.max(1, ...groupRows.map((r) => r[1]));
+
   return <>
-    <div className="cap">Colas</div>
-    {q.map(([k, l, n]) => <button key={k} className={'qbtn' + (filter === k ? ' on' : '')} onClick={() => setFilter(k)}>{l} <span className="n">{n}</span></button>)}
-    <button className="newbtn" onClick={onNew}>＋ Nuevo ticket</button>
+    <div className="hd"><h1>Panel de servicio</h1><span className="sub">{tenant.name} · {tickets.length} solicitudes activas</span></div>
+    <div className="kpis">
+      <button className="kpi" onClick={() => go('all')}><div className="kl">Abiertas</div><div className="kv">{tickets.length}</div><div className="kstrip" style={{ background: 'var(--accent)' }} /></button>
+      <button className="kpi" onClick={() => go('unassigned')}><div className="kl">Sin asignar</div><div className="kv" style={{ color: 'var(--warn)' }}>{unassigned}</div><div className="kstrip" style={{ background: 'var(--warn)' }} /></button>
+      <button className="kpi" onClick={() => go('all')}><div className="kl">Vencidas (SLA)</div><div className="kv" style={{ color: 'var(--crit)' }}>{overdue}</div><div className="kstrip" style={{ background: 'var(--crit)' }} /></button>
+      <button className="kpi" onClick={() => go('mine')}><div className="kl">Mías</div><div className="kv">{mine}</div><div className="kstrip" style={{ background: 'var(--ok)' }} /></button>
+    </div>
+    <div className="dgrid">
+      <div className="card dwide">
+        <h2>Solicitudes por técnico <span className="badge">⚡ carga vía OrganiZate</span></h2>
+        <table className="dtbl"><thead><tr><th>Técnico</th><th className="num">Abiertas</th><th className="num">Vencidas</th><th className="num">Capacidad</th></tr></thead>
+          <tbody>{techRows.map((r) => { const c = tenant.capacity[r.uid] ?? { used: 0, cap: 40 }; const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0; const mem = tenant.members.find((m) => m.uid === r.uid); return <tr key={r.uid}>
+            <td><div className="who">{mem ? <Avatar m={mem} /> : <span className="av" style={{ background: 'var(--ink-faint)' }}>?</span>} {r.name}</div></td>
+            <td className="num mono">{r.open}</td>
+            <td className="num"><span style={{ color: r.over ? 'var(--crit)' : 'var(--ink-faint)', fontWeight: 700, fontFamily: 'var(--mono)' }}>{r.over}</span></td>
+            <td className="num"><div className="capmini"><span style={{ width: Math.min(p, 100) + '%', background: capColor(c) }} /></div></td>
+          </tr>; })}
+          {techRows.length === 0 && <tr><td colSpan={4} className="empty">Sin tickets asignados.</td></tr>}</tbody></table>
+      </div>
+      <div className="card">
+        <h2>Por estado</h2>
+        <div className="drows">{stateRows.map(([l, n], i) => <div key={l} className="drow">
+          <span className="dl">{l}</span><span className="dbar"><span style={{ width: (n / stateMax * 100) + '%', background: STC[i % STC.length] }} /></span><span className="dn mono">{n}</span>
+        </div>)}</div>
+      </div>
+      <div className="card">
+        <h2>Cola por grupo de soporte</h2>
+        <div className="drows">{groupRows.map(([l, n]) => <div key={l} className="drow">
+          <span className="dl">{l}</span><span className="dbar"><span style={{ width: (n / groupMax * 100) + '%', background: 'var(--accent)' }} /></span><span className="dn mono">{n}</span>
+        </div>)}</div>
+      </div>
+      <div className="card">
+        <h2>Resumen</h2>
+        <div className="facts" style={{ marginTop: 4 }}>
+          <div><div className="k">Plantillas</div><b style={{ fontSize: 18 }}>{tenant.templates.length}</b></div>
+          <div><div className="k">Flujos</div><b style={{ fontSize: 18 }}>{tenant.lifecycles.length}</b></div>
+          <div><div className="k">Grupos</div><b style={{ fontSize: 18 }}>{tenant.groups.length}</b></div>
+          <div><div className="k">Personas</div><b style={{ fontSize: 18 }}>{tenant.members.length}</b></div>
+        </div>
+      </div>
+    </div>
   </>;
 }
 
-function Workspace({ tenant, role, user, filter, showNew, setShowNew }:
-  { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: string; showNew: boolean; setShowNew: (b: boolean) => void }) {
+function Workspace({ tenant, role, user, filter, setFilter }:
+  { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: 'all' | 'unassigned' | 'mine'; setFilter: (f: 'all' | 'unassigned' | 'mine') => void }) {
   const selectedId = useStore((s) => s.selectedTicketId);
   const select = useStore((s) => s.select);
-  let list = tenant.tickets;
-  if (role === 'requester') list = list.filter((t) => t.requesterId === user.uid);
-  else if (filter === 'unassigned') list = list.filter((t) => !t.technicianId);
-  else if (filter === 'mine') list = list.filter((t) => t.technicianId === user.uid);
-  const selected = tenant.tickets.find((t) => t.id === selectedId) ?? null;
+  const isReq = role === 'requester';
+  const all = tenant.tickets;
+  let list = all;
+  if (isReq) list = all.filter((t) => t.requesterId === user.uid);
+  else if (filter === 'unassigned') list = all.filter((t) => !t.technicianId);
+  else if (filter === 'mine') list = all.filter((t) => t.technicianId === user.uid);
+  const selected = list.find((t) => t.id === selectedId) ?? null;
+  const counts = { all: all.length, unassigned: all.filter((t) => !t.technicianId).length, mine: all.filter((t) => t.technicianId === user.uid).length };
+  const tabs: [typeof filter, string][] = [['all', 'Todas'], ['unassigned', 'Sin asignar'], ['mine', 'Mías']];
 
   return <>
-    <div className="hd"><h1>{role === 'requester' ? 'Mis solicitudes' : 'Bandeja de tickets'}</h1><span className="sub">{tenant.name} · {list.length} tickets</span></div>
+    <div className="hd">
+      <h1>{isReq ? 'Mis solicitudes' : 'Solicitudes'}</h1>
+      <span className="sub">{tenant.name} · {list.length} de {all.length}</span>
+      {!isReq && <div className="tabs" style={{ marginLeft: 'auto', marginBottom: 0 }}>
+        {tabs.map(([k, l]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l} <span className="tabn">{counts[k]}</span></button>)}
+      </div>}
+    </div>
     <div className="work">
       <div className="listwrap">
-        {list.length === 0 && <div className="empty">No hay tickets en esta vista.</div>}
-        {list.map((t) => <TicketRow key={t.id} tenant={tenant} t={t} sel={t.id === selectedId} onClick={() => { select(t.id); setShowNew(false); }} />)}
+        {list.length === 0 && <div className="empty">No hay solicitudes en esta vista.</div>}
+        {list.map((t) => <TicketRow key={t.id} tenant={tenant} t={t} sel={t.id === selectedId} onClick={() => select(t.id)} />)}
       </div>
       <div>
-        {showNew ? <NewTicket tenant={tenant} role={role} user={user} onClose={() => setShowNew(false)} />
-          : selected ? <TicketDetail tenant={tenant} t={selected} canAct={role !== 'requester'} />
-            : <div className="card"><div className="empty">Selecciona un ticket para ver el detalle.</div></div>}
+        {selected ? <TicketDetail tenant={tenant} t={selected} canAct={!isReq} />
+          : <div className="card"><div className="empty">Selecciona una solicitud para ver el detalle.</div></div>}
       </div>
     </div>
   </>;
@@ -278,31 +346,64 @@ function TicketDetail({ tenant, t, canAct }: { tenant: TenantData; t: StoredTick
   );
 }
 
+const tplGroup = (t: Template) => t.group ?? (t.type === 'incident' ? 'Incidencias' : 'Solicitudes de servicio');
+
 function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; onClose: () => void }) {
   const create = useStore((s) => s.createTicket);
-  const [templateId, setTemplateId] = useState(tenant.templates[0]?.id ?? '');
+  const [tpl, setTpl] = useState<Template | null>(tenant.templates.length === 1 ? tenant.templates[0]! : null);
+  const [q, setQ] = useState('');
   const [subject, setSubject] = useState('');
   const [category, setCategory] = useState(tenant.categories[0] ?? 'General');
   const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium');
   const [description, setDescription] = useState('');
   const requesters = tenant.members.filter((m) => m.role === 'requester');
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
-  const submit = () => { if (!subject.trim()) return; create({ subject, description, category, priority, requesterId, templateId }); onClose(); };
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+
+  const groups = new Map<string, Template[]>();
+  for (const t of tenant.templates) {
+    if (q && !t.name.toLowerCase().includes(q.toLowerCase())) continue;
+    const g = tplGroup(t); if (!groups.has(g)) groups.set(g, []); groups.get(g)!.push(t);
+  }
+  const grpList = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const submit = () => { if (!subject.trim() || !tpl) return; create({ subject, description, category, priority, requesterId, templateId: tpl.id }); onClose(); };
+
   return (
-    <div className="card">
-      <h2>Nuevo ticket</h2>
-      <div className="form">
-        {tenant.templates.length > 1 && <label>Tipo / plantilla<select value={templateId} onChange={(e) => setTemplateId(e.target.value)}>{tenant.templates.map((tp) => <option key={tp.id} value={tp.id}>{tp.name}</option>)}</select></label>}
-        <label>Asunto<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Describe el problema…" /></label>
-        <label>Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></label>
-        <label>Categoría<select value={category} onChange={(e) => setCategory(e.target.value)}>{tenant.categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-        <label>Prioridad<select value={priority} onChange={(e) => setPriority(e.target.value as any)}><option value="high">Alta</option><option value="medium">Media</option><option value="low">Baja</option></select></label>
-        {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="primary" onClick={submit}>Crear ticket</button>
-          <button className="ghost" onClick={onClose}>Cancelar</button>
+    <div className="scrim" onClick={onClose}>
+      <aside className="drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nueva solicitud">
+        <div className="drawer-h">
+          <h2>{tpl ? 'Nueva solicitud' : 'Generar una solicitud'}</h2>
+          <button className="dx" onClick={onClose} aria-label="Cerrar">×</button>
         </div>
-      </div>
+        <div className="drawer-b">
+          {!tpl ? <>
+            <label className="searchbox drawer-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plantilla de solicitud" /></label>
+            {grpList.map(([g, tps], i) => { const isOpen = open[g] ?? (i === 0 || !!q); return <div key={g} className={'catgrp' + (isOpen ? ' open' : '')}>
+              <button className="catgrp-h" onClick={() => setOpen((o) => ({ ...o, [g]: !isOpen }))}>
+                <span className="catgrp-ic" style={{ background: 'var(--accent)' }}>{g[0]}</span>
+                <span className="catgrp-n">{g}</span><span className="catgrp-c">{tps.length}</span>
+                <svg className="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M9 6l6 6-6 6" /></svg>
+              </button>
+              {isOpen && <div className="catgrp-items">{tps.map((t) => <button key={t.id} className="catitem" onClick={() => { setTpl(t); setSubject(''); }}>
+                <span className={'tdot ' + (t.type === 'incident' ? 'i' : 's')} /> {t.name}
+                <span className="pill" style={{ marginLeft: 'auto' }}>{t.fields.length} campos</span>
+              </button>)}</div>}
+            </div>; })}
+            {grpList.length === 0 && <div className="empty">Ninguna plantilla coincide con «{q}».</div>}
+          </> : <div className="form">
+            <button className="backbtn" onClick={() => setTpl(tenant.templates.length === 1 ? tpl : null)}>‹ {tplGroup(tpl)} · {tpl.name}</button>
+            <label>Asunto<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
+            <label>Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>
+            <label>Categoría<select value={category} onChange={(e) => setCategory(e.target.value)}>{tenant.categories.map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+            <label>Prioridad<select value={priority} onChange={(e) => setPriority(e.target.value as 'high' | 'medium' | 'low')}><option value="high">Alta</option><option value="medium">Media</option><option value="low">Baja</option></select></label>
+            {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <button className="primary" onClick={submit} disabled={!subject.trim()}>Crear solicitud</button>
+              <button className="ghost" onClick={onClose}>Cancelar</button>
+            </div>
+          </div>}
+        </div>
+      </aside>
     </div>
   );
 }

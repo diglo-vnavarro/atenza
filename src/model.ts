@@ -129,6 +129,8 @@ export interface Template {
   slaId: string | null;
   /** campos del formulario (simplificado para el prototipo). */
   fields: string[];
+  /** agrupación del catálogo de creación (categoría de servicio de SDP). */
+  group?: string;
 }
 
 export interface Sla {
