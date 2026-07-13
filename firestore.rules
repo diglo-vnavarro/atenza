@@ -47,10 +47,11 @@ service cloud.firestore {
       allow write: if false; // se gestiona fuera de banda (consola / Cloud Function)
     }
 
-    // índice uid -> tenants a los que pertenece (lo mantiene una Cloud Function)
+    // índice uid -> tenants a los que pertenece. Lo mantiene el superadmin al
+    // sembrar/gestionar (a futuro, una Cloud Function al crear/borrar members).
     match /userTenants/{u} {
       allow read: if signedIn() && (u == uid() || isPlatformAdmin());
-      allow write: if false;
+      allow write: if isPlatformAdmin();
     }
 
     // ---- tenant -------------------------------------------------------------
@@ -112,6 +113,15 @@ service cloud.firestore {
       // --- configuración del tenant (lectura: miembros; escritura: admin) ---
       // Colecciones separadas a propósito: Firestore no permite alternancia en
       // el segmento de ruta, y un comodín ancho ampliaría permisos por error.
+      // categorías y capacidad viven en el propio doc del tenant (get: miembro).
+      match /lifecycles/{docId} {
+        allow read:  if isMember(tid) || isPlatformAdmin();
+        allow write: if isAdmin(tid)  || isPlatformAdmin();
+      }
+      match /templates/{docId} {
+        allow read:  if isMember(tid) || isPlatformAdmin();
+        allow write: if isAdmin(tid)  || isPlatformAdmin();
+      }
       match /catalog/{docId} {
         allow read:  if isMember(tid) || isPlatformAdmin();
         allow write: if isAdmin(tid)  || isPlatformAdmin();
