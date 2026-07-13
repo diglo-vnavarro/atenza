@@ -101,6 +101,10 @@ const CLOUD = firebaseEnabled;
 const errlog = (e: unknown) => console.error('[cloud write]', e);
 let unsubs: Array<() => void> = [];
 let notifSeq = 0;
+// FASE DE PRUEBAS: todo correo se redirige a este usuario (candado también en las
+// reglas de Firestore: la colección `mail` solo admite `to` == este valor).
+const MAIL_TEST_MODE = true;
+const TEST_EMAIL = 'vnavarro@digloservicer.com';
 
 export const useStore = create<State>()(
   persist(
@@ -132,6 +136,22 @@ export const useStore = create<State>()(
         }));
         set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, notifications: [...notifs, ...(tt.notifications ?? [])] })) }));
         if (CLOUD) for (const n of notifs) void cloud.writeNotification(t.id, n).catch(errlog);
+
+        // Correo: si alguna regla del evento tiene canal `mail`, encola UN email.
+        // En fase de pruebas el destino es SIEMPRE TEST_EMAIL; los destinatarios
+        // reales solo se listan en el cuerpo (nunca se les envía).
+        if (CLOUD) {
+          const mailWho: string[] = [];
+          if (rule.requester.mail) mailWho.push('Solicitante');
+          if (rule.technician.mail) mailWho.push('Técnico asignado');
+          if (rule.group.mail) mailWho.push('Grupo de soporte');
+          if (mailWho.length && MAIL_TEST_MODE) {
+            const subject = `[Atenza · PRUEBA] ${NOTIF_LABEL[event]} · ${ticket.id}`;
+            const html = `<p><b>${NOTIF_LABEL[event]}</b> — ${ticket.id}: ${ticket.subject}</p>`
+              + `<p style="color:#888;font-size:13px">Aviso de prueba. Destinatarios reales (no notificados en pruebas): ${mailWho.join(', ')}.</p>`;
+            void cloud.enqueueMail(TEST_EMAIL, subject, html).catch(errlog);
+          }
+        }
       };
 
       return {

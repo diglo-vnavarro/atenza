@@ -118,6 +118,12 @@ export async function writeNotification(tid: string, n: AppNotification): Promis
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, `tenants/${tid}/notifications`, n.id), n);
 }
+/** Encola un email en la colección `mail` (formato de la extensión Trigger Email
+ *  de Firebase/SendGrid). Las reglas EXIGEN que `to` sea el correo de pruebas. */
+export async function enqueueMail(to: string, subject: string, html: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.addDoc(m.collection(db, 'mail'), { to, message: { subject, html } });
+}
 export async function markNotifReadDoc(tid: string, id: string): Promise<void> {
   const { m, db } = await fs();
   await m.updateDoc(m.doc(db, `tenants/${tid}/notifications`, id), { read: true });

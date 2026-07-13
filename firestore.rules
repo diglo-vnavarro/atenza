@@ -54,6 +54,15 @@ service cloud.firestore {
       allow write: if isPlatformAdmin();
     }
 
+    // Cola de correo de la extensión Trigger Email. CANDADO DE FASE DE PRUEBAS:
+    // solo se pueden encolar emails dirigidos al usuario de pruebas — ni un
+    // cliente mal comportado puede enviar a terceros. La lee la extensión (admin).
+    // En producción: mover el envío a una Cloud Function y relajar esta regla.
+    match /mail/{id} {
+      allow create: if signedIn() && request.resource.data.to == 'vnavarro@digloservicer.com';
+      allow read, update, delete: if false;
+    }
+
     // ---- tenant -------------------------------------------------------------
     match /tenants/{tid} {
       allow get:    if isMember(tid) || isPlatformAdmin();
