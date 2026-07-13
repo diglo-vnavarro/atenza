@@ -136,12 +136,25 @@ export interface Template {
   /** null = plantilla SIN flujo (estado libre, sin transiciones forzadas). */
   lifecycleId: string | null;
   slaId: string | null;
-  /** campos del formulario (simplificado para el prototipo). */
+  /** etiquetas de campos (compat; se deriva de fieldDefs cuando existe). */
   fields: string[];
+  /** definición completa de campos del formulario (constructor de formularios). */
+  fieldDefs?: FieldDef[];
   /** agrupación del catálogo de creación (categoría de servicio de SDP). */
   group?: string;
   /** ¿visible para el solicitante en el catálogo de autoservicio? (false = solo staff). */
   showToRequester?: boolean;
+}
+
+export type FieldType = 'text' | 'textarea' | 'select' | 'bool' | 'date' | 'number' | 'person' | 'attachment' | 'reference';
+export interface FieldDef {
+  id: string;
+  label: string;
+  type: FieldType;
+  /** obligatorio al crear/resolver. */
+  mandatory?: boolean;
+  /** visible/editable para el solicitante (si no, solo lo ve el técnico). */
+  requesterVisible?: boolean;
 }
 
 export interface Sla {

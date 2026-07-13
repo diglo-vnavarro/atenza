@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla } from '../model.js';
+import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef } from '../model.js';
 import type { User } from '../access.js';
 import { canTransition, initialState } from '../lifecycle.js';
 import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group } from '../data/seed.js';
@@ -47,6 +47,9 @@ interface State {
   setNodePos: (lcId: string, key: string, x: number, y: number) => void;
   addCategory: (name: string) => void;
   addTemplate: (name: string, type: TicketType, lifecycleId: string | null) => void;
+  updateTemplate: (id: string, patch: Partial<Template>) => void;
+  removeTemplate: (id: string) => void;
+  setTemplateFields: (id: string, fieldDefs: FieldDef[]) => void;
   addLifecycle: (name: string, type: TicketType) => void;
   renameLifecycle: (name: string) => void;
   setLifecyclePublished: (published: boolean) => void;
@@ -238,9 +241,27 @@ export const useStore = create<State>()(
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { categories: t.categories }).catch(errlog); }
         },
         addTemplate: (name, type, lifecycleId) => {
-          const tpl: Template = { id: 'tpl-' + Date.now(), name, type, lifecycleId, slaId: null, fields: ['subject', 'description', 'category', 'priority'] };
+          const defs: FieldDef[] = [
+            { id: 'f-subject', label: 'Asunto', type: 'text', mandatory: true, requesterVisible: true },
+            { id: 'f-desc', label: 'Descripción', type: 'textarea', requesterVisible: true },
+            { id: 'f-cat', label: 'Categoría', type: 'select', requesterVisible: true },
+            { id: 'f-pri', label: 'Prioridad', type: 'select', requesterVisible: true },
+          ];
+          const tpl: Template = { id: 'tpl-' + Date.now(), name, type, lifecycleId, slaId: null, fields: defs.map((d) => d.label), fieldDefs: defs, group: type === 'incident' ? 'Plantillas generales de incidentes' : 'Solicitudes de servicio', showToRequester: true };
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, templates: [...t.templates, tpl] })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.writeTemplate(t.id, tpl).catch(errlog); }
+        },
+        updateTemplate: (id, patch) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, templates: t.templates.map((x) => (x.id === id ? { ...x, ...patch } : x)) })) }));
+          if (CLOUD) { const t = activeT(get()); const tp = t?.templates.find((x) => x.id === id); if (t && tp) void cloud.writeTemplate(t.id, tp).catch(errlog); }
+        },
+        removeTemplate: (id) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, templates: t.templates.filter((x) => x.id !== id) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.removeTemplateDoc(t.id, id).catch(errlog); }
+        },
+        setTemplateFields: (id, fieldDefs) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, templates: t.templates.map((x) => (x.id === id ? { ...x, fieldDefs, fields: fieldDefs.map((d) => d.label) } : x)) })) }));
+          if (CLOUD) { const t = activeT(get()); const tp = t?.templates.find((x) => x.id === id); if (t && tp) void cloud.writeTemplate(t.id, tp).catch(errlog); }
         },
         addLifecycle: (name, type) => {
           const id = 'lc-' + Date.now();

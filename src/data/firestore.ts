@@ -129,6 +129,10 @@ export async function writeTemplate(tid: string, tp: Template): Promise<void> {
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, `tenants/${tid}/templates`, tp.id), tp);
 }
+export async function removeTemplateDoc(tid: string, id: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.deleteDoc(m.doc(db, `tenants/${tid}/templates`, id));
+}
 export async function patchTenantDoc(tid: string, patch: Partial<TenantDoc>): Promise<void> {
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, 'tenants', tid), patch, { merge: true });

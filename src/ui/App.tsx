@@ -9,7 +9,7 @@ import { useAuth, doSignOut } from '../auth/auth.js';
 import { Login } from './Login.js';
 import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
-import type { SlaCategory, Stage, Template } from '../model.js';
+import type { SlaCategory, Stage, Template, FieldDef, FieldType } from '../model.js';
 import type { TenantData, StoredTicket, UiMember, Capacity } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
@@ -767,6 +767,10 @@ function StateEditor({ s, onUpdate, onDelete }: { lc: import('../model.js').Life
   </div>;
 }
 
+const FIELD_TYPES: [FieldType, string][] = [['text', 'Texto'], ['textarea', 'Texto largo'], ['select', 'Desplegable'], ['bool', 'Sí/No'], ['date', 'Fecha'], ['number', 'Número'], ['person', 'Persona'], ['attachment', 'Adjunto'], ['reference', 'Referencia']];
+const ftLabel = (t: FieldType) => FIELD_TYPES.find((x) => x[0] === t)?.[1] ?? t;
+const defsOf = (tp: Template): FieldDef[] => tp.fieldDefs ?? tp.fields.map((label, i) => ({ id: 'f' + i, label, type: 'text' as FieldType, requesterVisible: true }));
+
 function CatalogAdmin({ tenant }: { tenant: TenantData }) {
   const addCategory = useStore((s) => s.addCategory);
   const addTemplate = useStore((s) => s.addTemplate);
@@ -777,7 +781,8 @@ function CatalogAdmin({ tenant }: { tenant: TenantData }) {
   const [tlc, setTlc] = useState(tenant.lifecycles[0]?.id ?? null);
   const [raw, setRaw] = useState('');
   const [msg, setMsg] = useState('');
-  const [openTpl, setOpenTpl] = useState<string | null>(null);
+  const [sel, setSel] = useState<string | null>(tenant.templates[0]?.id ?? null);
+  const tpl = tenant.templates.find((t) => t.id === sel) ?? null;
   const doImport = () => {
     try {
       const snap = JSON.parse(raw);
@@ -788,30 +793,26 @@ function CatalogAdmin({ tenant }: { tenant: TenantData }) {
     } catch (e) { setMsg('✕ JSON no válido: ' + (e as Error).message); }
   };
   return <div>
-    <div className="work">
-      <div className="card">
-        <h2>Plantillas / tipologías</h2>
-        <div style={{ marginTop: 12 }}>
-          {tenant.templates.map((tp) => <Fragment key={tp.id}>
-            <div className="lcstate" style={{ cursor: 'pointer' }} onClick={() => setOpenTpl(openTpl === tp.id ? null : tp.id)}>
-              <span className="sdot" style={{ background: tp.type === 'incident' ? 'var(--p-high)' : 'var(--p-med)' }} />
-              <span style={{ flex: 1 }}><b style={{ fontSize: 13.5 }}>{tp.name}</b> <span className="pill">{tp.type === 'incident' ? 'Incidencia' : 'Solicitud'}</span>
-                <span className="pill">{tenant.lifecycles.find((l) => l.id === tp.lifecycleId)?.name ?? 'sin flujo'}</span></span>
-              <span className="pill">{tp.fields.length} campos</span>
-              <span style={{ color: 'var(--ink-faint)', fontSize: 12 }}>{openTpl === tp.id ? '▾' : '▸'}</span>
-            </div>
-            {openTpl === tp.id && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 0 10px 26px' }}>
-              {tp.fields.length ? tp.fields.map((f, i) => <span key={i} className="pill">{f}</span>) : <span style={{ color: 'var(--ink-faint)', fontSize: 12 }}>Sin campos</span>}
-            </div>}
-          </Fragment>)}
+    <div className="admin-cat">
+      <div className="card tpl-listcard">
+        <h2>Plantillas <span className="badge">{tenant.templates.length}</span></h2>
+        <div className="tpl-list">
+          {tenant.templates.map((tp) => <button key={tp.id} className={'tpl' + (sel === tp.id ? ' sel' : '')} onClick={() => setSel(tp.id)}>
+            <span className={'tdot ' + (tp.type === 'incident' ? 'i' : 's')} />
+            <span style={{ flex: 1, minWidth: 0 }}><span className="tpl-nm">{tp.name}</span><span className="tpl-mt">{tenant.lifecycles.find((l) => l.id === tp.lifecycleId)?.name ?? 'sin flujo'} · {defsOf(tp).length} campos</span></span>
+            {tp.showToRequester === false && <span className="pill">staff</span>}
+          </button>)}
         </div>
         <div className="designer">
-          <input style={{ flex: 1, minWidth: 120 }} value={tname} onChange={(e) => setTname(e.target.value)} placeholder="Nueva plantilla…" />
-          <select value={ttype} onChange={(e) => setTtype(e.target.value as any)}><option value="incident">Incidencia</option><option value="service_request">Solicitud</option></select>
-          <select value={tlc ?? ''} onChange={(e) => setTlc(e.target.value || null)}><option value="">— sin flujo —</option>{tenant.lifecycles.map((l) => <option key={l.id ?? ''} value={l.id ?? ''}>{l.name}</option>)}</select>
-          <button className="primary" onClick={() => { if (tname.trim()) { addTemplate(tname.trim(), ttype, tlc); setTname(''); } }}>＋ Plantilla</button>
+          <input style={{ flex: 1, minWidth: 110 }} value={tname} onChange={(e) => setTname(e.target.value)} placeholder="Nueva plantilla…" />
+          <select value={ttype} onChange={(e) => setTtype(e.target.value as 'incident' | 'service_request')}><option value="incident">Incidencia</option><option value="service_request">Solicitud</option></select>
+          <button className="primary" onClick={() => { if (tname.trim()) { addTemplate(tname.trim(), ttype, tlc); setTname(''); } }}>＋</button>
         </div>
       </div>
+      <div>{tpl ? <TemplateEditor tenant={tenant} tpl={tpl} onDeleted={() => setSel(tenant.templates.find((t) => t.id !== tpl.id)?.id ?? null)} /> : <div className="card"><div className="empty">Selecciona una plantilla para editarla.</div></div>}</div>
+    </div>
+
+    <div className="work" style={{ marginTop: 16 }}>
       <div className="card">
         <h2>Categorías <span className="badge">{tenant.categories.length}</span></h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
@@ -822,14 +823,68 @@ function CatalogAdmin({ tenant }: { tenant: TenantData }) {
           <button className="primary" onClick={() => { if (cat.trim()) { addCategory(cat.trim()); setCat(''); } }}>＋ Categoría</button>
         </div>
       </div>
+      <div className="card">
+        <h2>Importar datos de SDP</h2>
+        <div className="banner" style={{ marginTop: 10 }}>Pega el <code>imported-seed.json</code> del importador (API v3). Reemplaza categorías, plantillas, SLAs y grupos de <b>{tenant.name}</b>.</div>
+        <textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={4} placeholder='{ "categories": [...], "templates": [...] }' style={{ width: '100%', fontFamily: 'var(--mono)', fontSize: 12 }} />
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+          <button className="primary" onClick={doImport} disabled={!raw.trim()}>Importar</button>
+          {msg && <span style={{ fontSize: 12.5, color: msg.startsWith('✓') ? 'var(--ok)' : 'var(--crit)' }}>{msg}</span>}
+        </div>
+      </div>
     </div>
-    <div className="card" style={{ marginTop: 16 }}>
-      <h2>Importar datos de SDP</h2>
-      <div className="banner" style={{ marginTop: 10 }}>Pega aquí el <code>imported-seed.json</code> generado por el importador (<code>npm run import</code> con la API v3). Reemplaza categorías, plantillas, SLAs, grupos y personas de <b>{tenant.name}</b>.</div>
-      <textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={5} placeholder='{ "categories": [...], "templates": [...], "slas": [...], "members": [...] }' style={{ width: '100%', fontFamily: 'var(--mono)', fontSize: 12 }} />
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
-        <button className="primary" onClick={doImport} disabled={!raw.trim()}>Importar</button>
-        {msg && <span style={{ fontSize: 12.5, color: msg.startsWith('✓') ? 'var(--ok)' : 'var(--crit)' }}>{msg}</span>}
+  </div>;
+}
+
+function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: Template; onDeleted: () => void }) {
+  const updateTemplate = useStore((s) => s.updateTemplate);
+  const removeTemplate = useStore((s) => s.removeTemplate);
+  const setTemplateFields = useStore((s) => s.setTemplateFields);
+  const defs = defsOf(tpl);
+  const commit = (next: FieldDef[]) => setTemplateFields(tpl.id, next);
+  const [nf, setNf] = useState('');
+  const [nft, setNft] = useState<FieldType>('text');
+  const move = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= defs.length) return; const next = defs.slice(); [next[i], next[j]] = [next[j]!, next[i]!]; commit(next); };
+  const preview = defs.filter((f) => f.requesterVisible !== false);
+  const pvInput = (t: FieldType) => t === 'textarea' ? <div className="pv-inp" style={{ height: 46 }} /> : t === 'bool' ? <div className="pv-inp">○ Sí&nbsp;&nbsp;○ No</div> : t === 'select' ? <div className="pv-inp">Selecciona… ▾</div> : t === 'attachment' ? <div className="pv-inp">📎 Adjuntar archivo</div> : t === 'date' ? <div className="pv-inp">dd/mm/aaaa</div> : <div className="pv-inp">{ftLabel(t)}</div>;
+
+  return <div className="card">
+    <div className="te-head">
+      <input className="te-name" value={tpl.name} onChange={(e) => updateTemplate(tpl.id, { name: e.target.value })} />
+      <button className="xbtn" style={{ marginLeft: 'auto' }} onClick={() => { if (confirm(`¿Eliminar la plantilla "${tpl.name}"?`)) { removeTemplate(tpl.id); onDeleted(); } }}>🗑 Eliminar</button>
+    </div>
+    <div className="te-meta">
+      <label>Tipo<select value={tpl.type} onChange={(e) => updateTemplate(tpl.id, { type: e.target.value as 'incident' | 'service_request' })}><option value="incident">Incidencia</option><option value="service_request">Solicitud</option></select></label>
+      <label>Flujo<select value={tpl.lifecycleId ?? ''} onChange={(e) => updateTemplate(tpl.id, { lifecycleId: e.target.value || null })}><option value="">— sin flujo —</option>{tenant.lifecycles.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
+      <label>Categoría del catálogo<input value={tpl.group ?? ''} onChange={(e) => updateTemplate(tpl.id, { group: e.target.value })} placeholder="p. ej. Peticiones" /></label>
+      <label className="te-vis"><span>Visible para solicitante</span><button className={'toggle' + (tpl.showToRequester !== false ? ' on' : '')} onClick={() => updateTemplate(tpl.id, { showToRequester: tpl.showToRequester === false })} aria-label="Visible para solicitante" /></label>
+    </div>
+
+    <div className="banner" style={{ marginTop: 4 }}>Constructor de formularios: arrastra/ordena, marca <b>obligatorio</b> y <b>quién lo ve</b>. La vista previa es lo que verá quien crea la solicitud.</div>
+    <div className="fb">
+      <div className="fb-list">
+        {defs.map((f, i) => <div key={f.id} className="field">
+          <span className="grip" aria-hidden>⣿</span>
+          <div className="fmeta">
+            <input className="fname" value={f.label} onChange={(e) => commit(defs.map((x) => (x.id === f.id ? { ...x, label: e.target.value } : x)))} />
+            <select className="ftype" value={f.type} onChange={(e) => commit(defs.map((x) => (x.id === f.id ? { ...x, type: e.target.value as FieldType } : x)))}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          </div>
+          <label className="fctl">Oblig.<button className={'toggle' + (f.mandatory ? ' on' : '')} onClick={() => commit(defs.map((x) => (x.id === f.id ? { ...x, mandatory: !x.mandatory } : x)))} /></label>
+          <label className="fctl">Solic.<button className={'toggle' + (f.requesterVisible !== false ? ' on' : '')} onClick={() => commit(defs.map((x) => (x.id === f.id ? { ...x, requesterVisible: x.requesterVisible === false } : x)))} /></label>
+          <span className="fmove"><button className="xbtn" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Subir">↑</button><button className="xbtn" onClick={() => move(i, 1)} disabled={i === defs.length - 1} aria-label="Bajar">↓</button></span>
+          <button className="xbtn" onClick={() => commit(defs.filter((x) => x.id !== f.id))} aria-label="Eliminar campo">✕</button>
+        </div>)}
+        {defs.length === 0 && <div className="empty">Sin campos. Añade el primero abajo.</div>}
+        <div className="add-field">
+          <input value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Nombre del nuevo campo…" onKeyDown={(e) => { if (e.key === 'Enter' && nf.trim()) { commit([...defs, { id: 'f-' + Date.now(), label: nf.trim(), type: nft, requesterVisible: true }]); setNf(''); } }} />
+          <select value={nft} onChange={(e) => setNft(e.target.value as FieldType)}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          <button className="primary" onClick={() => { if (nf.trim()) { commit([...defs, { id: 'f-' + Date.now(), label: nf.trim(), type: nft, requesterVisible: true }]); setNf(''); } }}>＋ Campo</button>
+        </div>
+      </div>
+      <div className="preview">
+        <h4>Vista previa · formulario del solicitante</h4>
+        {preview.length === 0 && <div className="empty">Ningún campo visible para el solicitante.</div>}
+        {preview.map((f) => <div key={f.id} className="pv-field"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f.type)}</div>)}
       </div>
     </div>
   </div>;
