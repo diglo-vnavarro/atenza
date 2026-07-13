@@ -53,8 +53,10 @@ jobs:
           service_account: ${{ secrets.DEPLOY_SA_EMAIL }}
 
       - name: Deploy a Firebase
+        env:
+          GOOGLE_CLOUD_QUOTA_PROJECT: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
         run: >
           npx --yes firebase-tools deploy
-          --only hosting,firestore:rules
+          --only hosting,firestore:rules,storage
           --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
           --non-interactive
