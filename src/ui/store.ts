@@ -47,6 +47,14 @@ interface State {
   renameLifecycle: (name: string) => void;
   setLifecyclePublished: (published: boolean) => void;
   removeLifecycle: () => void;
+  addSla: (name: string, responseMins: number, resolveMins: number) => void;
+  updateSla: (id: string, patch: Partial<Sla>) => void;
+  removeSla: (id: string) => void;
+  addGroup: (name: string) => void;
+  removeGroup: (id: string) => void;
+  addMember: (name: string, email: string, role: Role, external: boolean) => void;
+  updateMember: (uid: string, patch: Partial<UiMember>) => void;
+  removeMember: (uid: string) => void;
   importSnapshot: (snap: ImportSnapshot) => void;
 }
 
@@ -229,8 +237,50 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => (t.lifecycles.length <= 1 ? t : { ...t, lifecycles: t.lifecycles.filter((_, i) => i !== s.adminLcIndex) })), adminLcIndex: 0 }));
           if (CLOUD && t0 && removed?.id) void cloud.removeLifecycleDoc(t0.id, removed.id).catch(errlog);
         },
+        addSla: (name, responseMins, resolveMins) => {
+          const n = name.trim(); if (!n) return;
+          const sla: Sla = { id: 'sla-' + Date.now(), name: n, responseMins, resolveMins };
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, slas: [...t.slas, sla] })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.writeSla(t.id, sla).catch(errlog); }
+        },
+        updateSla: (id, patch) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, slas: t.slas.map((x) => (x.id === id ? { ...x, ...patch } : x)) })) }));
+          if (CLOUD) { const t = activeT(get()); const s = t?.slas.find((x) => x.id === id); if (t && s) void cloud.writeSla(t.id, s).catch(errlog); }
+        },
+        removeSla: (id) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, slas: t.slas.filter((x) => x.id !== id) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.removeSlaDoc(t.id, id).catch(errlog); }
+        },
+        addGroup: (name) => {
+          const n = name.trim(); if (!n) return;
+          const g: Group = { id: 'grp-' + Date.now(), name: n };
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, groups: [...t.groups, g] })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.writeGroup(t.id, g).catch(errlog); }
+        },
+        removeGroup: (id) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, groups: t.groups.filter((x) => x.id !== id) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.removeGroupDoc(t.id, id).catch(errlog); }
+        },
+        addMember: (name, email, role, external) => {
+          const em = email.trim().toLowerCase(); if (!em) return;
+          const palette = ['#4f46e5', '#0f766e', '#b45309', '#0369a1', '#be185d', '#7c3aed'];
+          const t0 = activeT(get());
+          const member: UiMember = {
+            uid: 'm-' + Date.now(), name: name.trim() || em, email: em, role, status: 'invited', external,
+            color: palette[(t0?.members.length ?? 0) % palette.length]!,
+          };
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: [...t.members, member] })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.writeMember(t.id, member).catch(errlog); }
+        },
+        updateMember: (uid, patch) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.map((x) => (x.uid === uid ? { ...x, ...patch } : x)) })) }));
+          if (CLOUD) { const t = activeT(get()); const m = t?.members.find((x) => x.uid === uid); if (t && m) void cloud.writeMember(t.id, m).catch(errlog); }
+        },
+        removeMember: (uid) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.filter((x) => x.uid !== uid) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.removeMemberDoc(t.id, uid).catch(errlog); }
+        },
         importSnapshot: (snap) => {
-          // Import en la nube (miembros/SLAs/grupos) llegará con el módulo de admin de instancia; por ahora, local.
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({
             ...t,
             categories: snap.categories?.length ? snap.categories : t.categories,
@@ -239,6 +289,10 @@ export const useStore = create<State>()(
             groups: snap.groups?.length ? snap.groups : t.groups,
             members: snap.members?.length ? snap.members : t.members,
           })) }));
+          // Write-through en la nube: solo CONFIG (categorías/plantillas/SLAs/grupos).
+          // Los miembros NO se vuelcan en bloque (evita pisar accesos y volcar cientos
+          // de cuentas sin auth); se gestionan en «Miembros»/onboarding.
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.importConfigToFirestore(t.id, { categories: snap.categories, templates: snap.templates, slas: snap.slas, groups: snap.groups }).catch(errlog); }
         },
       };
     },

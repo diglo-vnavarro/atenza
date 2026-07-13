@@ -18,6 +18,21 @@ const CAT: Record<SlaCategory, [string, string, string]> = {
   completed: ['Completado', 'var(--st-closed)', 'var(--sink)'],
 };
 const PRI: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
+
+/** Convierte el rich-text HTML de SDP (estilos inline, imágenes de servlet) a
+ *  texto limpio y legible. Las imágenes del servlet de SDP no cargan aquí → se
+ *  marcan. Texto plano pasa tal cual. Sin dangerouslySetInnerHTML (evita XSS). */
+function richToText(html: string): string {
+  if (!html) return '';
+  if (!/[<&]/.test(html)) return html;
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    doc.querySelectorAll('img').forEach((im) => im.replaceWith(doc.createTextNode('🖼 [imagen adjunta en SDP]\n')));
+    doc.querySelectorAll('br').forEach((b) => b.replaceWith(doc.createTextNode('\n')));
+    doc.querySelectorAll('p,div,li,tr,h1,h2,h3').forEach((el) => el.appendChild(doc.createTextNode('\n')));
+    return (doc.body.textContent ?? '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+  } catch { return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); }
+}
 const initials = (n: string) => n.replace(/\(.*?\)/g, '').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 const fmtMins = (m: number) => (m >= 1440 ? Math.round(m / 1440) + 'd' : m >= 60 ? Math.round(m / 60) + 'h' : m + 'm');
 function capState(c: Capacity): [string, string] {
@@ -209,7 +224,12 @@ function TicketDetail({ tenant, t, canAct }: { tenant: TenantData; t: StoredTick
   const req = tenant.members.find((m) => m.uid === t.requesterId);
   const tech = tenant.members.find((m) => m.uid === t.technicianId);
   const nexts = canAct ? outgoing(lc, t.status) : [];
-  const techs = tenant.members.filter((m) => m.role === 'technician' || m.role === 'tenant_admin')
+  const group = tenant.groups.find((g) => g.id === t.groupId);
+  // Perfilado: solo los técnicos del grupo del ticket son asignables (como SDP).
+  // Si el ticket no tiene grupo o el grupo no tiene técnicos cargados, cae al roster completo.
+  const allTechs = tenant.members.filter((m) => m.role === 'technician' || m.role === 'tenant_admin');
+  const scoped = group ? allTechs.filter((m) => (m.groupIds ?? []).includes(group.id)) : [];
+  const techs = (scoped.length ? scoped : allTechs)
     .sort((a, b) => (tenant.capacity[a.uid]?.off ? 1 : 0) - (tenant.capacity[b.uid]?.off ? 1 : 0)
       || ((tenant.capacity[a.uid]?.used ?? 0) / (tenant.capacity[a.uid]?.cap ?? 1)) - ((tenant.capacity[b.uid]?.used ?? 0) / (tenant.capacity[b.uid]?.cap ?? 1)));
 
@@ -224,6 +244,8 @@ function TicketDetail({ tenant, t, canAct }: { tenant: TenantData; t: StoredTick
         <div><div className="k">Estado</div>{cat && <span className="cat" style={{ color: cat[1], background: cat[2] }}>{st?.label} · {cat[0]}</span>}</div>
         <div><div className="k">Solicitante</div><span style={{ fontSize: 13 }}>{req?.name ?? '—'}</span></div>
         <div><div className="k">Técnico</div><span style={{ fontSize: 13 }}>{tech?.name ?? 'Sin asignar'}</span></div>
+        {group && <div><div className="k">Grupo</div><span style={{ fontSize: 13 }}>{group.name}</span></div>}
+        {t.category && <div><div className="k">Categoría</div><span style={{ fontSize: 13 }}>{t.category}</span></div>}
       </div>
       {ss && <div style={{ marginTop: 12 }}>
         <div className="k">SLA de resolución {paused && '· ⏸ en pausa'}</div>
@@ -232,14 +254,14 @@ function TicketDetail({ tenant, t, canAct }: { tenant: TenantData; t: StoredTick
         </div>
         <div className="slabar"><span style={{ width: pct + '%', background: ss.breached ? 'var(--crit)' : paused ? 'var(--warn)' : 'var(--ok)' }} /></div>
       </div>}
-      <div className="desc">{t.description}</div>
+      {t.description && <div className="desc" style={{ whiteSpace: 'pre-wrap' }}>{richToText(t.description)}</div>}
 
       {canAct && <>
         {nexts.length > 0 && <>
           <div className="section-t">Mover a</div>
           <div className="trbtns">{nexts.map((tr) => <button key={tr.id} className="trbtn" onClick={() => transition(t.id, tr.to)}>{stateOf(lc!, tr.to)?.label} →</button>)}</div>
         </>}
-        <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span></div>
+        <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span>{scoped.length > 0 && group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}</div>
         {techs.map((m) => {
           const c = tenant.capacity[m.uid] ?? { used: 0, cap: 40 };
           const [s, label] = capState(c); const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0;
@@ -288,7 +310,7 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
 function AdminNav() {
   const adminSec = useStore((s) => s.adminSec);
   const setAdminSec = useStore((s) => s.setAdminSec);
-  const secs: [string, string][] = [['lifecycle', 'Ciclos de vida'], ['sla', 'SLA'], ['catalog', 'Catálogo']];
+  const secs: [string, string][] = [['lifecycle', 'Ciclos de vida'], ['sla', 'SLA'], ['catalog', 'Catálogo'], ['members', 'Miembros']];
   return <>
     <div className="cap">Administración</div>
     {secs.map(([k, l]) => <button key={k} className={'qbtn' + (adminSec === k ? ' on' : '')} onClick={() => setAdminSec(k)}>{l}</button>)}
@@ -299,16 +321,84 @@ function AdminArea({ tenant }: { tenant: TenantData }) {
   const adminSec = useStore((s) => s.adminSec);
   if (adminSec === 'sla') return <SlaAdmin tenant={tenant} />;
   if (adminSec === 'catalog') return <CatalogAdmin tenant={tenant} />;
+  if (adminSec === 'members') return <MembersAdmin tenant={tenant} />;
   return <GraphEditor tenant={tenant} />;
 }
 
 function SlaAdmin({ tenant }: { tenant: TenantData }) {
-  return <div className="card"><h2>SLA</h2>
-    <div className="facts" style={{ gridTemplateColumns: '1fr auto auto' }}>
-      <div className="k">Nombre</div><div className="k">Respuesta</div><div className="k">Resolución</div>
-      {tenant.slas.map((s) => <Fragment key={s.id}><div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div><div className="mono" style={{ fontSize: 12 }}>{fmtMins(s.responseMins)}</div><div className="mono" style={{ fontSize: 12 }}>{fmtMins(s.resolveMins)}</div></Fragment>)}
+  const addSla = useStore((s) => s.addSla);
+  const updateSla = useStore((s) => s.updateSla);
+  const removeSla = useStore((s) => s.removeSla);
+  const addGroup = useStore((s) => s.addGroup);
+  const removeGroup = useStore((s) => s.removeGroup);
+  const [sn, setSn] = useState(''); const [sr, setSr] = useState(60); const [sx, setSx] = useState(480);
+  const [gn, setGn] = useState('');
+  return <div className="work">
+    <div className="card"><h2>SLA <span className="badge">{tenant.slas.length}</span></h2>
+      <div className="facts" style={{ gridTemplateColumns: '1fr 90px 90px auto', alignItems: 'center', rowGap: 8 }}>
+        <div className="k">Nombre</div><div className="k">Resp. (min)</div><div className="k">Resol. (min)</div><div className="k" />
+        {tenant.slas.map((s) => <Fragment key={s.id}>
+          <input value={s.name} onChange={(e) => updateSla(s.id, { name: e.target.value })} style={{ fontSize: 13, fontWeight: 600 }} />
+          <input type="number" min={0} value={s.responseMins} onChange={(e) => updateSla(s.id, { responseMins: +e.target.value })} className="mono" style={{ fontSize: 12, width: 84 }} title={fmtMins(s.responseMins)} />
+          <input type="number" min={0} value={s.resolveMins} onChange={(e) => updateSla(s.id, { resolveMins: +e.target.value })} className="mono" style={{ fontSize: 12, width: 84 }} title={fmtMins(s.resolveMins)} />
+          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeSla(s.id)}>🗑</button>
+        </Fragment>)}
+      </div>
+      <div className="designer">
+        <input style={{ flex: 1, minWidth: 120 }} value={sn} onChange={(e) => setSn(e.target.value)} placeholder="Nuevo SLA…" />
+        <input type="number" min={0} value={sr} onChange={(e) => setSr(+e.target.value)} style={{ width: 90 }} title="Respuesta (min)" />
+        <input type="number" min={0} value={sx} onChange={(e) => setSx(+e.target.value)} style={{ width: 90 }} title="Resolución (min)" />
+        <button className="primary" onClick={() => { if (sn.trim()) { addSla(sn.trim(), sr, sx); setSn(''); } }}>＋ SLA</button>
+      </div>
+      <div className="banner" style={{ marginTop: 12 }}>El SLA solo consume en estados <b>En curso</b>; se pausa en <b>Detener temporizador</b>. Verificado en el motor (sla.ts).</div>
     </div>
-    <div className="banner" style={{ marginTop: 12 }}>El SLA solo consume en estados <b>En curso</b>; se pausa en <b>Detener temporizador</b>. Verificado en el motor (sla.ts).</div>
+    <div className="card"><h2>Grupos de soporte <span className="badge">{tenant.groups.length}</span></h2>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+        {tenant.groups.map((g) => <div key={g.id} className="lcstate">
+          <span style={{ flex: 1, fontSize: 13 }}>{g.name}</span>
+          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeGroup(g.id)}>🗑</button>
+        </div>)}
+      </div>
+      <div className="designer">
+        <input style={{ flex: 1, minWidth: 120 }} value={gn} onChange={(e) => setGn(e.target.value)} placeholder="Nuevo grupo…" />
+        <button className="primary" onClick={() => { if (gn.trim()) { addGroup(gn.trim()); setGn(''); } }}>＋ Grupo</button>
+      </div>
+    </div>
+  </div>;
+}
+
+function MembersAdmin({ tenant }: { tenant: TenantData }) {
+  const addMember = useStore((s) => s.addMember);
+  const updateMember = useStore((s) => s.updateMember);
+  const removeMember = useStore((s) => s.removeMember);
+  const [name, setName] = useState(''); const [email, setEmail] = useState('');
+  const [role, setRole] = useState<Role>('technician');
+  const roleLabel: Record<Role, string> = { tenant_admin: 'Admin', technician: 'Técnico', requester: 'Solicitante' };
+  const statusLabel: Record<string, string> = { active: 'Activo', invited: 'Invitado', disabled: 'Deshabilitado' };
+  const corp = tenant.members[0]?.email.split('@')[1] ?? 'digloservicer.com';
+  return <div className="card"><h2>Miembros <span className="badge">{tenant.members.length}</span></h2>
+    <div className="banner" style={{ marginTop: 4 }}>Gestiona el acceso a esta instancia. El <b>onboarding real</b> (invitaciones por correo) se activará en producción; aquí defines rol, estado y quién es externo.</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
+      {tenant.members.map((m) => <div key={m.uid} className="lcstate">
+        <span className="sdot" style={{ background: m.color }} />
+        <span style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 13 }}>{m.name}</b> <span style={{ color: 'var(--ink-soft)', fontSize: 12 }}>{m.email}</span>{m.external && <span className="pill" style={{ marginLeft: 6 }}>externo</span>}</span>
+        <select value={m.role} onChange={(e) => updateMember(m.uid, { role: e.target.value as Role })} style={{ fontSize: 12 }}>
+          {(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
+        </select>
+        <select value={m.status} onChange={(e) => updateMember(m.uid, { status: e.target.value as UiMember['status'] })} style={{ fontSize: 12 }}>
+          {['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
+        </select>
+        <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeMember(m.uid)}>🗑</button>
+      </div>)}
+    </div>
+    <div className="designer">
+      <input style={{ flex: 1, minWidth: 100 }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre…" />
+      <input style={{ flex: 1, minWidth: 120 }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@…" />
+      <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
+        {(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
+      </select>
+      <button className="primary" onClick={() => { if (email.trim()) { const ext = !email.trim().toLowerCase().endsWith('@' + corp.toLowerCase()); addMember(name.trim(), email.trim(), role, ext); setName(''); setEmail(''); } }}>＋ Miembro</button>
+    </div>
   </div>;
 }
 
@@ -486,6 +576,7 @@ function CatalogAdmin({ tenant }: { tenant: TenantData }) {
   const [tlc, setTlc] = useState(tenant.lifecycles[0]?.id ?? null);
   const [raw, setRaw] = useState('');
   const [msg, setMsg] = useState('');
+  const [openTpl, setOpenTpl] = useState<string | null>(null);
   const doImport = () => {
     try {
       const snap = JSON.parse(raw);
@@ -500,12 +591,18 @@ function CatalogAdmin({ tenant }: { tenant: TenantData }) {
       <div className="card">
         <h2>Plantillas / tipologías</h2>
         <div style={{ marginTop: 12 }}>
-          {tenant.templates.map((tp) => <div key={tp.id} className="lcstate">
-            <span className="sdot" style={{ background: tp.type === 'incident' ? 'var(--p-high)' : 'var(--p-med)' }} />
-            <span><b style={{ fontSize: 13.5 }}>{tp.name}</b> <span className="pill">{tp.type === 'incident' ? 'Incidencia' : 'Solicitud'}</span>
-              <span className="pill">{tenant.lifecycles.find((l) => l.id === tp.lifecycleId)?.name ?? 'sin flujo'}</span></span>
-            <span className="pill">{tp.fields.length} campos</span>
-          </div>)}
+          {tenant.templates.map((tp) => <Fragment key={tp.id}>
+            <div className="lcstate" style={{ cursor: 'pointer' }} onClick={() => setOpenTpl(openTpl === tp.id ? null : tp.id)}>
+              <span className="sdot" style={{ background: tp.type === 'incident' ? 'var(--p-high)' : 'var(--p-med)' }} />
+              <span style={{ flex: 1 }}><b style={{ fontSize: 13.5 }}>{tp.name}</b> <span className="pill">{tp.type === 'incident' ? 'Incidencia' : 'Solicitud'}</span>
+                <span className="pill">{tenant.lifecycles.find((l) => l.id === tp.lifecycleId)?.name ?? 'sin flujo'}</span></span>
+              <span className="pill">{tp.fields.length} campos</span>
+              <span style={{ color: 'var(--ink-faint)', fontSize: 12 }}>{openTpl === tp.id ? '▾' : '▸'}</span>
+            </div>
+            {openTpl === tp.id && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, padding: '4px 0 10px 26px' }}>
+              {tp.fields.length ? tp.fields.map((f, i) => <span key={i} className="pill">{f}</span>) : <span style={{ color: 'var(--ink-faint)', fontSize: 12 }}>Sin campos</span>}
+            </div>}
+          </Fragment>)}
         </div>
         <div className="designer">
           <input style={{ flex: 1, minWidth: 120 }} value={tname} onChange={(e) => setTname(e.target.value)} placeholder="Nueva plantilla…" />

@@ -7,6 +7,8 @@ export interface UiMember {
   role: 'tenant_admin' | 'technician' | 'requester';
   status: 'active' | 'invited' | 'disabled';
   external: boolean;
+  /** ids de grupos de soporte a los que pertenece (perfilado de asignación). */
+  groupIds?: string[];
 }
 export interface Capacity { used: number; cap: number; off?: string }
 export interface Group { id: string; name: string }

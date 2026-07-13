@@ -133,3 +133,37 @@ export async function patchTenantDoc(tid: string, patch: Partial<TenantDoc>): Pr
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, 'tenants', tid), patch, { merge: true });
 }
+export async function writeSla(tid: string, s: Sla): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, `tenants/${tid}/slas`, s.id), s);
+}
+export async function removeSlaDoc(tid: string, id: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.deleteDoc(m.doc(db, `tenants/${tid}/slas`, id));
+}
+export async function writeGroup(tid: string, g: Group): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, `tenants/${tid}/groups`, g.id), g);
+}
+export async function removeGroupDoc(tid: string, id: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.deleteDoc(m.doc(db, `tenants/${tid}/groups`, id));
+}
+export async function writeMember(tid: string, member: UiMember): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, `tenants/${tid}/members`, member.uid), member);
+}
+export async function removeMemberDoc(tid: string, uid: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.deleteDoc(m.doc(db, `tenants/${tid}/members`, uid));
+}
+/** Vuelca la CONFIG de un snapshot importado (sin miembros) al tenant en la nube. */
+export async function importConfigToFirestore(tid: string, snap: { categories?: string[]; templates?: Template[]; slas?: Sla[]; groups?: Group[] }): Promise<void> {
+  const { m, db } = await fs();
+  if (snap.categories?.length) await m.setDoc(m.doc(db, 'tenants', tid), { categories: snap.categories }, { merge: true });
+  const batch = m.writeBatch(db);
+  for (const tp of snap.templates ?? []) batch.set(m.doc(db, `tenants/${tid}/templates`, tp.id), tp);
+  for (const s of snap.slas ?? []) batch.set(m.doc(db, `tenants/${tid}/slas`, s.id), s);
+  for (const g of snap.groups ?? []) batch.set(m.doc(db, `tenants/${tid}/groups`, g.id), g);
+  await batch.commit();
+}
