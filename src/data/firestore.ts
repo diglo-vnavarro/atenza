@@ -27,7 +27,14 @@ async function loadFs() {
 async function fs() { return (_fs ??= await loadFs()); }
 
 // ---- config del tenant que vive en el doc raíz ----
-interface TenantDoc { name: string; key: string; active: boolean; categories: string[]; capacity: Record<string, Capacity> }
+interface TenantDoc { name: string; key: string; active: boolean; categories: string[]; capacity: Record<string, Capacity>; counter: number }
+
+/** Rol del usuario en un tenant (para decidir el filtro de tickets al suscribir). */
+export async function getMemberRole(tid: string, uid: string): Promise<string | null> {
+  const { m, db } = await fs();
+  const snap = await m.getDoc(m.doc(db, `tenants/${tid}/members`, uid));
+  return snap.exists() ? ((snap.data().role as string) ?? null) : null;
+}
 
 /** Siembra (o sobrescribe) todas las colecciones de un tenant a partir de un
  *  TenantData local. Lo ejecuta el superadmin una sola vez para migrar a la nube. */
@@ -35,7 +42,7 @@ export async function seedTenantToFirestore(t: TenantData): Promise<void> {
   const { m, db } = await fs();
   const batch = m.writeBatch(db);
   const tRef = m.doc(db, 'tenants', t.id);
-  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, categories: t.categories, capacity: t.capacity };
+  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, categories: t.categories, capacity: t.capacity, counter: t.counter };
   batch.set(tRef, tdoc);
   for (const mem of t.members) batch.set(m.doc(db, `tenants/${t.id}/members`, mem.uid), mem);
   for (const tk of t.tickets) batch.set(m.doc(db, `tenants/${t.id}/tickets`, tk.id), tk);
@@ -83,7 +90,7 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
 
   subs.push(m.onSnapshot(m.doc(db, 'tenants', tid), (d) => {
     const t = d.data() as TenantDoc | undefined;
-    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.categories = t.categories ?? []; acc.capacity = t.capacity ?? {}; }
+    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.categories = t.categories ?? []; acc.capacity = t.capacity ?? {}; acc.counter = t.counter ?? 1000; }
     emit();
   }));
   subs.push(m.onSnapshot(col('members'), (s) => { acc.members = s.docs.map((d) => d.data() as UiMember); emit(); }));

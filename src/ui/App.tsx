@@ -34,42 +34,48 @@ export function App() {
   const activeTenantId = useStore((s) => s.activeTenantId);
   const setUser = useStore((s) => s.setUser);
   const setTenant = useStore((s) => s.setTenant);
+  const cloudReady = useStore((s) => s.cloudReady);
+  const hasAccess = useStore((s) => s.hasAccess);
+  const startCloud = useStore((s) => s.startCloud);
   const authUser = useAuth((s) => s.user);
   const authReady = useAuth((s) => s.ready);
   useEffect(() => { void useAuth.getState().init(); }, []);
+  useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
   const [theme, setTheme] = useState<'light' | 'dark' | null>(null);
   const [mode, setMode] = useState<'tickets' | 'admin'>('tickets');
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
 
-  // Identidad: en la nube = usuario autenticado (mapeado a miembro por email);
-  // en local = selector de personas (demo).
-  const memberByEmail = firebaseEnabled && authUser?.email
-    ? db.tenants.flatMap((t) => t.members).find((m) => m.email.toLowerCase() === authUser.email!.toLowerCase())
-    : undefined;
-  const effectiveUserId = firebaseEnabled ? (memberByEmail?.uid ?? authUser?.uid ?? '') : currentUserId;
+  // Identidad: en la nube = uid del usuario autenticado (los docs de miembro van
+  // keyados por ese uid); en local = selector de personas (demo).
+  const effectiveUserId = firebaseEnabled ? (authUser?.uid ?? '') : currentUserId;
   const user = buildUser(db, effectiveUserId);
   const myTenants = tenantsForUser(db, user);
-  const tenant = db.tenants.find((t) => t.id === activeTenantId) ?? myTenants[0] ?? db.tenants[0]!;
-  const role: Role = user.platformAdmin ? 'tenant_admin' : (user.memberships[tenant.id]?.role ?? 'requester');
+  const tenant = db.tenants.find((t) => t.id === activeTenantId) ?? myTenants[0] ?? db.tenants[0];
+  const role: Role = user.platformAdmin ? 'tenant_admin' : (tenant ? user.memberships[tenant.id]?.role ?? 'requester' : 'requester');
   const people = db.tenants.flatMap((t) => t.members).filter((m, i, a) => a.findIndex((x) => x.uid === m.uid) === i);
+  const displayMember = db.tenants.flatMap((t) => t.members).find((m) => m.uid === effectiveUserId);
 
   const toggleTheme = () => {
     const cur = document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
     const next = cur === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next; setTheme(next);
   };
+  const card = (msg: string) => <div className="login-wrap"><div className="login-card" style={{ textAlign: 'center', color: 'var(--ink-faint)' }}>{msg}</div></div>;
 
   // Gates de sesión (solo en la nube).
-  if (firebaseEnabled && !authReady) return <div className="login-wrap"><div className="login-card" style={{ textAlign: 'center', color: 'var(--ink-faint)' }}>Cargando…</div></div>;
+  if (firebaseEnabled && !authReady) return card('Cargando…');
   if (firebaseEnabled && !authUser) return <Login />;
-  if (firebaseEnabled && authUser && myTenants.length === 0) return (
+  if (firebaseEnabled && !cloudReady) return card('Conectando con la nube…');
+  if (firebaseEnabled && !hasAccess) return (
     <div className="login-wrap"><div className="login-card" style={{ textAlign: 'center' }}>
       <div className="brand" style={{ justifyContent: 'center', fontSize: 20 }}><span className="glyph">A</span> Atenza</div>
-      <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>Sin acceso todavía.<br /><b>{authUser.email}</b> no pertenece a ninguna instancia. Pide a un administrador que te invite.</p>
+      <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>Sin acceso todavía.<br /><b>{authUser?.email}</b> no pertenece a ninguna instancia. Pide a un administrador que te invite.</p>
       <button className="ghost" onClick={() => doSignOut()}>Salir</button>
     </div></div>
   );
+  if (firebaseEnabled && !tenant) return card('Sincronizando datos…');
+  if (!tenant) return card('Sin datos.');
 
   return (
     <div>
@@ -78,7 +84,7 @@ export function App() {
         <div className="spring" />
         {firebaseEnabled ? <>
           <span className="lbl">Sesión</span>
-          <span style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>{memberByEmail?.name ?? authUser?.email}</span>
+          <span style={{ fontSize: 12.5, color: 'var(--ink-soft)' }}>{displayMember?.name ?? authUser?.email}</span>
           <button className="ghost" onClick={() => doSignOut()}>Salir</button>
         </> : <>
           <span className="lbl">Identidad</span>
