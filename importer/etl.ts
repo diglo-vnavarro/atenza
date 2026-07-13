@@ -150,7 +150,8 @@ async function main() {
     const templateId = String(r.template?.id ?? (detail.template as { id?: string } | undefined)?.id ?? 'tpl-inc');
     const statusName = r.status?.name ?? (detail.status as { name?: string })?.name ?? 'Abierta';
     const created = ms(r.created_time) ?? ms(detail.created_time as { value?: string }) ?? Date.now();
-    const state = statusKey(templateId, statusName);
+    // el estado guarda el NOMBRE real de SDP (casa con el catálogo de estados).
+    const state = statusName;
     const priObj = (detail.priority as { name?: string } | null) ?? null;
     tickets.push({
       id: `#${r.display_id ?? r.id}`,
@@ -161,6 +162,8 @@ async function main() {
       technicianId: person(r.technician ?? (detail.technician as SdpPerson)),
       groupId: r.group?.id ? String(r.group.id) : null,
       category: (detail.category as { name?: string } | null)?.name ?? '',
+      subcategory: (detail.subcategory as { name?: string } | null)?.name ?? undefined,
+      item: (detail.item as { name?: string } | null)?.name ?? undefined,
       priority: mapPriority(priObj?.name),
       templateId,
       status: state,

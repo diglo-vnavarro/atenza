@@ -146,6 +146,16 @@ export interface Template {
   showToRequester?: boolean;
 }
 
+/** Estado real del catálogo del tenant (los 15 de SDP): nombre + categoría de
+ *  temporizador (consume/pausa/completado) + color. Fuente de verdad del SLA y del
+ *  color/etiqueta que se muestra; el ciclo de vida gobierna las transiciones. */
+export interface StatusDef {
+  name: string;
+  timer: SlaCategory;
+  color: string;
+  description?: string;
+}
+
 export type FieldType = 'text' | 'textarea' | 'select' | 'bool' | 'date' | 'number' | 'person' | 'attachment' | 'reference';
 export interface FieldDef {
   id: string;

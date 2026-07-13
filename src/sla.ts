@@ -10,12 +10,19 @@
 // es el siguiente refinamiento y encaja aquí mismo (parámetro businessHours).
 // ============================================================================
 
-import type { Lifecycle, StatusSegment } from './model.js';
+import type { Lifecycle, StatusSegment, SlaCategory } from './model.js';
 import { stateOf } from './lifecycle.js';
 
-/** ¿El tiempo en este estado cuenta para el SLA? Solo la categoría "in_progress". */
-export function stateConsumesSla(lc: Lifecycle | null, key: string): boolean {
-  if (!lc) return true; // sin ciclo de vida, todo consume por defecto
+/** Resuelve el temporizador de un estado por su nombre (catálogo de estados del
+ *  tenant). Devuelve undefined si el estado no está en el catálogo. */
+export type TimerResolver = (state: string) => SlaCategory | undefined;
+
+/** ¿El tiempo en este estado cuenta para el SLA? Solo la categoría "in_progress".
+ *  Prioriza el catálogo de estados (`timerOf`); si no, cae al ciclo de vida. */
+export function stateConsumesSla(lc: Lifecycle | null, key: string, timerOf?: TimerResolver): boolean {
+  const cat = timerOf?.(key);
+  if (cat) return cat === 'in_progress';
+  if (!lc) return true; // sin ciclo ni catálogo, todo consume por defecto
   const s = stateOf(lc, key);
   return !!s && s.category === 'in_progress';
 }
@@ -28,10 +35,11 @@ export function consumedMs(
   lc: Lifecycle | null,
   history: StatusSegment[],
   now: number,
+  timerOf?: TimerResolver,
 ): number {
   let total = 0;
   for (const seg of history) {
-    if (!stateConsumesSla(lc, seg.state)) continue;
+    if (!stateConsumesSla(lc, seg.state, timerOf)) continue;
     const end = seg.to ?? now;
     if (end > seg.from) total += end - seg.from;
   }
@@ -51,8 +59,9 @@ export function slaStatus(
   history: StatusSegment[],
   targetMins: number,
   now: number,
+  timerOf?: TimerResolver,
 ): SlaStatus {
-  const consumedMins = Math.round(consumedMs(lc, history, now) / 60000);
+  const consumedMins = Math.round(consumedMs(lc, history, now, timerOf) / 60000);
   const remainingMins = targetMins - consumedMins;
   return { consumedMins, targetMins, remainingMins, breached: remainingMins < 0 };
 }

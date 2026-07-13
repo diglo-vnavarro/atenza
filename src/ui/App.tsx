@@ -43,6 +43,19 @@ function capState(c: Capacity): [string, string] {
 function capColor(c: Capacity) { const [s] = capState(c); return s === 'over' ? 'var(--crit)' : s === 'tight' ? 'var(--warn)' : s === 'off' ? 'var(--ink-faint)' : 'var(--ok)'; }
 const Avatar = ({ m }: { m: UiMember }) => <span className="av" style={{ background: m.color }}>{initials(m.name)}</span>;
 
+/** Resuelve el estado visible de un ticket: prioriza el catálogo de estados del
+ *  tenant (nombre real · temporizador · color); si no, cae al estado del ciclo. */
+function statusView(tenant: TenantData, t: StoredTicket): { label: string; timer?: SlaCategory; color: string } {
+  const cs = (tenant.statuses ?? []).find((x) => x.name === t.status);
+  if (cs) return { label: cs.name, timer: cs.timer, color: cs.color };
+  const lc = lifecycleOfTicket(tenant, t);
+  const st = lc ? stateOf(lc, t.status) : undefined;
+  if (st) return { label: st.label, timer: st.category, color: CAT[st.category][1] };
+  return { label: t.status, color: 'var(--ink-faint)' };
+}
+/** Resolutor de temporizador por catálogo para el motor de SLA. */
+const timerOfTenant = (tenant: TenantData) => (name: string) => (tenant.statuses ?? []).find((x) => x.name === name)?.timer;
+
 export function App() {
   const db = useStore((s) => s.db);
   const currentUserId = useStore((s) => s.currentUserId);
@@ -181,7 +194,7 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   for (const t of tickets) { if (!t.technicianId) continue; const e = byTech.get(t.technicianId) ?? { open: 0, over: 0 }; e.open++; if (isOverdue(t)) e.over++; byTech.set(t.technicianId, e); }
   const techRows = [...byTech.entries()].map(([uid, v]) => ({ uid, name: techName(uid), ...v })).sort((a, b) => b.open - a.open).slice(0, 8);
 
-  const stateLabel = (t: StoredTicket) => { const lc = lifecycleOfTicket(tenant, t); const st = lc ? stateOf(lc, t.status) : undefined; return st?.label ?? t.status; };
+  const stateLabel = (t: StoredTicket) => statusView(tenant, t).label;
   const byState = new Map<string, number>();
   for (const t of tickets) { const l = stateLabel(t); byState.set(l, (byState.get(l) ?? 0) + 1); }
   const stateRows = [...byState.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
@@ -265,7 +278,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope }:
   const canAct = scope !== 'requester' && role !== 'requester';
   const meName = tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo';
 
-  const stLabel = (t: StoredTicket) => { const lc = lifecycleOfTicket(tenant, t); const st = lc ? stateOf(lc, t.status) : undefined; return st?.label ?? t.status; };
+  const stLabel = (t: StoredTicket) => statusView(tenant, t).label;
 
   return <>
     <div className="hd">
@@ -297,7 +310,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope }:
               <td>{tech ? <span className="who"><Avatar m={tech} /> <span className="soft">{tech.name}</span></span> : <span className="soft">Sin asignar</span>}</td>
               <td className="soft">{tenant.groups.find((g) => g.id === t.groupId)?.name ?? '—'}</td>
               <td><span className={'chip p-' + t.priority}>{PRI[t.priority ?? 'low']}</span></td>
-              <td><span className="soft">{stLabel(t)}</span></td>
+              <td>{(() => { const sv = statusView(tenant, t); return <span className="stbadge" style={{ color: sv.color, background: `color-mix(in srgb, ${sv.color} 14%, transparent)` }}>{sv.label}</span>; })()}</td>
               <td className={sev === 'crit' ? 'sev-crit' : sev === 'warn' ? 'sev-warn' : 'soft'} style={{ fontSize: 12, fontWeight: 600 }}>{due}</td>
             </tr>;
           })}</tbody>
@@ -337,6 +350,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const addTask = useStore((s) => s.addTask);
   const toggleTask = useStore((s) => s.toggleTask);
   const moveTask = useStore((s) => s.moveTask);
+  const setStatus = useStore((s) => s.setStatus);
   const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'conversaciones'>('detalles');
   const [comment, setComment] = useState('');
   const [internal, setInternal] = useState(false);
@@ -344,13 +358,13 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const [task, setTask] = useState('');
 
   const lc = lifecycleOfTicket(tenant, t);
-  const st = lc ? stateOf(lc, t.status) : undefined;
-  const cat = st ? CAT[st.category] : null;
+  const sv = statusView(tenant, t);
   const sla = tenant.slas.find((s) => s.id === t.slaId);
-  const ss = sla ? slaStatus(lc, t.statusHistory ?? [], sla.resolveMins, Date.now()) : null;
+  const ss = sla ? slaStatus(lc, t.statusHistory ?? [], sla.resolveMins, Date.now(), timerOfTenant(tenant)) : null;
   const req = tenant.members.find((m) => m.uid === t.requesterId);
   const tech = tenant.members.find((m) => m.uid === t.technicianId);
   const nexts = canAct ? outgoing(lc, t.status) : [];
+  const statuses = tenant.statuses ?? [];
   const group = tenant.groups.find((g) => g.id === t.groupId);
   const allTechs = tenant.members.filter((m) => m.role === 'technician' || m.role === 'tenant_admin');
   const scoped = group ? allTechs.filter((m) => (m.groupIds ?? []).includes(group.id)) : [];
@@ -358,7 +372,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
     .sort((a, b) => (tenant.capacity[a.uid]?.off ? 1 : 0) - (tenant.capacity[b.uid]?.off ? 1 : 0)
       || ((tenant.capacity[a.uid]?.used ?? 0) / (tenant.capacity[a.uid]?.cap ?? 1)) - ((tenant.capacity[b.uid]?.used ?? 0) / (tenant.capacity[b.uid]?.cap ?? 1)));
   const pct = ss ? Math.min(100, Math.round((ss.consumedMins / ss.targetMins) * 100)) : 0;
-  const paused = st?.category === 'stop_timer';
+  const paused = sv.timer === 'stop_timer';
   const [due, dueSev] = dueLabel(t.resolveDueAt);
   const comments = t.comments ?? []; const tasks = t.tasks ?? [];
   const TABS: [typeof tab, string, number][] = [['detalles', 'Detalles', 0], ['resolucion', 'Resolución', 0], ['historico', 'Histórico', (t.statusHistory ?? []).length], ['tareas', 'Tareas', tasks.length], ['conversaciones', 'Conversaciones', comments.length]];
@@ -372,7 +386,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
     {tab === 'detalles' && <>
       <div className="facts">
         <div><div className="k">Prioridad</div><span className={'chip p-' + t.priority}>{PRI[t.priority ?? 'low']}</span></div>
-        <div><div className="k">Estado</div>{cat ? <span className="cat" style={{ color: cat[1], background: cat[2] }}>{st?.label} · {cat[0]}</span> : <span className="soft">{t.status}</span>}</div>
+        <div><div className="k">Estado</div><span className="stbadge" style={{ color: sv.color, background: `color-mix(in srgb, ${sv.color} 15%, transparent)` }}>{sv.label}{sv.timer === 'stop_timer' ? ' · ⏸' : ''}</span></div>
         <div><div className="k">Solicitante</div><span style={{ fontSize: 13 }}>{req?.name ?? '—'}</span></div>
         <div><div className="k">Técnico</div><span style={{ fontSize: 13 }}>{tech?.name ?? 'Sin asignar'}</span></div>
         {group && <div><div className="k">Grupo</div><span style={{ fontSize: 13 }}>{group.name}</span></div>}
@@ -389,8 +403,17 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
       {t.description && <div className="desc" style={{ whiteSpace: 'pre-wrap' }}>{richToText(t.description)}</div>}
       {canAct && <>
         {nexts.length > 0 && <>
-          <div className="section-t">Mover a</div>
+          <div className="section-t">Mover a <span className="pill">según flujo</span></div>
           <div className="trbtns">{nexts.map((tr) => <button key={tr.id} className="trbtn" onClick={() => transition(t.id, tr.to)}>{stateOf(lc!, tr.to)?.label} →</button>)}</div>
+        </>}
+        {statuses.length > 0 && <>
+          <div className="section-t">Cambiar estado</div>
+          <select className="statussel" value={statuses.some((s) => s.name === t.status) ? t.status : ''} onChange={(e) => e.target.value && setStatus(t.id, e.target.value)}>
+            <option value="">— Selecciona estado —</option>
+            {(['in_progress', 'stop_timer', 'completed'] as SlaCategory[]).map((g) => <optgroup key={g} label={CAT[g][0]}>
+              {statuses.filter((s) => s.timer === g).map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
+            </optgroup>)}
+          </select>
         </>}
         <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span>{scoped.length > 0 && group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}</div>
         {techs.map((m) => {
@@ -419,7 +442,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
 
     {tab === 'historico' && <div className="timeline">
       {(t.statusHistory ?? []).length === 0 && <div className="empty">Sin historial de estados.</div>}
-      {(t.statusHistory ?? []).map((h, i) => { const label = lc ? stateOf(lc, h.state)?.label ?? h.state : h.state; const durMin = Math.round(((h.to ?? Date.now()) - h.from) / 60000); return <div key={i} className="tl-item">
+      {(t.statusHistory ?? []).map((h, i) => { const label = statuses.find((x) => x.name === h.state)?.name ?? (lc ? stateOf(lc, h.state)?.label : undefined) ?? h.state; const durMin = Math.round(((h.to ?? Date.now()) - h.from) / 60000); return <div key={i} className="tl-item">
         <span className="tl-dot" /><div><div className="tl-state">{label}</div><div className="tl-meta">{fmtDate(h.from)} · {h.to ? fmtMins(durMin) : 'en curso'}</div></div>
       </div>; })}
     </div>}
@@ -532,12 +555,44 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', null], ['Horas operativas', null], ['Grupos de días festivos', null], ['Departamentos', null], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', null], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
-  ['Personalización', '🎨', [['Estado', null], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad', null], ['Impacto', null], ['Urgencia', null], ['Campos adicionales', null]]],
+  ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad', null], ['Impacto', null], ['Urgencia', null], ['Campos adicionales', null]]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', null], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+
+// Catálogo de estados: los 15 reales agrupados por temporizador, editables.
+function StatusAdmin({ tenant }: { tenant: TenantData }) {
+  const setStatuses = useStore((s) => s.setStatuses);
+  const list = tenant.statuses ?? [];
+  const commit = (next: import('../model.js').StatusDef[]) => setStatuses(next);
+  const [nn, setNn] = useState(''); const [nt, setNt] = useState<SlaCategory>('in_progress');
+  const groups: [SlaCategory, string][] = [['in_progress', 'En curso'], ['stop_timer', 'Detener temporizador'], ['completed', 'Completado']];
+  return <>
+    <div className="banner" style={{ marginBottom: 14 }}>Estados de la solicitud. La <b>categoría de temporizador</b> decide el SLA: <b>En curso</b> consume, <b>Detener</b> lo pausa, <b>Completado</b> lo cierra.</div>
+    <div className="card" style={{ overflow: 'hidden' }}>
+      <table className="mgmt"><thead><tr><th>Nombre</th><th>Temporizador</th><th>Color</th><th /></tr></thead>
+        <tbody>
+          {groups.map(([g, gl]) => <Fragment key={g}>
+            <tr><td colSpan={4} className="grp-h">{gl}</td></tr>
+            {list.filter((s) => s.timer === g).map((s) => { const idx = list.indexOf(s); return <tr key={s.name}>
+              <td><input className="cell-in" value={s.name} onChange={(e) => commit(list.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)))} /></td>
+              <td><select className="cell-in" value={s.timer} onChange={(e) => commit(list.map((x, i) => (i === idx ? { ...x, timer: e.target.value as SlaCategory } : x)))}>{groups.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></td>
+              <td><input type="color" className="colorin" value={s.color} onChange={(e) => commit(list.map((x, i) => (i === idx ? { ...x, color: e.target.value } : x)))} /></td>
+              <td><button className="xbtn" onClick={() => commit(list.filter((_, i) => i !== idx))} aria-label="Eliminar">✕</button></td>
+            </tr>; })}
+          </Fragment>)}
+        </tbody>
+      </table>
+      <div className="designer">
+        <input style={{ flex: 1, minWidth: 120 }} value={nn} onChange={(e) => setNn(e.target.value)} placeholder="Nuevo estado…" />
+        <select value={nt} onChange={(e) => setNt(e.target.value as SlaCategory)}>{groups.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+        <button className="primary" onClick={() => { if (nn.trim() && !list.some((s) => s.name === nn.trim())) { commit([...list, { name: nn.trim(), timer: nt, color: '#4f46e5' }]); setNn(''); } }}>＋ Estado</button>
+      </div>
+    </div>
+  </>;
+}
 
 // Editor de árbol Categoría › Subcategoría › Artículo (3 columnas, como SDP).
 function CategoryAdmin({ tenant }: { tenant: TenantData }) {
@@ -604,6 +659,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     <div className="crumb"><button className="crumb-b" onClick={() => setSec(null)}>‹ Configuración</button><span className="sep">·</span><b>{ADMIN_TITLE[sec] ?? sec}</b></div>
     {sec === 'plantillas' && <CatalogAdmin tenant={tenant} />}
     {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
+    {sec === 'estado' && <StatusAdmin tenant={tenant} />}
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}
     {sec === 'miembros' && <MembersAdmin tenant={tenant} />}

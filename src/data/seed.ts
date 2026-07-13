@@ -1,6 +1,25 @@
 // Datos semilla del piloto (local-first). Dos instancias, reflejando la
 // realidad de Diglo: una interna completa y un cliente externo (Leasys).
-import type { Lifecycle, Template, Sla, Ticket, StatusSegment } from '../model.js';
+import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef } from '../model.js';
+
+// Catálogo de los 15 estados reales de SDP (nombre · temporizador · color).
+export const SDP_STATUSES: StatusDef[] = [
+  { name: 'Abierta', timer: 'in_progress', color: '#4bb11d', description: 'Solicitud abierta' },
+  { name: 'Asignado', timer: 'in_progress', color: '#4bb11d', description: 'Asignada a un técnico' },
+  { name: 'Trabajando', timer: 'in_progress', color: '#f40080' },
+  { name: 'En Proceso IT', timer: 'in_progress', color: '#5f149f' },
+  { name: 'En espera', timer: 'stop_timer', color: '#4047ff', description: 'Solicitud en espera' },
+  { name: 'Pendiente Aprobación', timer: 'stop_timer', color: '#ff80bf' },
+  { name: 'Pendiente Banco', timer: 'stop_timer', color: '#f78718' },
+  { name: 'Pendiente de terceros', timer: 'stop_timer', color: '#697cf8' },
+  { name: 'Pendiente PFS', timer: 'stop_timer', color: '#cb6500' },
+  { name: 'Pendiente Usuario', timer: 'stop_timer', color: '#3bb4ff' },
+  { name: 'Planificado', timer: 'stop_timer', color: '#e036d5' },
+  { name: 'Recurrente', timer: 'stop_timer', color: '#4a0564' },
+  { name: 'Resuelta', timer: 'completed', color: '#00b050' },
+  { name: 'Cerrada', timer: 'completed', color: '#83cb10' },
+  { name: 'Cancelada', timer: 'completed', color: '#f02a2a' },
+];
 
 export interface UiMember {
   uid: string; email: string; name: string; color: string;
@@ -25,6 +44,8 @@ export interface TenantData {
   categories: string[];
   /** árbol Categoría › Subcategoría › Artículo. */
   categoryTree?: CatNode[];
+  /** catálogo de estados reales (nombre · temporizador · color). */
+  statuses?: StatusDef[];
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
@@ -185,7 +206,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE,
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES,
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -209,7 +230,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE,
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES,
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [

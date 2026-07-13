@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef } from '../model.js';
+import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef } from '../model.js';
 import type { User } from '../access.js';
 import { canTransition, initialState } from '../lifecycle.js';
 import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode } from '../data/seed.js';
@@ -35,6 +35,8 @@ interface State {
   createTicket: (t: NewTicket) => void;
   assign: (ticketId: string, techUid: string | null) => void;
   transition: (ticketId: string, to: string) => void;
+  setStatus: (ticketId: string, statusName: string) => void;
+  setStatuses: (list: StatusDef[]) => void;
   addComment: (ticketId: string, text: string, authorName: string, internal: boolean) => void;
   setResolution: (ticketId: string, text: string) => void;
   addTask: (ticketId: string, text: string) => void;
@@ -180,6 +182,18 @@ export const useStore = create<State>()(
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist }).catch(errlog);
+        },
+        // Cambio de estado directo al catálogo (sin exigir transición del ciclo).
+        setStatus: (ticketId, to) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk || tk.status === to) return;
+          const now = Date.now();
+          const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist }).catch(errlog);
+        },
+        setStatuses: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, statuses: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { statuses: list }).catch(errlog); }
         },
 
         // Parche genérico de un campo del ticket (local + write-through en nube).
