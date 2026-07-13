@@ -35,6 +35,10 @@ interface State {
   createTicket: (t: NewTicket) => void;
   assign: (ticketId: string, techUid: string | null) => void;
   transition: (ticketId: string, to: string) => void;
+  addComment: (ticketId: string, text: string, authorName: string, internal: boolean) => void;
+  setResolution: (ticketId: string, text: string) => void;
+  addTask: (ticketId: string, text: string) => void;
+  toggleTask: (ticketId: string, taskId: string) => void;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -170,6 +174,33 @@ export const useStore = create<State>()(
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist }).catch(errlog);
+        },
+
+        // Parche genérico de un campo del ticket (local + write-through en nube).
+        addComment: (ticketId, text, authorName, internal) => {
+          const body = text.trim(); if (!body) return;
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const comments = [...(tk.comments ?? []), { author: s.currentUserId, authorName, at: Date.now(), text: body, internal }];
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, comments } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { comments }).catch(errlog);
+        },
+        setResolution: (ticketId, text) => {
+          const s = get(); const t = activeT(s); if (!t) return;
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, resolution: text } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { resolution: text }).catch(errlog);
+        },
+        addTask: (ticketId, text) => {
+          const body = text.trim(); if (!body) return;
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const tasks = [...(tk.tasks ?? []), { id: 'tk-' + Date.now(), text: body, done: false }];
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
+        },
+        toggleTask: (ticketId, taskId) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const tasks = (tk.tasks ?? []).map((k) => (k.id === taskId ? { ...k, done: !k.done } : k));
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
         },
 
         addState: (label, category, stage) => {

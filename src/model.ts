@@ -62,7 +62,16 @@ export interface Ticket {
   resolveDueAt?: number | null;
   /** historial de estados, para calcular el tiempo que consume SLA. */
   statusHistory?: StatusSegment[];
+  /** texto de resolución (pestaña Resolución). */
+  resolution?: string;
+  /** hilo de conversación (pestaña Conversaciones). */
+  comments?: TicketComment[];
+  /** subtareas / checklist (pestaña Tareas). */
+  tasks?: TicketTask[];
 }
+
+export interface TicketComment { author: string; authorName: string; at: number; text: string; internal?: boolean }
+export interface TicketTask { id: string; text: string; done: boolean }
 
 // ---------------------------------------------------------------------------
 // Ciclos de vida y SLA

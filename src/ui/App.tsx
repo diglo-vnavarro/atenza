@@ -234,64 +234,107 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   </>;
 }
 
+function dueLabel(ms?: number | null): [string, string] {
+  if (!ms) return ['—', ''];
+  const diff = ms - Date.now();
+  if (diff < 0) return ['vencido ' + fmtMins(Math.round(-diff / 60000)), 'crit'];
+  return ['en ' + fmtMins(Math.round(diff / 60000)), diff < 2 * 3600000 ? 'warn' : ''];
+}
+const fmtDate = (ms: number) => new Date(ms).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+
 function Workspace({ tenant, role, user, filter, setFilter, asRequester }:
   { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: 'all' | 'unassigned' | 'mine'; setFilter: (f: 'all' | 'unassigned' | 'mine') => void; asRequester: boolean }) {
   const selectedId = useStore((s) => s.selectedTicketId);
   const select = useStore((s) => s.select);
+  const [vw, setVw] = useState<'list' | 'kanban'>('list');
   const all = tenant.tickets;
   let list = all;
   if (asRequester) list = all.filter((t) => t.requesterId === user.uid);
   else if (filter === 'unassigned') list = all.filter((t) => !t.technicianId);
   else if (filter === 'mine') list = all.filter((t) => t.technicianId === user.uid);
-  const selected = list.find((t) => t.id === selectedId) ?? null;
+  const selected = tenant.tickets.find((t) => t.id === selectedId) ?? null;
   const counts = { all: all.length, unassigned: all.filter((t) => !t.technicianId).length, mine: all.filter((t) => t.technicianId === user.uid).length };
   const tabs: [typeof filter, string][] = [['all', 'Todas'], ['unassigned', 'Sin asignar'], ['mine', 'Mías']];
   const canAct = !asRequester && role !== 'requester';
+  const meName = tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo';
+
+  const stLabel = (t: StoredTicket) => { const lc = lifecycleOfTicket(tenant, t); const st = lc ? stateOf(lc, t.status) : undefined; return st?.label ?? t.status; };
 
   return <>
     <div className="hd">
       <h1>{asRequester ? 'Mis solicitudes' : 'Solicitudes'}</h1>
       <span className="sub">{tenant.name} · {list.length}{!asRequester ? ` de ${all.length}` : ''}</span>
-      {!asRequester && <div className="tabs" style={{ marginLeft: 'auto', marginBottom: 0 }}>
-        {tabs.map(([k, l]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l} <span className="tabn">{counts[k]}</span></button>)}
-      </div>}
-    </div>
-    <div className="work">
-      <div className="listwrap">
-        {list.length === 0 && <div className="empty">{asRequester ? 'No has creado ninguna solicitud todavía.' : 'No hay solicitudes en esta vista.'}</div>}
-        {list.map((t) => <TicketRow key={t.id} tenant={tenant} t={t} sel={t.id === selectedId} onClick={() => select(t.id)} />)}
-      </div>
-      <div>
-        {selected ? <TicketDetail tenant={tenant} t={selected} canAct={canAct} />
-          : <div className="card"><div className="empty">Selecciona una solicitud para ver el detalle.</div></div>}
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="seg">
+          <button className={vw === 'list' ? 'on' : ''} onClick={() => setVw('list')}>Lista</button>
+          <button className={vw === 'kanban' ? 'on' : ''} onClick={() => setVw('kanban')}>Kanban</button>
+        </div>
+        {!asRequester && <div className="tabs" style={{ marginBottom: 0 }}>
+          {tabs.map(([k, l]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l} <span className="tabn">{counts[k]}</span></button>)}
+        </div>}
       </div>
     </div>
+
+    {list.length === 0 ? <div className="card"><div className="empty">{asRequester ? 'No has creado ninguna solicitud todavía.' : 'No hay solicitudes en esta vista.'}</div></div>
+      : vw === 'list' ? <div className="listwrap tblwrap">
+        <table className="mgmt">
+          <thead><tr><th>ID</th><th>Asunto</th><th>Solicitante</th><th>Técnico</th><th>Grupo</th><th>Prioridad</th><th>Estado</th><th>Vence</th></tr></thead>
+          <tbody>{list.map((t) => {
+            const tech = tenant.members.find((m) => m.uid === t.technicianId);
+            const req = tenant.members.find((m) => m.uid === t.requesterId);
+            const [due, sev] = dueLabel(t.resolveDueAt);
+            return <tr key={t.id} className={'mrow' + (t.id === selectedId ? ' sel' : '')} onClick={() => select(t.id)}>
+              <td className="id">{t.id}</td>
+              <td className="subj">{t.subject}</td>
+              <td className="soft">{req?.name ?? '—'}</td>
+              <td>{tech ? <span className="who"><Avatar m={tech} /> <span className="soft">{tech.name}</span></span> : <span className="soft">Sin asignar</span>}</td>
+              <td className="soft">{tenant.groups.find((g) => g.id === t.groupId)?.name ?? '—'}</td>
+              <td><span className={'chip p-' + t.priority}>{PRI[t.priority ?? 'low']}</span></td>
+              <td><span className="soft">{stLabel(t)}</span></td>
+              <td className={sev === 'crit' ? 'sev-crit' : sev === 'warn' ? 'sev-warn' : 'soft'} style={{ fontSize: 12, fontWeight: 600 }}>{due}</td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+      : <Kanban tenant={tenant} list={list} stLabel={stLabel} onSelect={(id) => select(id)} selectedId={selectedId} />}
+
+    {selected && <div className="scrim" onClick={() => select(null)}>
+      <aside className="drawer detail" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Solicitud ' + selected.id}>
+        <div className="drawer-h"><h2>{selected.id} · {selected.type === 'incident' ? 'Incidencia' : 'Solicitud'}</h2><button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button></div>
+        <div className="drawer-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} meName={meName} /></div>
+      </aside>
+    </div>}
   </>;
 }
 
-function TicketRow({ tenant, t, sel, onClick }: { tenant: TenantData; t: StoredTicket; sel: boolean; onClick: () => void }) {
-  const lc = lifecycleOfTicket(tenant, t);
-  const st = lc ? stateOf(lc, t.status) : undefined;
-  const cat = st ? CAT[st.category] : null;
-  const tech = tenant.members.find((m) => m.uid === t.technicianId);
-  return (
-    <button className={'row' + (sel ? ' sel' : '')} onClick={onClick}>
-      <span className="id">{t.id}</span>
-      <span>
-        <span className="subj">{t.subject}</span>
-        <span className="meta">
-          <span className={'chip p-' + t.priority}>{PRI[t.priority ?? 'low']}</span>
-          {cat && <span className="cat" style={{ color: cat[1], background: cat[2] }}>{st?.label}</span>}
-        </span>
-      </span>
-      {tech ? <Avatar m={tech} /> : <span className="av" style={{ background: 'var(--ink-faint)' }}>?</span>}
-    </button>
-  );
+function Kanban({ tenant, list, stLabel, onSelect, selectedId }:
+  { tenant: TenantData; list: StoredTicket[]; stLabel: (t: StoredTicket) => string; onSelect: (id: string) => void; selectedId: string | null }) {
+  const cols = new Map<string, StoredTicket[]>();
+  for (const t of list) { const l = stLabel(t); if (!cols.has(l)) cols.set(l, []); cols.get(l)!.push(t); }
+  const ordered = [...cols.entries()].sort((a, b) => b[1].length - a[1].length);
+  return <div className="kanban">{ordered.map(([label, items]) => <div key={label} className="kcol">
+    <div className="kcol-h">{label} <span className="tabn">{items.length}</span></div>
+    <div className="kcol-b">{items.map((t) => { const tech = tenant.members.find((m) => m.uid === t.technicianId); const [due, sev] = dueLabel(t.resolveDueAt); return <button key={t.id} className={'kcard' + (t.id === selectedId ? ' sel' : '')} onClick={() => onSelect(t.id)}>
+      <div className="kcard-top"><span className="id">{t.id}</span><span className={'chip p-' + t.priority}>{PRI[t.priority ?? 'low']}</span></div>
+      <div className="kcard-subj">{t.subject}</div>
+      <div className="kcard-foot">{tech ? <Avatar m={tech} /> : <span className="av" style={{ background: 'var(--ink-faint)' }}>?</span>}<span className={sev === 'crit' ? 'sev-crit' : sev === 'warn' ? 'sev-warn' : 'soft'} style={{ fontSize: 11, marginLeft: 'auto', fontWeight: 600 }}>{due}</span></div>
+    </button>; })}</div>
+  </div>)}</div>;
 }
 
-function TicketDetail({ tenant, t, canAct }: { tenant: TenantData; t: StoredTicket; canAct: boolean }) {
+function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: StoredTicket; canAct: boolean; meName: string }) {
   const transition = useStore((s) => s.transition);
   const assign = useStore((s) => s.assign);
+  const addComment = useStore((s) => s.addComment);
+  const setResolution = useStore((s) => s.setResolution);
+  const addTask = useStore((s) => s.addTask);
+  const toggleTask = useStore((s) => s.toggleTask);
+  const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'conversaciones'>('detalles');
+  const [comment, setComment] = useState('');
+  const [internal, setInternal] = useState(false);
+  const [res, setRes] = useState(t.resolution ?? '');
+  const [task, setTask] = useState('');
+
   const lc = lifecycleOfTicket(tenant, t);
   const st = lc ? stateOf(lc, t.status) : undefined;
   const cat = st ? CAT[st.category] : null;
@@ -301,37 +344,41 @@ function TicketDetail({ tenant, t, canAct }: { tenant: TenantData; t: StoredTick
   const tech = tenant.members.find((m) => m.uid === t.technicianId);
   const nexts = canAct ? outgoing(lc, t.status) : [];
   const group = tenant.groups.find((g) => g.id === t.groupId);
-  // Perfilado: solo los técnicos del grupo del ticket son asignables (como SDP).
-  // Si el ticket no tiene grupo o el grupo no tiene técnicos cargados, cae al roster completo.
   const allTechs = tenant.members.filter((m) => m.role === 'technician' || m.role === 'tenant_admin');
   const scoped = group ? allTechs.filter((m) => (m.groupIds ?? []).includes(group.id)) : [];
   const techs = (scoped.length ? scoped : allTechs)
     .sort((a, b) => (tenant.capacity[a.uid]?.off ? 1 : 0) - (tenant.capacity[b.uid]?.off ? 1 : 0)
       || ((tenant.capacity[a.uid]?.used ?? 0) / (tenant.capacity[a.uid]?.cap ?? 1)) - ((tenant.capacity[b.uid]?.used ?? 0) / (tenant.capacity[b.uid]?.cap ?? 1)));
-
   const pct = ss ? Math.min(100, Math.round((ss.consumedMins / ss.targetMins) * 100)) : 0;
   const paused = st?.category === 'stop_timer';
-  return (
-    <div className="card">
-      <div className="id">{t.id} · {t.type === 'incident' ? 'Incidencia' : 'Solicitud'}</div>
-      <h2 style={{ marginTop: 4 }}>{t.subject}</h2>
+  const [due, dueSev] = dueLabel(t.resolveDueAt);
+  const comments = t.comments ?? []; const tasks = t.tasks ?? [];
+  const TABS: [typeof tab, string, number][] = [['detalles', 'Detalles', 0], ['resolucion', 'Resolución', 0], ['historico', 'Histórico', (t.statusHistory ?? []).length], ['tareas', 'Tareas', tasks.length], ['conversaciones', 'Conversaciones', comments.length]];
+
+  return <div>
+    <h3 style={{ fontSize: 16, marginBottom: 12 }}>{t.subject}</h3>
+    <div className="tabs det-tabs">
+      {TABS.map(([k, l, n]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}{n > 0 && <span className="tabn">{n}</span>}</button>)}
+    </div>
+
+    {tab === 'detalles' && <>
       <div className="facts">
         <div><div className="k">Prioridad</div><span className={'chip p-' + t.priority}>{PRI[t.priority ?? 'low']}</span></div>
-        <div><div className="k">Estado</div>{cat && <span className="cat" style={{ color: cat[1], background: cat[2] }}>{st?.label} · {cat[0]}</span>}</div>
+        <div><div className="k">Estado</div>{cat ? <span className="cat" style={{ color: cat[1], background: cat[2] }}>{st?.label} · {cat[0]}</span> : <span className="soft">{t.status}</span>}</div>
         <div><div className="k">Solicitante</div><span style={{ fontSize: 13 }}>{req?.name ?? '—'}</span></div>
         <div><div className="k">Técnico</div><span style={{ fontSize: 13 }}>{tech?.name ?? 'Sin asignar'}</span></div>
         {group && <div><div className="k">Grupo</div><span style={{ fontSize: 13 }}>{group.name}</span></div>}
         {t.category && <div><div className="k">Categoría</div><span style={{ fontSize: 13 }}>{t.category}</span></div>}
+        <div><div className="k">Vencimiento</div><span className={dueSev === 'crit' ? 'sev-crit' : dueSev === 'warn' ? 'sev-warn' : ''} style={{ fontSize: 13, fontWeight: 600 }}>{due}</span></div>
       </div>
       {ss && <div style={{ marginTop: 12 }}>
         <div className="k">SLA de resolución {paused && '· ⏸ en pausa'}</div>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: ss.breached ? 'var(--crit)' : 'var(--ink-soft)' }}>
-          {fmtMins(ss.consumedMins)} de {fmtMins(ss.targetMins)} consumidos {ss.breached ? '· incumplido' : `· quedan ${fmtMins(Math.max(0, ss.remainingMins))}`}
+          {fmtMins(ss.consumedMins)} de {fmtMins(ss.targetMins)} {ss.breached ? '· incumplido' : `· quedan ${fmtMins(Math.max(0, ss.remainingMins))}`}
         </div>
         <div className="slabar"><span style={{ width: pct + '%', background: ss.breached ? 'var(--crit)' : paused ? 'var(--warn)' : 'var(--ok)' }} /></div>
       </div>}
       {t.description && <div className="desc" style={{ whiteSpace: 'pre-wrap' }}>{richToText(t.description)}</div>}
-
       {canAct && <>
         {nexts.length > 0 && <>
           <div className="section-t">Mover a</div>
@@ -350,8 +397,49 @@ function TicketDetail({ tenant, t, canAct }: { tenant: TenantData; t: StoredTick
           </button>;
         })}
       </>}
-    </div>
-  );
+    </>}
+
+    {tab === 'resolucion' && <div style={{ marginTop: 4 }}>
+      {canAct ? <>
+        <div className="k">Resolución</div>
+        <textarea value={res} onChange={(e) => setRes(e.target.value)} rows={7} style={{ width: '100%' }} placeholder="Describe la solución aplicada…" />
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <button className="primary" onClick={() => setResolution(t.id, res)} disabled={res === (t.resolution ?? '')}>Guardar resolución</button>
+        </div>
+      </> : t.resolution ? <div className="desc" style={{ whiteSpace: 'pre-wrap' }}>{t.resolution}</div> : <div className="empty">Aún no hay resolución.</div>}
+    </div>}
+
+    {tab === 'historico' && <div className="timeline">
+      {(t.statusHistory ?? []).length === 0 && <div className="empty">Sin historial de estados.</div>}
+      {(t.statusHistory ?? []).map((h, i) => { const label = lc ? stateOf(lc, h.state)?.label ?? h.state : h.state; const durMin = Math.round(((h.to ?? Date.now()) - h.from) / 60000); return <div key={i} className="tl-item">
+        <span className="tl-dot" /><div><div className="tl-state">{label}</div><div className="tl-meta">{fmtDate(h.from)} · {h.to ? fmtMins(durMin) : 'en curso'}</div></div>
+      </div>; })}
+    </div>}
+
+    {tab === 'tareas' && <div style={{ marginTop: 4 }}>
+      {tasks.length === 0 && <div className="empty">Sin tareas.</div>}
+      {tasks.map((k) => <label key={k.id} className="taskrow"><input type="checkbox" checked={k.done} disabled={!canAct} onChange={() => toggleTask(t.id, k.id)} /><span style={{ textDecoration: k.done ? 'line-through' : 'none', color: k.done ? 'var(--ink-faint)' : 'var(--ink)' }}>{k.text}</span></label>)}
+      {canAct && <div className="designer" style={{ borderTop: 'none', paddingTop: 4 }}>
+        <input style={{ flex: 1 }} value={task} onChange={(e) => setTask(e.target.value)} placeholder="Nueva tarea…" onKeyDown={(e) => { if (e.key === 'Enter' && task.trim()) { addTask(t.id, task); setTask(''); } }} />
+        <button className="primary" onClick={() => { if (task.trim()) { addTask(t.id, task); setTask(''); } }}>Añadir</button>
+      </div>}
+    </div>}
+
+    {tab === 'conversaciones' && <div style={{ marginTop: 4 }}>
+      {comments.length === 0 && <div className="empty">Sin conversación todavía.</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{comments.map((c, i) => <div key={i} className="comment">
+        <div className="comment-h"><b>{c.authorName}</b>{c.internal && <span className="pill" style={{ marginLeft: 6 }}>nota interna</span>}<span className="comment-at">{fmtDate(c.at)}</span></div>
+        <div className="comment-b" style={{ whiteSpace: 'pre-wrap' }}>{c.text}</div>
+      </div>)}</div>
+      <div style={{ marginTop: 12 }}>
+        <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} style={{ width: '100%' }} placeholder={canAct ? 'Escribe una respuesta o nota…' : 'Escribe un comentario…'} />
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 8 }}>
+          <button className="primary" onClick={() => { addComment(t.id, comment, meName, canAct && internal); setComment(''); }} disabled={!comment.trim()}>Comentar</button>
+          {canAct && <label style={{ fontSize: 12, color: 'var(--ink-soft)', display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} /> Nota interna</label>}
+        </div>
+      </div>
+    </div>}
+  </div>;
 }
 
 const tplGroup = (t: Template) => t.group ?? (t.type === 'incident' ? 'Incidencias' : 'Solicitudes de servicio');
