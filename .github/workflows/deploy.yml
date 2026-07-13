@@ -46,17 +46,23 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
         run: npm run build
 
+      # Deploy automático desactivado por defecto: el SA por WIF da 400
+      # "project not found" en las APIs de Firebase (pendiente de afinar el SA).
+      # Mientras, el deploy se hace manual con ADC de owner (ver infra/README).
+      # Actívalo poniendo la variable de repo CI_DEPLOY=true.
       - name: Autenticación GCP (WIF)
+        if: ${{ vars.CI_DEPLOY == 'true' }}
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.DEPLOY_SA_EMAIL }}
 
       - name: Deploy a Firebase
+        if: ${{ vars.CI_DEPLOY == 'true' }}
         env:
           GOOGLE_CLOUD_QUOTA_PROJECT: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
         run: >
           npx --yes firebase-tools deploy
-          --only hosting
+          --only hosting,firestore:rules,storage
           --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
           --non-interactive
