@@ -59,8 +59,10 @@ jobs:
 
       - name: Deploy a Firebase
         if: ${{ vars.CI_DEPLOY == 'true' }}
+        env:
+          GOOGLE_CLOUD_QUOTA_PROJECT: diglo-desk-pd
         run: >
           npx --yes firebase-tools deploy
           --only hosting,firestore:rules,storage
-          --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
+          --project diglo-desk-pd
           --non-interactive

@@ -9,6 +9,8 @@ resource "google_service_account" "deployer" {
 
 resource "google_project_iam_member" "deployer_roles" {
   for_each = toset([
+    # Rol canónico para deploy de Firebase por CI (hosting + reglas + storage).
+    "roles/firebase.admin",
     "roles/firebasehosting.admin",
     "roles/firebaserules.admin",
     "roles/firebase.developAdmin",
