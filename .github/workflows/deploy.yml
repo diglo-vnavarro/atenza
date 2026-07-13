@@ -57,6 +57,6 @@ jobs:
           GOOGLE_CLOUD_QUOTA_PROJECT: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
         run: >
           npx --yes firebase-tools deploy
-          --only hosting,firestore:rules,storage
+          --only hosting
           --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
           --non-interactive
