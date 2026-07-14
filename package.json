@@ -19,6 +19,8 @@
     "enrich:members:dry": "tsx scripts/enrich-members.ts --dry-run",
     "enrich:catalog": "tsx scripts/enrich-catalog.ts",
     "enrich:catalog:dry": "tsx scripts/enrich-catalog.ts --dry-run",
+    "import:layouts": "tsx scripts/import-layouts.ts",
+    "import:layouts:dry": "tsx scripts/import-layouts.ts --dry-run",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\""
   },
   "dependencies": {
