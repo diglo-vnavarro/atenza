@@ -5,6 +5,18 @@ import type { ClosureRules } from '../closure.js';
 import { DEFAULT_CLOSURE_RULES } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import type { Webhook } from '../webhooks.js';
+import type { KbArticle } from '../kb.js';
+
+// Base de conocimiento de ejemplo (diglo-it).
+const T0 = 1_781_000_000_000;
+export const DEFAULT_KB_ARTICLES: KbArticle[] = [
+  { id: 'kb-vpn', title: 'Cómo conectarse a la VPN corporativa', category: 'Redes', tags: ['vpn', 'acceso remoto'], status: 'published', authorName: 'Elena Andrés', createdAt: T0, updatedAt: T0, views: 42,
+    body: 'Abre el cliente FortiClient, selecciona el perfil «Diglo», introduce tu usuario de dominio y pulsa Conectar. Si falla, comprueba que tienes conexión a internet y que tu contraseña de dominio no ha caducado.' },
+  { id: 'kb-pwd', title: 'Restablecer la contraseña de dominio', category: 'Cuentas', tags: ['contraseña', 'acceso'], status: 'published', authorName: 'Óscar Igualada', createdAt: T0, updatedAt: T0, views: 118,
+    body: 'Desde el portal de autoservicio, pulsa «He olvidado mi contraseña» e sigue los pasos. La nueva contraseña debe tener 12+ caracteres, mayúsculas, minúsculas y un número.' },
+  { id: 'kb-firma', title: 'Configurar la firma de correo', category: 'Correo', tags: ['firma', 'outlook'], status: 'draft', authorName: 'Sergio Frías', createdAt: T0, updatedAt: T0,
+    body: 'Borrador: pasos para poner la firma corporativa en Outlook y Gmail. (Pendiente de revisión.)' },
+];
 
 // Regla de negocio de ejemplo (diglo-it): enruta las incidencias de Redes al
 // grupo Redes al crearlas. El admin la edita/añade en Automatización.
@@ -176,6 +188,8 @@ export interface TenantData {
   businessRules?: BusinessRule[];
   /** webhooks salientes (activadores hacia terceros). */
   webhooks?: Webhook[];
+  /** base de conocimiento (Soluciones). */
+  kbArticles?: KbArticle[];
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
@@ -339,7 +353,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, webhooks: [],
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES,
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -363,7 +377,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], userGroups: ['Clientes Leasys', 'Gestores'], roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: [], webhooks: [],
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], userGroups: ['Clientes Leasys', 'Gestores'], roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: [], webhooks: [], kbArticles: [],
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [

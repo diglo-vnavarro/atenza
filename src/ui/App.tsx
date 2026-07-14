@@ -13,6 +13,7 @@ import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRule
 import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
 import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent } from '../model.js';
 import type { Webhook } from '../webhooks.js';
+import { searchKb, type KbArticle } from '../kb.js';
 import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
@@ -104,7 +105,7 @@ export function App() {
   useEffect(() => { void useAuth.getState().init(); }, []);
   useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
   const [, setTheme] = useState<'light' | 'dark' | null>(null);
-  const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'admin'>('home');
+  const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin'>('home');
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
 
@@ -142,7 +143,7 @@ export function App() {
   const isReq = role === 'requester';
   const caps = capsOf(tenant, effectiveUserId, !!user.platformAdmin);
   const canManageConfig = caps.includes('manageConfig');
-  const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'admin' = isReq ? 'requests' : view;
+  const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' = isReq && view !== 'kb' ? 'requests' : view;
   const openCount = tenant.tickets.length;
   const myAssignedCount = tenant.tickets.filter((t) => t.technicianId === effectiveUserId).length;
   const myReqCount = tenant.tickets.filter((t) => t.requesterId === effectiveUserId).length;
@@ -191,6 +192,9 @@ export function App() {
             <button className={'modlink' + (activeView === 'requests' ? ' on' : '')} onClick={() => setView('requests')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16v16H4z" /><path d="M8 9h8M8 13h5" /></svg>
               <span className="ml-l">Mis solicitudes</span><span className="n">{myReqCount}</span></button>
+            <button className={'modlink' + (activeView === 'kb' ? ' on' : '')} onClick={() => setView('kb')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 5a2 2 0 012-2h12v18H6a2 2 0 01-2-2z" /><path d="M8 7h8M8 11h6" /></svg>
+              <span className="ml-l">Base de conocimiento</span></button>
           </div>
           <div className="side-bottom">
             {canManageConfig && <button className={'modlink' + (activeView === 'admin' ? ' on' : '')} onClick={() => setView('admin')}>
@@ -207,6 +211,7 @@ export function App() {
           {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" />}
           {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" />}
           {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" />}
+          {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester'} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
           {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
         </main>
       </div>
@@ -1041,6 +1046,60 @@ function CategoryAdmin({ tenant }: { tenant: TenantData }) {
       </div>
     </div>
   </>;
+}
+
+function KbModule({ tenant, canManage, meName }: { tenant: TenantData; canManage: boolean; meName: string }) {
+  const save = useStore((s) => s.saveKbArticle);
+  const remove = useStore((s) => s.removeKbArticle);
+  const viewArt = useStore((s) => s.viewKbArticle);
+  const [q, setQ] = useState('');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [editing, setEditing] = useState<KbArticle | null>(null);
+  const results = searchKb(tenant.kbArticles, q, canManage);
+  const open = (tenant.kbArticles ?? []).find((a) => a.id === openId) ?? null;
+  const openArticle = (a: KbArticle) => { setOpenId(a.id); if (a.status === 'published') viewArt(a.id); };
+  const startNew = () => setEditing({ id: 'kb-' + Date.now(), title: '', body: '', category: '', tags: [], status: 'draft', authorName: meName, createdAt: Date.now(), updatedAt: Date.now() });
+  const commit = () => { if (editing && editing.title.trim()) { save({ ...editing, updatedAt: Date.now() }); setEditing(null); setOpenId(null); } };
+
+  if (editing) {
+    const e = editing;
+    return <div className="kb-wrap"><div className="kb-head"><button className="crumb-b" onClick={() => setEditing(null)}>‹ Base de conocimiento</button></div>
+      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <input style={{ fontSize: 17, fontWeight: 700 }} value={e.title} onChange={(ev) => setEditing({ ...e, title: ev.target.value })} placeholder="Título de la solución" />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input value={e.category ?? ''} onChange={(ev) => setEditing({ ...e, category: ev.target.value })} placeholder="Categoría" />
+          <input style={{ flex: 1, minWidth: 160 }} value={(e.tags ?? []).join(', ')} onChange={(ev) => setEditing({ ...e, tags: ev.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} placeholder="Etiquetas (coma)" />
+          <select value={e.status} onChange={(ev) => setEditing({ ...e, status: ev.target.value as KbArticle['status'] })}><option value="draft">Borrador</option><option value="published">Publicado</option></select>
+        </div>
+        <textarea rows={12} value={e.body} onChange={(ev) => setEditing({ ...e, body: ev.target.value })} placeholder="Contenido de la solución…" />
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button className="primary" onClick={commit} disabled={!e.title.trim()}>Guardar</button>
+          <button className="xbtn" onClick={() => setEditing(null)}>Cancelar</button>
+        </div>
+      </div></div>;
+  }
+
+  if (open) {
+    return <div className="kb-wrap"><div className="kb-head"><button className="crumb-b" onClick={() => setOpenId(null)}>‹ Base de conocimiento</button>{canManage && <span style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}><button className="xbtn" onClick={() => setEditing(open)}>Editar</button><button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => { remove(open.id); setOpenId(null); }}>Eliminar</button></span>}</div>
+      <article className="card kb-article">
+        <h2>{open.title}{open.status === 'draft' && <span className="pill" style={{ marginLeft: 8 }}>borrador</span>}</h2>
+        <div className="kb-meta">{open.category && <span className="tchip">{open.category}</span>}{(open.tags ?? []).map((t) => <span key={t} className="tag-kb">#{t}</span>)}<span style={{ marginLeft: 'auto' }}>{open.authorName} · {open.views ?? 0} vistas</span></div>
+        <div className="kb-body" style={{ whiteSpace: 'pre-wrap' }}>{open.body}</div>
+      </article></div>;
+  }
+
+  return <div className="kb-wrap">
+    <div className="kb-head">
+      <input className="kb-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar soluciones…" />
+      {canManage && <button className="primary" onClick={startNew}>＋ Nueva solución</button>}
+    </div>
+    {results.length === 0 && <div className="card"><div className="empty">{q ? 'Sin resultados.' : 'Sin soluciones publicadas.'}</div></div>}
+    <div className="kb-list">{results.map((a) => <button key={a.id} className="kb-item" onClick={() => openArticle(a)}>
+      <div className="kb-item-t">{a.title}{a.status === 'draft' && <span className="pill">borrador</span>}</div>
+      <div className="kb-item-b">{a.body.slice(0, 140)}{a.body.length > 140 ? '…' : ''}</div>
+      <div className="kb-meta">{a.category && <span className="tchip">{a.category}</span>}{(a.tags ?? []).map((t) => <span key={t} className="tag-kb">#{t}</span>)}<span style={{ marginLeft: 'auto' }}>{a.views ?? 0} vistas</span></div>
+    </button>)}</div>
+  </div>;
 }
 
 function AdminConfig({ tenant }: { tenant: TenantData }) {
