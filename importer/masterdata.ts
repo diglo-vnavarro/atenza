@@ -33,7 +33,8 @@ async function main() {
   await refresh();
   const sites = [...new Set((await page('sites', 'sites')).map((s) => s.name).filter(Boolean))] as string[];
   const departments = [...new Set((await page('departments', 'departments')).map((d) => d.name).filter(Boolean))] as string[];
-  writeFileSync(join(here, 'imported-masterdata.json'), JSON.stringify({ sites, departments }, null, 2));
-  console.log(`Sedes: ${sites.length} · Departamentos: ${departments.length}. Escrito imported-masterdata.json`);
+  const userGroups = [...new Set((await page('user_groups', 'user_groups')).map((g) => g.name).filter(Boolean))] as string[];
+  writeFileSync(join(here, 'imported-masterdata.json'), JSON.stringify({ sites, departments, userGroups }, null, 2));
+  console.log(`Sedes: ${sites.length} · Departamentos: ${departments.length} · Grupos usuarios: ${userGroups.length}. Escrito imported-masterdata.json`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

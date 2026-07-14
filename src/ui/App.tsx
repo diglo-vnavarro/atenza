@@ -66,6 +66,14 @@ function priorityView(tenant: TenantData, name?: string): { label: string; color
   return { label: n || '—', color: 'var(--ink-soft)' };
 }
 const badge = (label: string, color: string) => <span className="stbadge" style={{ color, background: `color-mix(in srgb, ${color} 15%, transparent)` }}>{label}</span>;
+/** Multiselección compacta: chips conmutables. */
+function ChipMulti({ options, selected, onChange }: { options: string[]; selected: string[]; onChange: (next: string[]) => void }) {
+  if (options.length === 0) return <span className="empty" style={{ padding: 4 }}>Sin grupos definidos.</span>;
+  const toggle = (o: string) => onChange(selected.includes(o) ? selected.filter((x) => x !== o) : [...selected, o]);
+  return <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+    {options.map((o) => <button key={o} type="button" className={'chipsel' + (selected.includes(o) ? ' on' : '')} onClick={() => toggle(o)}>{o}</button>)}
+  </div>;
+}
 
 export function App() {
   const db = useStore((s) => s.db);
@@ -522,9 +530,16 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
   // (el técnico puede cambiarla luego a mano).
   useEffect(() => { if (impact && urgency) { const p = tenant.priorityMatrix?.[impact]?.[urgency]; if (p) setPriority(p); } }, [impact, urgency, tenant.priorityMatrix]);
 
-  // Perfilado de catálogo: el solicitante solo ve tipologías permitidas
-  // (visibles para solicitante). Técnico/admin ven todas.
-  const canSee = (t: Template) => role !== 'requester' || t.showToRequester !== false;
+  // Perfilado de catálogo: el solicitante solo ve tipologías permitidas (visibles
+  // para solicitante Y, si la plantilla restringe por grupos de usuarios, que el
+  // solicitante pertenezca a alguno). Técnico/admin ven todas.
+  const myUG = tenant.members.find((m) => m.uid === user.uid)?.userGroups ?? [];
+  const canSee = (t: Template) => {
+    if (role !== 'requester') return true;
+    if (t.showToRequester === false) return false;
+    if (!t.userGroups || t.userGroups.length === 0) return true;
+    return t.userGroups.some((g) => myUG.includes(g));
+  };
   const groups = new Map<string, Template[]>();
   for (const t of tenant.templates) {
     if (!canSee(t)) continue;
@@ -640,13 +655,13 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
-  ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', null], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
+  ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Sedes y departamentos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -756,10 +771,17 @@ function StringListCard({ title, list, onChange, placeholder, search }: { title:
 function MasterDataAdmin({ tenant }: { tenant: TenantData }) {
   const setSites = useStore((s) => s.setSites);
   const setDepartments = useStore((s) => s.setDepartments);
-  return <div className="work">
-    <StringListCard title="Sedes" list={tenant.sites ?? []} onChange={setSites} placeholder="Nueva sede…" />
-    <StringListCard title="Departamentos" list={tenant.departments ?? []} onChange={setDepartments} placeholder="Nuevo departamento…" search />
-  </div>;
+  const setUserGroups = useStore((s) => s.setUserGroups);
+  return <>
+    <div className="work">
+      <StringListCard title="Sedes" list={tenant.sites ?? []} onChange={setSites} placeholder="Nueva sede…" />
+      <StringListCard title="Departamentos" list={tenant.departments ?? []} onChange={setDepartments} placeholder="Nuevo departamento…" search />
+    </div>
+    <div className="work" style={{ marginTop: 16 }}>
+      <StringListCard title="Grupos de usuarios" list={tenant.userGroups ?? []} onChange={setUserGroups} placeholder="Nuevo grupo de usuarios…" />
+      <div className="card"><div className="banner" style={{ margin: 0 }}>Los <b>grupos de usuarios</b> perfilan el catálogo: en cada plantilla (Plantillas → editar) eliges qué grupos pueden verla, y en cada persona (Miembros) a qué grupos pertenece. Sin restricción, la plantilla la ve cualquier solicitante.</div></div>
+    </div>
+  </>;
 }
 
 // Calendario laboral (horas operativas + festivos) → alimenta el SLA por horario.
@@ -919,23 +941,29 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
   const removeMember = useStore((s) => s.removeMember);
   const [name, setName] = useState(''); const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('technician');
+  const [openUg, setOpenUg] = useState<string | null>(null);
+  const ugOptions = tenant.userGroups ?? [];
   const roleLabel: Record<Role, string> = { tenant_admin: 'Admin', technician: 'Técnico', requester: 'Solicitante' };
   const statusLabel: Record<string, string> = { active: 'Activo', invited: 'Invitado', disabled: 'Deshabilitado' };
   const corp = tenant.members[0]?.email.split('@')[1] ?? 'digloservicer.com';
   return <div className="card"><h2>Miembros <span className="badge">{tenant.members.length}</span></h2>
     <div className="banner" style={{ marginTop: 4 }}>Gestiona el acceso a esta instancia. El <b>onboarding real</b> (invitaciones por correo) se activará en producción; aquí defines rol, estado y quién es externo.</div>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-      {tenant.members.map((m) => <div key={m.uid} className="lcstate">
-        <span className="sdot" style={{ background: m.color }} />
-        <span style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 13 }}>{m.name}</b> <span style={{ color: 'var(--ink-soft)', fontSize: 12 }}>{m.email}</span>{m.external && <span className="pill" style={{ marginLeft: 6 }}>externo</span>}</span>
-        <select value={m.role} onChange={(e) => updateMember(m.uid, { role: e.target.value as Role })} style={{ fontSize: 12 }}>
-          {(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
-        </select>
-        <select value={m.status} onChange={(e) => updateMember(m.uid, { status: e.target.value as UiMember['status'] })} style={{ fontSize: 12 }}>
-          {['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
-        </select>
-        <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeMember(m.uid)}>🗑</button>
-      </div>)}
+      {tenant.members.map((m) => <Fragment key={m.uid}>
+        <div className="lcstate">
+          <span className="sdot" style={{ background: m.color }} />
+          <span style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 13 }}>{m.name}</b> <span style={{ color: 'var(--ink-soft)', fontSize: 12 }}>{m.email}</span>{m.external && <span className="pill" style={{ marginLeft: 6 }}>externo</span>}</span>
+          {ugOptions.length > 0 && <button className="ghost" style={{ fontSize: 11.5 }} onClick={() => setOpenUg(openUg === m.uid ? null : m.uid)}>grupos ({(m.userGroups ?? []).length})</button>}
+          <select value={m.role} onChange={(e) => updateMember(m.uid, { role: e.target.value as Role })} style={{ fontSize: 12 }}>
+            {(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
+          </select>
+          <select value={m.status} onChange={(e) => updateMember(m.uid, { status: e.target.value as UiMember['status'] })} style={{ fontSize: 12 }}>
+            {['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
+          </select>
+          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeMember(m.uid)}>🗑</button>
+        </div>
+        {openUg === m.uid && <div style={{ padding: '2px 0 10px 26px' }}><div className="k">Grupos de usuarios</div><ChipMulti options={ugOptions} selected={m.userGroups ?? []} onChange={(ug) => updateMember(m.uid, { userGroups: ug })} /></div>}
+      </Fragment>)}
     </div>
     <div className="designer">
       <input style={{ flex: 1, minWidth: 100 }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre…" />
@@ -1216,6 +1244,10 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
       <label className="te-vis"><span>Visible para solicitante</span><button className={'toggle' + (tpl.showToRequester !== false ? ' on' : '')} onClick={() => updateTemplate(tpl.id, { showToRequester: tpl.showToRequester === false })} aria-label="Visible para solicitante" /></label>
     </div>
 
+    {(tenant.userGroups ?? []).length > 0 && <div style={{ margin: '12px 0 4px' }}>
+      <div className="k">Visible para grupos de usuarios <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(vacío = la ve cualquier solicitante)</span></div>
+      <ChipMulti options={tenant.userGroups ?? []} selected={tpl.userGroups ?? []} onChange={(ug) => updateTemplate(tpl.id, { userGroups: ug })} />
+    </div>}
     <div className="banner" style={{ marginTop: 4 }}>Constructor de formularios: arrastra/ordena, marca <b>obligatorio</b> y <b>quién lo ve</b>. La vista previa es lo que verá quien crea la solicitud.</div>
     <div className="fb">
       <div className="fb-list">

@@ -85,6 +85,8 @@ export interface UiMember {
   external: boolean;
   /** ids de grupos de soporte a los que pertenece (perfilado de asignación). */
   groupIds?: string[];
+  /** grupos de usuarios (perfilado de catálogo: qué plantillas ve). */
+  userGroups?: string[];
   /** datos maestros del solicitante. */
   site?: string;
   department?: string;
@@ -116,6 +118,8 @@ export interface TenantData {
   /** datos maestros: sedes y departamentos (nombres). */
   sites?: string[];
   departments?: string[];
+  /** grupos de usuarios (para el ACL de catálogo). */
+  userGroups?: string[];
   /** reglas de notificación (evento → canal por destinatario). */
   notifRules?: NotifRule[];
   /** avisos en pantalla (por destinatario); en la nube es una colección. */
@@ -234,6 +238,7 @@ const opsLc: Lifecycle = {
   ],
 };
 
+const IT_USER_GROUPS = ['Todos los empleados', 'Operaciones', 'Recuperaciones', 'REO', 'Dirección', 'Externos'];
 const IT_SITES = ['Madrid - Sede central', 'Barcelona', 'Valencia', 'Remoto'];
 const IT_DEPARTMENTS = ['Tecnología', 'Operaciones', 'Recuperaciones', 'REO', 'Riesgos', 'RRHH', 'Finanzas', 'Legal'];
 const IT_CATEGORIES = ['Aplicaciones', 'Arquitectura', 'Comunicaciones', 'Correo Electrónico', 'Datos', 'Dispositivos', 'General', 'Hardware', 'Internet', 'Microsoft Office', 'Móviles', 'Operaciones', 'Reclamaciones de Clientes', 'Redes', 'VDI'];
@@ -275,14 +280,14 @@ export function makeSeed(now: number): DB {
       { uid: 'u-oscar', email: 'oigualada@digloservicer.com', name: 'Óscar Igualada', color: '#b45309', role: 'technician', status: 'active', external: false },
       { uid: 'u-sergio', email: 'sfrias@digloservicer.com', name: 'Sergio Frías', color: '#0369a1', role: 'technician', status: 'active', external: false },
       { uid: 'u-bea', email: 'bcabado@digloservicer.com', name: 'Beatriz Cabado', color: '#be185d', role: 'technician', status: 'active', external: false },
-      { uid: 'u-laura', email: 'laura.gomez@digloservicer.com', name: 'Laura Gómez', color: '#7c3aed', role: 'requester', status: 'active', external: false, site: 'Madrid - Sede central', department: 'Operaciones' },
+      { uid: 'u-laura', email: 'laura.gomez@digloservicer.com', name: 'Laura Gómez', color: '#7c3aed', role: 'requester', status: 'active', external: false, site: 'Madrid - Sede central', department: 'Operaciones', userGroups: ['Todos los empleados', 'Operaciones'] },
     ],
     lifecycles: [rlc, srLc, iamLc, opsLc], templates: [
       { id: 'tpl-inc', type: 'incident', name: 'Incidencia', lifecycleId: 'lc-inc', slaId: null, fields: ['subject', 'description', 'category', 'priority', 'impact'] },
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -306,7 +311,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], userGroups: ['Clientes Leasys', 'Gestores'], notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [

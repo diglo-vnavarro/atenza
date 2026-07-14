@@ -8,13 +8,13 @@ import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const { sites, departments } = JSON.parse(readFileSync(join(here, '..', 'importer', 'imported-masterdata.json'), 'utf8'));
+const { sites, departments, userGroups } = JSON.parse(readFileSync(join(here, '..', 'importer', 'imported-masterdata.json'), 'utf8'));
 const TENANT = process.env.TENANT ?? 'diglo-it';
 initializeApp({ projectId: process.env.GOOGLE_CLOUD_PROJECT ?? 'diglo-desk-pd' });
 const db = getFirestore();
 
 async function main() {
-  await db.doc(`tenants/${TENANT}`).set({ sites: sites ?? [], departments: departments ?? [] }, { merge: true });
-  console.log(`Escrito en ${TENANT}: ${(sites ?? []).length} sedes, ${(departments ?? []).length} departamentos.`);
+  await db.doc(`tenants/${TENANT}`).set({ sites: sites ?? [], departments: departments ?? [], userGroups: userGroups ?? [] }, { merge: true });
+  console.log(`Escrito en ${TENANT}: ${(sites ?? []).length} sedes, ${(departments ?? []).length} departamentos, ${(userGroups ?? []).length} grupos de usuarios.`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

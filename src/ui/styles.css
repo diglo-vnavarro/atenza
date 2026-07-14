@@ -386,6 +386,11 @@ input,textarea{font-family:var(--sans); font-size:13px; color:var(--ink); backgr
 .daybtn:hover{border-color:var(--accent);}
 .daybtn.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
 
+/* ---- v2 (2b): chips de multiselección (grupos de usuarios) ---- */
+.chipsel{border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-size:12px; font-weight:600; padding:4px 11px; border-radius:20px;}
+.chipsel:hover{border-color:var(--accent);}
+.chipsel.on{background:var(--accent-soft); color:var(--accent); border-color:var(--accent);}
+
 /* ---- React Flow (editor de ciclos) ---- */
 .rf-wrap .react-flow{background:var(--raise);}
 .rf-state{display:flex; align-items:center; gap:9px; width:184px; min-height:56px; padding:10px 14px; border:2px solid; border-radius:13px; position:relative; font-family:var(--sans);}

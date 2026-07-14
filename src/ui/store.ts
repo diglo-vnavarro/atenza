@@ -44,6 +44,7 @@ interface State {
   setHolidays: (list: string[]) => void;
   setSites: (list: string[]) => void;
   setDepartments: (list: string[]) => void;
+  setUserGroups: (list: string[]) => void;
   setNotifRules: (rules: NotifRule[]) => void;
   markNotifRead: (id: string) => void;
   markAllNotifsRead: () => void;
@@ -280,6 +281,10 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, departments: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { departments: list }).catch(errlog); }
         },
+        setUserGroups: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, userGroups: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { userGroups: list }).catch(errlog); }
+        },
         setNotifRules: (rules) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, notifRules: rules })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { notifRules: rules }).catch(errlog); }
@@ -481,6 +486,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v8', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v9', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

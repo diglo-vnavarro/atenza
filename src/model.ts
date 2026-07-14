@@ -148,6 +148,8 @@ export interface Template {
   group?: string;
   /** ¿visible para el solicitante en el catálogo de autoservicio? (false = solo staff). */
   showToRequester?: boolean;
+  /** grupos de usuarios que pueden ver/usar la plantilla (vacío = todos). */
+  userGroups?: string[];
 }
 
 /** Estado real del catálogo del tenant (los 15 de SDP): nombre + categoría de
