@@ -72,10 +72,14 @@ export interface Ticket {
   comments?: TicketComment[];
   /** subtareas / checklist (pestaña Tareas). */
   tasks?: TicketTask[];
+  /** registro de tiempo trabajado (pestaña Tiempo). */
+  worklog?: WorkEntry[];
 }
 
 export interface TicketComment { author: string; authorName: string; at: number; text: string; internal?: boolean }
-export interface TicketTask { id: string; text: string; done: boolean }
+export interface TicketTask { id: string; text: string; done: boolean; assigneeUid?: string | null; dueAt?: number | null; type?: string }
+/** Registro de tiempo trabajado en un ticket (alimenta la capacidad del técnico). */
+export interface WorkEntry { id: string; techUid: string; techName: string; mins: number; at: number; note?: string }
 
 // ---------------------------------------------------------------------------
 // Ciclos de vida y SLA

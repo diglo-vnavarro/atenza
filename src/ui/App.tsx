@@ -34,6 +34,8 @@ function richToText(html: string): string {
 }
 const initials = (n: string) => n.replace(/\(.*?\)/g, '').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 const fmtMins = (m: number) => (m >= 1440 ? Math.round(m / 1440) + 'd' : m >= 60 ? Math.round(m / 60) + 'h' : m + 'm');
+/** Duración exacta para el registro de tiempo: 90→"1h 30m", 45→"45m", 120→"2h". */
+const fmtDur = (m: number) => { const h = Math.floor(m / 60), mm = m % 60; return h && mm ? `${h}h ${mm}m` : h ? `${h}h` : `${mm}m`; };
 function capState(c: Capacity): [string, string] {
   if (c.off) return ['off', 'De vacaciones'];
   const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0;
@@ -380,12 +382,19 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const addTask = useStore((s) => s.addTask);
   const toggleTask = useStore((s) => s.toggleTask);
   const moveTask = useStore((s) => s.moveTask);
+  const updateTask = useStore((s) => s.updateTask);
+  const addWorklog = useStore((s) => s.addWorklog);
   const setStatus = useStore((s) => s.setStatus);
-  const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'conversaciones'>('detalles');
+  const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'tiempo' | 'conversaciones'>('detalles');
   const [comment, setComment] = useState('');
   const [internal, setInternal] = useState(false);
   const [res, setRes] = useState(t.resolution ?? '');
   const [task, setTask] = useState('');
+  const [taskAssignee, setTaskAssignee] = useState('');
+  const [taskDue, setTaskDue] = useState('');
+  const [taskType, setTaskType] = useState('');
+  const [wlMins, setWlMins] = useState(30);
+  const [wlNote, setWlNote] = useState('');
 
   const lc = lifecycleOfTicket(tenant, t);
   const sv = statusView(tenant, t);
@@ -404,8 +413,10 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const pct = ss ? Math.min(100, Math.round((ss.consumedMins / ss.targetMins) * 100)) : 0;
   const paused = sv.timer === 'stop_timer';
   const [due, dueSev] = dueLabel(t.resolveDueAt);
-  const comments = t.comments ?? []; const tasks = t.tasks ?? [];
-  const TABS: [typeof tab, string, number][] = [['detalles', 'Detalles', 0], ['resolucion', 'Resolución', 0], ['historico', 'Histórico', (t.statusHistory ?? []).length], ['tareas', 'Tareas', tasks.length], ['conversaciones', 'Conversaciones', comments.length]];
+  const comments = t.comments ?? []; const tasks = t.tasks ?? []; const worklog = t.worklog ?? [];
+  const totalMins = worklog.reduce((a, w) => a + w.mins, 0);
+  const memberName = (uid?: string | null) => tenant.members.find((m) => m.uid === uid)?.name;
+  const TABS: [typeof tab, string, number][] = [['detalles', 'Detalles', 0], ['resolucion', 'Resolución', 0], ['historico', 'Histórico', (t.statusHistory ?? []).length], ['tareas', 'Tareas', tasks.length], ['tiempo', 'Tiempo', worklog.length], ['conversaciones', 'Conversaciones', comments.length]];
 
   return <div>
     <h3 style={{ fontSize: 16, marginBottom: 12 }}>{t.subject}</h3>
@@ -482,17 +493,54 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
       </div>; })}
     </div>}
 
-    {tab === 'tareas' && <div style={{ marginTop: 4 }}>
-      {tasks.length === 0 && <div className="empty">Sin tareas.</div>}
-      {tasks.length > 1 && <div style={{ fontSize: 11, color: 'var(--ink-faint)', margin: '2px 0 6px' }}>Más reciente primero · reordena con ↑↓</div>}
-      {tasks.map((k, i) => <div key={k.id} className="taskrow">
-        <input type="checkbox" checked={k.done} disabled={!canAct} onChange={() => toggleTask(t.id, k.id)} />
-        <span style={{ flex: 1, textDecoration: k.done ? 'line-through' : 'none', color: k.done ? 'var(--ink-faint)' : 'var(--ink)' }}>{k.text}</span>
-        {canAct && <span className="taskmv"><button className="xbtn" disabled={i === 0} onClick={() => moveTask(t.id, k.id, -1)} aria-label="Subir">↑</button><button className="xbtn" disabled={i === tasks.length - 1} onClick={() => moveTask(t.id, k.id, 1)} aria-label="Bajar">↓</button></span>}
-      </div>)}
-      {canAct && <div className="designer" style={{ borderTop: 'none', paddingTop: 4 }}>
-        <input style={{ flex: 1 }} value={task} onChange={(e) => setTask(e.target.value)} placeholder="Nueva tarea…" onKeyDown={(e) => { if (e.key === 'Enter' && task.trim()) { addTask(t.id, task); setTask(''); } }} />
-        <button className="primary" onClick={() => { if (task.trim()) { addTask(t.id, task); setTask(''); } }}>Añadir</button>
+    {tab === 'tareas' && (() => {
+      const techs = tenant.members.filter((m) => m.role === 'technician' || m.role === 'tenant_admin');
+      const taskTypes = tenant.picklists?.taskType ?? [];
+      const done = tasks.filter((k) => k.done).length;
+      const addNow = () => {
+        if (!task.trim()) return;
+        addTask(t.id, task, { assigneeUid: taskAssignee || undefined, dueAt: taskDue ? new Date(taskDue).getTime() : undefined, type: taskType || undefined });
+        setTask(''); setTaskAssignee(''); setTaskDue(''); setTaskType('');
+      };
+      return <div style={{ marginTop: 4 }}>
+        {tasks.length === 0 && <div className="empty">Sin tareas.</div>}
+        {tasks.length > 0 && <div style={{ fontSize: 11, color: 'var(--ink-faint)', margin: '2px 0 6px' }}>{done}/{tasks.length} completadas · más reciente primero</div>}
+        {tasks.map((k, i) => <div key={k.id} className="taskrow">
+          <input type="checkbox" checked={k.done} disabled={!canAct} onChange={() => toggleTask(t.id, k.id)} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <span style={{ textDecoration: k.done ? 'line-through' : 'none', color: k.done ? 'var(--ink-faint)' : 'var(--ink)' }}>{k.text}</span>
+            {(k.type || k.assigneeUid || k.dueAt) && <div className="taskmeta">
+              {k.type && <span className="tchip">{k.type}</span>}
+              {k.assigneeUid && <span className="tmeta">👤 {memberName(k.assigneeUid) ?? '—'}</span>}
+              {k.dueAt && <span className="tmeta" style={{ color: !k.done && k.dueAt < Date.now() ? 'var(--crit)' : undefined }}>📅 {fmtDate(k.dueAt)}</span>}
+            </div>}
+          </div>
+          {canAct && <span className="taskmv"><button className="xbtn" disabled={i === 0} onClick={() => moveTask(t.id, k.id, -1)} aria-label="Subir">↑</button><button className="xbtn" disabled={i === tasks.length - 1} onClick={() => moveTask(t.id, k.id, 1)} aria-label="Bajar">↓</button></span>}
+        </div>)}
+        {canAct && <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <input value={task} onChange={(e) => setTask(e.target.value)} placeholder="Nueva tarea…" onKeyDown={(e) => { if (e.key === 'Enter') addNow(); }} />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <select value={taskType} onChange={(e) => setTaskType(e.target.value)}><option value="">Tipo…</option>{taskTypes.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select>
+            <select value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}><option value="">Asignar a…</option>{techs.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select>
+            <input type="date" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} title="Vencimiento" />
+            <button className="primary" onClick={addNow} disabled={!task.trim()}>Añadir</button>
+          </div>
+        </div>}
+      </div>;
+    })()}
+
+    {tab === 'tiempo' && <div style={{ marginTop: 4 }}>
+      {worklog.length === 0 && <div className="empty">Sin tiempo registrado.</div>}
+      {worklog.length > 0 && <div style={{ fontSize: 11, color: 'var(--ink-faint)', margin: '2px 0 6px' }}>Total: <b style={{ color: 'var(--ink)' }}>{fmtDur(totalMins)}</b> en {worklog.length} {worklog.length === 1 ? 'registro' : 'registros'}</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{worklog.map((w) => <div key={w.id} className="wlrow">
+        <div><b>{fmtDur(w.mins)}</b> · {w.techName}{w.note && <span style={{ color: 'var(--ink-soft)' }}> — {w.note}</span>}</div>
+        <span className="comment-at">{fmtDate(w.at)}</span>
+      </div>)}</div>
+      {canAct && <div style={{ marginTop: 12, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input type="number" min={5} step={5} value={wlMins} onChange={(e) => setWlMins(Number(e.target.value))} style={{ width: 90 }} title="Minutos" />
+        <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>min</span>
+        <input style={{ flex: 1, minWidth: 160 }} value={wlNote} onChange={(e) => setWlNote(e.target.value)} placeholder="Nota (opcional)…" />
+        <button className="primary" onClick={() => { addWorklog(t.id, wlMins, wlNote, meName); setWlNote(''); setWlMins(30); }} disabled={!wlMins || wlMins <= 0}>Registrar tiempo</button>
       </div>}
     </div>}
 

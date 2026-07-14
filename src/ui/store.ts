@@ -51,9 +51,11 @@ interface State {
   markAllNotifsRead: () => void;
   addComment: (ticketId: string, text: string, authorName: string, internal: boolean) => void;
   setResolution: (ticketId: string, text: string) => void;
-  addTask: (ticketId: string, text: string) => void;
+  addTask: (ticketId: string, text: string, opts?: { assigneeUid?: string | null; dueAt?: number | null; type?: string }) => void;
+  updateTask: (ticketId: string, taskId: string, patch: Partial<import('../model.js').TicketTask>) => void;
   toggleTask: (ticketId: string, taskId: string) => void;
   moveTask: (ticketId: string, taskId: string, dir: number) => void;
+  addWorklog: (ticketId: string, mins: number, note: string, techName: string) => void;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -321,11 +323,17 @@ export const useStore = create<State>()(
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, resolution: text } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { resolution: text }).catch(errlog);
         },
-        addTask: (ticketId, text) => {
+        addTask: (ticketId, text, opts) => {
           const body = text.trim(); if (!body) return;
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
           // nuevas tareas al principio (orden descendente: última creada, la primera).
-          const tasks = [{ id: 'tk-' + Date.now(), text: body, done: false }, ...(tk.tasks ?? [])];
+          const tasks = [{ id: 'tk-' + Date.now(), text: body, done: false, assigneeUid: opts?.assigneeUid ?? null, dueAt: opts?.dueAt ?? null, type: opts?.type }, ...(tk.tasks ?? [])];
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
+        },
+        updateTask: (ticketId, taskId, patch) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const tasks = (tk.tasks ?? []).map((k) => (k.id === taskId ? { ...k, ...patch } : k));
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
         },
@@ -342,6 +350,17 @@ export const useStore = create<State>()(
           [tasks[i], tasks[j]] = [tasks[j]!, tasks[i]!];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
+        },
+        // Registra tiempo en el ticket y suma a la capacidad del técnico (OrganiZate).
+        addWorklog: (ticketId, mins, note, techName) => {
+          if (!mins || mins <= 0) return;
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const techUid = s.currentUserId;
+          const worklog = [{ id: 'w-' + Date.now(), techUid, techName, mins, at: Date.now(), note: note.trim() || undefined }, ...(tk.worklog ?? [])];
+          const prev = t.capacity[techUid] ?? { used: 0, cap: 40 };
+          const capacity = { ...t.capacity, [techUid]: { ...prev, used: Math.round((prev.used + mins / 60) * 10) / 10 } };
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, capacity, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, worklog } : x)) })) }));
+          if (CLOUD) { void cloud.patchTicket(t.id, ticketId, { worklog }).catch(errlog); void cloud.patchTenantDoc(t.id, { capacity }).catch(errlog); }
         },
 
         addState: (label, category, stage) => {
@@ -491,6 +510,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v10', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v11', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );
