@@ -396,6 +396,9 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const requestApproval = useStore((s) => s.requestApproval);
   const decideApproval = useStore((s) => s.decideApproval);
   const autoAssign = useStore((s) => s.autoAssign);
+  const submitSurvey = useStore((s) => s.submitSurvey);
+  const [surveyRating, setSurveyRating] = useState(0);
+  const [surveyComment, setSurveyComment] = useState('');
   const uploadAttachment = useStore((s) => s.uploadAttachment);
   const removeAttachment = useStore((s) => s.removeAttachment);
   const meUid = useStore((s) => s.currentUserId);
@@ -469,6 +472,18 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
         <div className="slabar"><span style={{ width: pct + '%', background: ss.breached ? 'var(--crit)' : paused ? 'var(--warn)' : 'var(--ok)' }} /></div>
       </div>}
       {t.description && <div className="desc" style={{ whiteSpace: 'pre-wrap' }}>{richToText(t.description)}</div>}
+      {isClosingStatus(tenant.statuses, t.status) && (t.survey
+        ? <div className="survey-box"><div className="k">Satisfacción (CSAT)</div>
+            <div className="stars ro">{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= t.survey!.rating ? 'on' : ''}>★</span>)}<b style={{ marginLeft: 8 }}>{t.survey!.rating}/5</b></div>
+            {t.survey!.comment && <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 4 }}>{t.survey!.comment}</div>}
+          </div>
+        : t.requesterId === meUid
+          ? <div className="survey-box"><div className="k">¿Qué tal resolvimos tu solicitud?</div>
+              <div className="stars">{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= surveyRating ? 'on' : ''} onClick={() => setSurveyRating(n)}>★</span>)}</div>
+              <textarea rows={2} value={surveyComment} onChange={(e) => setSurveyComment(e.target.value)} placeholder="Comentario (opcional)…" style={{ width: '100%', marginTop: 6 }} />
+              <button className="primary" style={{ marginTop: 6 }} disabled={!surveyRating} onClick={() => submitSurvey(t.id, surveyRating, surveyComment)}>Enviar valoración</button>
+            </div>
+          : null)}
       {canAct && <>
         {nexts.length > 0 && <>
           <div className="section-t">Mover a <span className="pill">según flujo</span></div>

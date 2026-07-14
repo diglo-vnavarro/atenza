@@ -78,7 +78,12 @@ export interface Ticket {
   approvals?: Approval[];
   /** ficheros adjuntos (pestaña Adjuntos). */
   attachments?: Attachment[];
+  /** encuesta de satisfacción del solicitante al cierre. */
+  survey?: Survey;
 }
+
+/** Encuesta de satisfacción (CSAT): valoración 1–5 del solicitante al resolverse. */
+export interface Survey { rating: number; comment?: string; at: number }
 
 /** Fichero adjunto. En la nube vive en Storage (`path`+`url`); en local va inline
  *  como data URL (`dataUrl`) para que la demo funcione sin backend. */

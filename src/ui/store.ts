@@ -75,6 +75,7 @@ interface State {
   saveKbArticle: (a: import('../kb.js').KbArticle) => void;
   removeKbArticle: (id: string) => void;
   viewKbArticle: (id: string) => void;
+  submitSurvey: (ticketId: string, rating: number, comment: string) => void;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -510,6 +511,13 @@ export const useStore = create<State>()(
         viewKbArticle: (id) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, kbArticles: (t.kbArticles ?? []).map((x) => (x.id === id ? { ...x, views: (x.views ?? 0) + 1 } : x)) })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { kbArticles: t.kbArticles ?? [] }).catch(errlog); }
+        },
+        submitSurvey: (ticketId, rating, comment) => {
+          if (rating < 1 || rating > 5) return;
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const survey = { rating, comment: comment.trim() || undefined, at: Date.now() };
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, survey } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { survey }).catch(errlog);
         },
         // Auto-asigna al técnico MENOS cargado (OrganiZate) del grupo del ticket.
         autoAssign: (ticketId) => {
