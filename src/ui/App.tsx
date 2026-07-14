@@ -10,7 +10,7 @@ import { Login } from './Login.js';
 import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
 import type { SlaCategory, Stage, Template, FieldDef, FieldType } from '../model.js';
-import type { TenantData, StoredTicket, UiMember, Capacity, Picklists, PickVal } from '../data/seed.js';
+import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
   in_progress: ['En curso', 'var(--ok)', 'var(--ok-bg)'],
@@ -56,6 +56,15 @@ function statusView(tenant: TenantData, t: StoredTicket): { label: string; timer
 const timerOfTenant = (tenant: TenantData) => (name: string) => (tenant.statuses ?? []).find((x) => x.name === name)?.timer;
 /** Calendario laboral del tenant para el SLA por horario (o undefined = 24×7). */
 const calOf = (tenant: TenantData) => tenant.businessHours ? { ...tenant.businessHours, holidays: tenant.holidays ?? [] } : undefined;
+/** Capacidades (permisos de app) del usuario: del rol granular si lo tiene, si no
+ *  las por defecto de su nivel base. El superadmin tiene todas. */
+function capsOf(tenant: TenantData, uid: string, platformAdmin: boolean): Cap[] {
+  if (platformAdmin) return DEFAULT_CAPS.tenant_admin;
+  const m = tenant.members.find((x) => x.uid === uid);
+  if (!m) return [];
+  const rd = m.roleName ? (tenant.roles ?? []).find((r) => r.name === m.roleName) : undefined;
+  return rd?.caps ?? DEFAULT_CAPS[rd?.base ?? m.role];
+}
 
 // Prioridad desde el catálogo (con color). Fallback a valores legacy high/med/low.
 const LEGACY_PRI: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
@@ -125,6 +134,8 @@ export function App() {
   if (!tenant) return card('Sin datos.');
 
   const isReq = role === 'requester';
+  const caps = capsOf(tenant, effectiveUserId, !!user.platformAdmin);
+  const canManageConfig = caps.includes('manageConfig');
   const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'admin' = isReq ? 'requests' : view;
   const openCount = tenant.tickets.length;
   const myAssignedCount = tenant.tickets.filter((t) => t.technicianId === effectiveUserId).length;
@@ -176,7 +187,7 @@ export function App() {
               <span className="ml-l">Mis solicitudes</span><span className="n">{myReqCount}</span></button>
           </div>
           <div className="side-bottom">
-            {role === 'tenant_admin' && <button className={'modlink' + (activeView === 'admin' ? ' on' : '')} onClick={() => setView('admin')}>
+            {canManageConfig && <button className={'modlink' + (activeView === 'admin' ? ' on' : '')} onClick={() => setView('admin')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 00-.1-1.1l2-1.5-2-3.4-2.3 1a7 7 0 00-1.9-1.1L14.3 2h-4l-.4 2.3a7 7 0 00-1.9 1.1l-2.3-1-2 3.4 2 1.5A7 7 0 005.6 12c0 .4 0 .7.1 1.1l-2 1.5 2 3.4 2.3-1c.6.5 1.2.8 1.9 1.1l.4 2.4h4l.4-2.4c.7-.3 1.3-.6 1.9-1.1l2.3 1 2-3.4-2-1.5c.1-.4.1-.7.1-1.1z" /></svg>
               <span className="ml-l">Administración</span></button>}
             <div className="foot">
@@ -190,7 +201,7 @@ export function App() {
           {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" />}
           {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" />}
           {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" />}
-          {activeView === 'admin' && role === 'tenant_admin' && <AdminConfig tenant={tenant} />}
+          {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
         </main>
       </div>
 
@@ -655,13 +666,13 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
-  ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
+  ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -690,6 +701,34 @@ function StatusAdmin({ tenant }: { tenant: TenantData }) {
         <input style={{ flex: 1, minWidth: 120 }} value={nn} onChange={(e) => setNn(e.target.value)} placeholder="Nuevo estado…" />
         <select value={nt} onChange={(e) => setNt(e.target.value as SlaCategory)}>{groups.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <button className="primary" onClick={() => { if (nn.trim() && !list.some((s) => s.name === nn.trim())) { commit([...list, { name: nn.trim(), timer: nt, color: '#4f46e5' }]); setNn(''); } }}>＋ Estado</button>
+      </div>
+    </div>
+  </>;
+}
+
+// Roles y capacidades: nivel base (gobierna reglas) + capacidades de app.
+const ROLE_BASES: [RoleBase, string][] = [['tenant_admin', 'Admin'], ['technician', 'Técnico'], ['requester', 'Solicitante']];
+function RolesAdmin({ tenant }: { tenant: TenantData }) {
+  const setRoles = useStore((s) => s.setRoles);
+  const roles = tenant.roles ?? [];
+  const [nn, setNn] = useState(''); const [nb, setNb] = useState<RoleBase>('technician');
+  const commit = (next: RoleDef[]) => setRoles(next);
+  const toggleCap = (i: number, cap: Cap) => { const r = roles[i]!; const cur = r.caps ?? DEFAULT_CAPS[r.base]; const caps = cur.includes(cap) ? cur.filter((c) => c !== cap) : [...cur, cap]; commit(roles.map((x, idx) => (idx === i ? { ...x, caps } : x))); };
+  return <>
+    <div className="banner" style={{ marginBottom: 14 }}>Cada rol tiene un <b>nivel base</b> (Admin/Técnico/Solicitante) que gobierna el acceso en <b>servidor</b> (reglas de Firestore) y unas <b>capacidades</b> que gobiernan la app. <span style={{ color: 'var(--ink-faint)' }}>El enforcement fino en servidor (por capacidad) es un endurecimiento posterior.</span></div>
+    <div className="card" style={{ overflowX: 'auto' }}>
+      <table className="mgmt"><thead><tr><th>Rol</th><th style={{ width: 130 }}>Nivel base</th><th>Capacidades</th><th style={{ width: 44 }} /></tr></thead>
+        <tbody>{roles.map((r, i) => { const active = r.caps ?? DEFAULT_CAPS[r.base]; return <tr key={r.name}>
+          <td style={{ fontWeight: 600 }}>{r.name}</td>
+          <td><select className="cell-in" value={r.base} onChange={(e) => commit(roles.map((x, idx) => (idx === i ? { ...x, base: e.target.value as RoleBase } : x)))}>{ROLE_BASES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></td>
+          <td><div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>{CAP_LIST.map(([c, l]) => <button key={c} className={'chipsel' + (active.includes(c) ? ' on' : '')} onClick={() => toggleCap(i, c)}>{l}</button>)}</div></td>
+          <td><button className="xbtn" onClick={() => commit(roles.filter((_, idx) => idx !== i))} aria-label="Eliminar">✕</button></td>
+        </tr>; })}</tbody>
+      </table>
+      <div className="designer">
+        <input style={{ flex: 1, minWidth: 140 }} value={nn} onChange={(e) => setNn(e.target.value)} placeholder="Nuevo rol…" />
+        <select value={nb} onChange={(e) => setNb(e.target.value as RoleBase)}>{ROLE_BASES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+        <button className="primary" onClick={() => { if (nn.trim() && !roles.some((r) => r.name === nn.trim())) { commit([...roles, { name: nn.trim(), base: nb }]); setNn(''); } }}>＋ Rol</button>
       </div>
     </div>
   </>;
@@ -883,6 +922,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
     {sec === 'estado' && <StatusAdmin tenant={tenant} />}
     {sec === 'valores' && <ValuesAdmin tenant={tenant} />}
+    {sec === 'roles' && <RolesAdmin tenant={tenant} />}
     {sec === 'matriz' && <MatrixAdmin tenant={tenant} />}
     {sec === 'horario' && <CalendarAdmin tenant={tenant} />}
     {sec === 'maestros' && <MasterDataAdmin tenant={tenant} />}
@@ -954,9 +994,14 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
           <span className="sdot" style={{ background: m.color }} />
           <span style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 13 }}>{m.name}</b> <span style={{ color: 'var(--ink-soft)', fontSize: 12 }}>{m.email}</span>{m.external && <span className="pill" style={{ marginLeft: 6 }}>externo</span>}</span>
           {ugOptions.length > 0 && <button className="ghost" style={{ fontSize: 11.5 }} onClick={() => setOpenUg(openUg === m.uid ? null : m.uid)}>grupos ({(m.userGroups ?? []).length})</button>}
-          <select value={m.role} onChange={(e) => updateMember(m.uid, { role: e.target.value as Role })} style={{ fontSize: 12 }}>
-            {(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
-          </select>
+          {(tenant.roles ?? []).length > 0
+            ? <select value={m.roleName ?? ''} onChange={(e) => { const rd = (tenant.roles ?? []).find((r) => r.name === e.target.value); if (rd) updateMember(m.uid, { roleName: rd.name, role: rd.base }); }} style={{ fontSize: 12 }} title={'Nivel: ' + roleLabel[m.role]}>
+                <option value="">{roleLabel[m.role]} (base)</option>
+                {(tenant.roles ?? []).map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
+              </select>
+            : <select value={m.role} onChange={(e) => updateMember(m.uid, { role: e.target.value as Role })} style={{ fontSize: 12 }}>
+                {(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
+              </select>}
           <select value={m.status} onChange={(e) => updateMember(m.uid, { status: e.target.value as UiMember['status'] })} style={{ fontSize: 12 }}>
             {['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
           </select>
