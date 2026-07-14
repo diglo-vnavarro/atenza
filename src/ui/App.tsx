@@ -802,13 +802,13 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
-  ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
+  ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Asignación automática', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1068,6 +1068,40 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'miembros' && <MembersAdmin tenant={tenant} />}
     {sec === 'cierre' && <ClosureAdmin tenant={tenant} />}
     {sec === 'respuestas' && <ReplyTemplatesAdmin tenant={tenant} />}
+    {sec === 'traspaso' && <EnablementAdmin tenant={tenant} />}
+  </div>;
+}
+
+function EnablementAdmin({ tenant }: { tenant: TenantData }) {
+  const setMembersEnabled = useStore((s) => s.setMembersEnabled);
+  const updateMember = useStore((s) => s.updateMember);
+  const [q, setQ] = useState('');
+  const [grp, setGrp] = useState('');
+  const members = tenant.members;
+  const enabled = members.filter((m) => m.enabled).length;
+  const pct = members.length ? Math.round((enabled / members.length) * 100) : 0;
+  const groupMembers = (gid: string) => members.filter((m) => (m.groupIds ?? []).includes(gid));
+  const shown = members.filter((m) => !q || (m.name + ' ' + m.email).toLowerCase().includes(q.toLowerCase()));
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Marca quién trabaja ya en Atenza. Durante la convivencia el resto sigue en SDP; esta habilitación prepara el corte escalonado (por persona o por grupo de soporte). No cambia dónde llega el correo — eso es el hito de correo entrante, por instancia.</p>
+    <div className="enab-bar"><span style={{ width: pct + '%' }} /></div>
+    <div style={{ fontSize: 13, margin: '6px 0 16px', color: 'var(--ink-soft)' }}><b style={{ color: 'var(--ink)' }}>{enabled}</b> / {members.length} habilitados en Atenza · {pct}%</div>
+
+    <div className="enab-bulk">
+      <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Habilitar por grupo de soporte:</span>
+      <select value={grp} onChange={(e) => setGrp(e.target.value)}><option value="">Grupo…</option>{tenant.groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({groupMembers(g.id).length})</option>)}</select>
+      <button className="primary" disabled={!grp} onClick={() => setMembersEnabled(groupMembers(grp).map((m) => m.uid), true)}>Habilitar grupo</button>
+      <button className="xbtn" disabled={!grp} onClick={() => setMembersEnabled(groupMembers(grp).map((m) => m.uid), false)}>Deshabilitar grupo</button>
+    </div>
+
+    <input style={{ width: '100%', margin: '12px 0 8px' }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar persona…" />
+    <div style={{ maxHeight: 420, overflow: 'auto' }}><table className="mgmt"><thead><tr><th>Persona</th><th>Rol</th><th>Grupos</th><th style={{ textAlign: 'right' }}>En Atenza</th></tr></thead>
+      <tbody>{shown.map((m) => <tr key={m.uid}>
+        <td><div className="who"><Avatar m={m} /><span><span className="nm">{m.name}</span><span style={{ display: 'block', fontSize: 11, color: 'var(--ink-faint)' }}>{m.email}</span></span></div></td>
+        <td style={{ fontSize: 12 }}>{m.roleName ?? m.role}</td>
+        <td style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{(m.groupIds ?? []).map((gid) => tenant.groups.find((g) => g.id === gid)?.name).filter(Boolean).join(', ') || '—'}</td>
+        <td style={{ textAlign: 'right' }}><label className="switch"><input type="checkbox" checked={!!m.enabled} onChange={(e) => updateMember(m.uid, { enabled: e.target.checked })} /><span className="track" /></label></td>
+      </tr>)}</tbody></table></div>
   </div>;
 }
 

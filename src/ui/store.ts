@@ -87,6 +87,7 @@ interface State {
   removeGroup: (id: string) => void;
   addMember: (name: string, email: string, role: Role, external: boolean) => void;
   updateMember: (uid: string, patch: Partial<UiMember>) => void;
+  setMembersEnabled: (uids: string[], enabled: boolean) => void;
   removeMember: (uid: string) => void;
   importSnapshot: (snap: ImportSnapshot) => void;
 }
@@ -577,6 +578,12 @@ export const useStore = create<State>()(
         updateMember: (uid, patch) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.map((x) => (x.uid === uid ? { ...x, ...patch } : x)) })) }));
           if (CLOUD) { const t = activeT(get()); const m = t?.members.find((x) => x.uid === uid); if (t && m) void cloud.writeMember(t.id, m).catch(errlog); }
+        },
+        // Habilitación escalonada de traspaso a Atenza (varios miembros a la vez).
+        setMembersEnabled: (uids, enabled) => {
+          const ids = new Set(uids);
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.map((x) => (ids.has(x.uid) ? { ...x, enabled } : x)) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) for (const m of t.members) if (ids.has(m.uid)) void cloud.writeMember(t.id, m).catch(errlog); }
         },
         removeMember: (uid) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.filter((x) => x.uid !== uid) })) }));

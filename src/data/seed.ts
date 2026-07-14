@@ -120,6 +120,9 @@ export interface UiMember {
   /** datos maestros del solicitante. */
   site?: string;
   department?: string;
+  /** traspaso escalonado: true = habilitado para trabajar en Atenza (si no, sigue en SDP).
+   *  En la fase de convivencia es informativo/preparatorio; gobierna el corte cuando llegue. */
+  enabled?: boolean;
 }
 export interface Capacity { used: number; cap: number; off?: string }
 export interface Group { id: string; name: string }

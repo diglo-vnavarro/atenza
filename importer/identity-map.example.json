@@ -1,0 +1,4 @@
+{
+  "_comment": "Reconciliación de identidades SDP → Firebase. Copia este fichero a identity-map.json (gitignored) y añade una entrada por cada persona ya dada de alta en Atenza cuyo uid de SDP deba fusionarse con su cuenta real. La clave es el uid de SDP (id numérico del usuario en SDP); el valor es el uid de Firebase (Identity Platform). sync-tickets.ts remapea requesterId/technicianId con este mapa y NO recrea el miembro de referencia de SDP cuando ya está mapeado.",
+  "9207000000198722": "QzdANMSSOuTQJWF9h18gaV0TRwo2"
+}
