@@ -14,6 +14,28 @@ export const DEFAULT_NOTIF_RULES: NotifRule[] = [
   { event: 'sla_breach', requester: X, technician: SM, group: SM },
 ];
 
+// Catálogos de valores del "customizer" de SDP (nombre + color opcional).
+export interface PickVal { name: string; color?: string }
+export interface Picklists { priority: PickVal[]; impact: PickVal[]; urgency: PickVal[]; level: PickVal[]; mode: PickVal[]; requestType: PickVal[]; taskType: PickVal[] }
+export const SDP_PICKLISTS: Picklists = {
+  priority: [
+    { name: 'Critica', color: '#0d9696' }, { name: 'Alta', color: '#ff0000' }, { name: 'Importante', color: '#8f23eb' },
+    { name: 'Media', color: '#0c8e48' }, { name: 'Baja', color: '#666666' },
+  ],
+  impact: [{ name: 'Afecta a usuario' }, { name: 'Afecta a un grupo' }, { name: 'Afecta a departamento' }, { name: 'Afecta a negocio' }],
+  urgency: [{ name: 'Bajo' }, { name: 'Normal' }, { name: 'Alta' }, { name: 'Urgente' }],
+  level: [{ name: 'Nivel 1' }, { name: 'Nivel 2' }, { name: 'Nivel 3' }, { name: 'Nivel 4' }],
+  mode: [{ name: 'E-Mail' }, { name: 'Formulario Web' }, { name: 'Llamada telefonica' }, { name: 'Mobile Application' }],
+  requestType: [{ name: 'Incidencia' }, { name: 'Peticion de servicio' }, { name: 'Solicitud de información' }],
+  taskType: [
+    { name: 'BI', color: '#955d0f' }, { name: 'Implementation', color: '#999900' }, { name: 'Install/UnInstall', color: '#666666' },
+    { name: 'Interno', color: '#f02a2a' }, { name: 'Maintenance', color: '#ff6600' }, { name: 'NPL', color: '#697cf8' },
+    { name: 'PD / Operaciones', color: '#4047ff' }, { name: 'Planning', color: '#ff66cc' }, { name: 'Release', color: '#00ff00' },
+    { name: 'REO', color: '#f78718' }, { name: 'Replacement/Repair', color: '#ffff00' }, { name: 'Testing', color: '#990000' },
+    { name: 'Troubleshooting', color: '#00ffcc' },
+  ],
+};
+
 // Catálogo de los 15 estados reales de SDP (nombre · temporizador · color).
 export const SDP_STATUSES: StatusDef[] = [
   { name: 'Abierta', timer: 'in_progress', color: '#4bb11d', description: 'Solicitud abierta' },
@@ -58,6 +80,8 @@ export interface TenantData {
   categoryTree?: CatNode[];
   /** catálogo de estados reales (nombre · temporizador · color). */
   statuses?: StatusDef[];
+  /** catálogos de valores (prioridad, impacto, urgencia, nivel, modo, tipos). */
+  picklists?: Picklists;
   /** reglas de notificación (evento → canal por destinatario). */
   notifRules?: NotifRule[];
   /** avisos en pantalla (por destinatario); en la nube es una colección. */
@@ -200,7 +224,7 @@ const itSlas: Sla[] = [
   { id: 'sla-med', name: 'Media (Medium)', responseMins: 60, resolveMins: 360 },
   { id: 'sla-low', name: 'Baja (Low)', responseMins: 240, resolveMins: 2880 },
 ];
-export const SLA_BY_PRIORITY: Record<string, string> = { high: 'sla-high', medium: 'sla-med', low: 'sla-low' };
+export const SLA_BY_PRIORITY: Record<string, string> = { Critica: 'sla-high', Alta: 'sla-high', Importante: 'sla-med', Media: 'sla-med', Baja: 'sla-low' };
 
 const MIN = 60000;
 const seg = (state: string, agoMinFrom: number, agoMinTo: number | null, now: number): StatusSegment =>
@@ -222,7 +246,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -230,8 +254,8 @@ export function makeSeed(now: number): DB {
     },
     counter: 2042,
     tickets: [
-      { type: 'incident', subject: 'VPN caída en la oficina de Madrid', description: 'Varios usuarios no pueden conectar a la VPN desde esta mañana.', requesterId: 'u-laura', technicianId: null, groupId: 'g-red', category: 'Red', priority: 'high', impact: 'department', templateId: 'tpl-inc', status: 'open', slaId: 'sla-high', statusHistory: [seg('open', 90, null, now)] },
-      { type: 'incident', subject: 'Portátil no arranca tras actualización', description: 'Pantalla azul tras la actualización de Windows.', requesterId: 'u-laura', technicianId: 'u-elena', groupId: 'g-n1', category: 'Hardware', priority: 'medium', impact: 'user', templateId: 'tpl-inc', status: 'p_user', slaId: 'sla-med', statusHistory: [seg('open', 300, 260, now), seg('working', 260, 180, now), seg('p_user', 180, null, now)] },
+      { type: 'incident', subject: 'VPN caída en la oficina de Madrid', description: 'Varios usuarios no pueden conectar a la VPN desde esta mañana.', requesterId: 'u-laura', technicianId: null, groupId: 'g-red', category: 'Red', priority: 'Alta', impact: 'Afecta a departamento', urgency: 'Alta', mode: 'Llamada telefonica', templateId: 'tpl-inc', status: 'open', slaId: 'sla-high', statusHistory: [seg('open', 90, null, now)] },
+      { type: 'incident', subject: 'Portátil no arranca tras actualización', description: 'Pantalla azul tras la actualización de Windows.', requesterId: 'u-laura', technicianId: 'u-elena', groupId: 'g-n1', category: 'Hardware', priority: 'Media', impact: 'Afecta a usuario', urgency: 'Normal', mode: 'Formulario Web', templateId: 'tpl-inc', status: 'p_user', slaId: 'sla-med', statusHistory: [seg('open', 300, 260, now), seg('working', 260, 180, now), seg('p_user', 180, null, now)] },
     ].map((t, i) => ({ ...t, id: 'INC-' + (2039 + i) } as Ticket & { id: string })),
   };
 
@@ -246,11 +270,11 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [
-      { type: 'service_request', subject: 'Cambio de datos de facturación', description: 'Actualizar CIF y dirección fiscal.', requesterId: 'u-cli', technicianId: 'u-javier', groupId: 'g-lea', category: 'Facturación', priority: 'medium', impact: 'user', templateId: 'tpl-lea', status: 'working', slaId: 'sla-med', statusHistory: [seg('received', 200, 160, now), seg('working', 160, null, now)] } as Ticket,
+      { type: 'service_request', subject: 'Cambio de datos de facturación', description: 'Actualizar CIF y dirección fiscal.', requesterId: 'u-cli', technicianId: 'u-javier', groupId: 'g-lea', category: 'Facturación', priority: 'Media', impact: 'Afecta a usuario', urgency: 'Normal', mode: 'E-Mail', templateId: 'tpl-lea', status: 'working', slaId: 'sla-med', statusHistory: [seg('received', 200, 160, now), seg('working', 160, null, now)] } as Ticket,
     ].map((t) => ({ ...t, id: 'SR-0071' })),
   };
 

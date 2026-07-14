@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification } from '../model.js';
 import type { User } from '../access.js';
 import { canTransition, initialState } from '../lifecycle.js';
-import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode } from '../data/seed.js';
+import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
 
@@ -12,7 +12,8 @@ export type Role = 'tenant_admin' | 'technician' | 'requester';
 
 interface NewTicket {
   subject: string; description: string; category: string; subcategory?: string; item?: string;
-  priority: 'high' | 'medium' | 'low'; requesterId: string; technicianId?: string | null;
+  priority: string; impact?: string; urgency?: string; mode?: string; level?: string;
+  requesterId: string; technicianId?: string | null;
   templateId?: string;
 }
 
@@ -37,6 +38,7 @@ interface State {
   transition: (ticketId: string, to: string) => void;
   setStatus: (ticketId: string, statusName: string) => void;
   setStatuses: (list: StatusDef[]) => void;
+  setPicklist: (key: keyof Picklists, list: PickVal[]) => void;
   setNotifRules: (rules: NotifRule[]) => void;
   markNotifRead: (id: string) => void;
   markAllNotifsRead: () => void;
@@ -201,7 +203,8 @@ export const useStore = create<State>()(
             id, type: tpl?.type ?? 'incident', subject: nt.subject, description: nt.description,
             requesterId: nt.requesterId, technicianId: nt.technicianId ?? null, category: nt.category,
             subcategory: nt.subcategory, item: nt.item,
-            priority: nt.priority, templateId: tpl?.id ?? 'tpl-inc', status: init,
+            priority: nt.priority, impact: nt.impact, urgency: nt.urgency, mode: nt.mode, level: nt.level,
+            templateId: tpl?.id ?? 'tpl-inc', status: init,
             slaId: SLA_BY_PRIORITY[nt.priority] ?? null, statusHistory: [{ state: init, from: now, to: null }],
           };
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
@@ -247,6 +250,10 @@ export const useStore = create<State>()(
         setStatuses: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, statuses: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { statuses: list }).catch(errlog); }
+        },
+        setPicklist: (key, list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, picklists: { ...(t.picklists as Picklists), [key]: list } })) }));
+          if (CLOUD) { const t = activeT(get()); if (t?.picklists) void cloud.patchTenantDoc(t.id, { picklists: t.picklists }).catch(errlog); }
         },
         setNotifRules: (rules) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, notifRules: rules })) }));
@@ -449,6 +456,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v4', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v5', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

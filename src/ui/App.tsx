@@ -10,14 +10,13 @@ import { Login } from './Login.js';
 import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
 import type { SlaCategory, Stage, Template, FieldDef, FieldType } from '../model.js';
-import type { TenantData, StoredTicket, UiMember, Capacity } from '../data/seed.js';
+import type { TenantData, StoredTicket, UiMember, Capacity, Picklists, PickVal } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
   in_progress: ['En curso', 'var(--ok)', 'var(--ok-bg)'],
   stop_timer: ['Detener temporizador', 'var(--warn)', 'var(--warn-bg)'],
   completed: ['Completado', 'var(--st-closed)', 'var(--sink)'],
 };
-const PRI: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
 
 /** Convierte el rich-text HTML de SDP (estilos inline, imágenes de servlet) a
  *  texto limpio y legible. Las imágenes del servlet de SDP no cargan aquí → se
@@ -55,6 +54,16 @@ function statusView(tenant: TenantData, t: StoredTicket): { label: string; timer
 }
 /** Resolutor de temporizador por catálogo para el motor de SLA. */
 const timerOfTenant = (tenant: TenantData) => (name: string) => (tenant.statuses ?? []).find((x) => x.name === name)?.timer;
+
+// Prioridad desde el catálogo (con color). Fallback a valores legacy high/med/low.
+const LEGACY_PRI: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
+function priorityView(tenant: TenantData, name?: string): { label: string; color: string } {
+  const n = name ? (LEGACY_PRI[name] ?? name) : '';
+  const p = (tenant.picklists?.priority ?? []).find((x) => x.name === n);
+  if (p) return { label: p.name, color: p.color ?? 'var(--ink-soft)' };
+  return { label: n || '—', color: 'var(--ink-soft)' };
+}
+const badge = (label: string, color: string) => <span className="stbadge" style={{ color, background: `color-mix(in srgb, ${color} 15%, transparent)` }}>{label}</span>;
 
 export function App() {
   const db = useStore((s) => s.db);
@@ -309,7 +318,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope }:
               <td className="soft">{req?.name ?? '—'}</td>
               <td>{tech ? <span className="who"><Avatar m={tech} /> <span className="soft">{tech.name}</span></span> : <span className="soft">Sin asignar</span>}</td>
               <td className="soft">{tenant.groups.find((g) => g.id === t.groupId)?.name ?? '—'}</td>
-              <td><span className={'chip p-' + t.priority}>{PRI[t.priority ?? 'low']}</span></td>
+              <td>{badge(priorityView(tenant, t.priority).label, priorityView(tenant, t.priority).color)}</td>
               <td>{(() => { const sv = statusView(tenant, t); return <span className="stbadge" style={{ color: sv.color, background: `color-mix(in srgb, ${sv.color} 14%, transparent)` }}>{sv.label}</span>; })()}</td>
               <td className={sev === 'crit' ? 'sev-crit' : sev === 'warn' ? 'sev-warn' : 'soft'} style={{ fontSize: 12, fontWeight: 600 }}>{due}</td>
             </tr>;
@@ -335,7 +344,7 @@ function Kanban({ tenant, list, stLabel, onSelect, selectedId }:
   return <div className="kanban">{ordered.map(([label, items]) => <div key={label} className="kcol">
     <div className="kcol-h">{label} <span className="tabn">{items.length}</span></div>
     <div className="kcol-b">{items.map((t) => { const tech = tenant.members.find((m) => m.uid === t.technicianId); const [due, sev] = dueLabel(t.resolveDueAt); return <button key={t.id} className={'kcard' + (t.id === selectedId ? ' sel' : '')} onClick={() => onSelect(t.id)}>
-      <div className="kcard-top"><span className="id">{t.id}</span><span className={'chip p-' + t.priority}>{PRI[t.priority ?? 'low']}</span></div>
+      <div className="kcard-top"><span className="id">{t.id}</span>{badge(priorityView(tenant, t.priority).label, priorityView(tenant, t.priority).color)}</div>
       <div className="kcard-subj">{t.subject}</div>
       <div className="kcard-foot">{tech ? <Avatar m={tech} /> : <span className="av" style={{ background: 'var(--ink-faint)' }}>?</span>}<span className={sev === 'crit' ? 'sev-crit' : sev === 'warn' ? 'sev-warn' : 'soft'} style={{ fontSize: 11, marginLeft: 'auto', fontWeight: 600 }}>{due}</span></div>
     </button>; })}</div>
@@ -385,13 +394,16 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
 
     {tab === 'detalles' && <>
       <div className="facts">
-        <div><div className="k">Prioridad</div><span className={'chip p-' + t.priority}>{PRI[t.priority ?? 'low']}</span></div>
+        <div><div className="k">Prioridad</div>{badge(priorityView(tenant, t.priority).label, priorityView(tenant, t.priority).color)}</div>
         <div><div className="k">Estado</div><span className="stbadge" style={{ color: sv.color, background: `color-mix(in srgb, ${sv.color} 15%, transparent)` }}>{sv.label}{sv.timer === 'stop_timer' ? ' · ⏸' : ''}</span></div>
         <div><div className="k">Solicitante</div><span style={{ fontSize: 13 }}>{req?.name ?? '—'}</span></div>
         <div><div className="k">Técnico</div><span style={{ fontSize: 13 }}>{tech?.name ?? 'Sin asignar'}</span></div>
         {group && <div><div className="k">Grupo</div><span style={{ fontSize: 13 }}>{group.name}</span></div>}
         {t.category && <div><div className="k">Categoría</div><span style={{ fontSize: 13 }}>{[t.category, t.subcategory, t.item].filter(Boolean).join(' › ')}</span></div>}
         <div><div className="k">Vencimiento</div><span className={dueSev === 'crit' ? 'sev-crit' : dueSev === 'warn' ? 'sev-warn' : ''} style={{ fontSize: 13, fontWeight: 600 }}>{due}</span></div>
+        {t.impact && <div><div className="k">Impacto</div><span style={{ fontSize: 13 }}>{t.impact}</span></div>}
+        {t.urgency && <div><div className="k">Urgencia</div><span style={{ fontSize: 13 }}>{t.urgency}</span></div>}
+        {t.mode && <div><div className="k">Modo</div><span style={{ fontSize: 13 }}>{t.mode}</span></div>}
       </div>
       {ss && <div style={{ marginTop: 12 }}>
         <div className="k">SLA de resolución {paused && '· ⏸ en pausa'}</div>
@@ -491,7 +503,11 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
   const [item, setItem] = useState('');
   const catNode = tree.find((c) => c.name === category) ?? null;
   const subNode = catNode?.subs.find((s) => s.name === subcategory) ?? null;
-  const [priority, setPriority] = useState<'high' | 'medium' | 'low'>('medium');
+  const pls = tenant.picklists;
+  const [priority, setPriority] = useState(pls?.priority.some((p) => p.name === 'Media') ? 'Media' : pls?.priority[0]?.name ?? 'Media');
+  const [impact, setImpact] = useState('');
+  const [urgency, setUrgency] = useState('');
+  const [mode, setMode] = useState('');
   const [description, setDescription] = useState('');
   const requesters = tenant.members.filter((m) => m.role === 'requester');
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
@@ -507,7 +523,7 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
     const g = tplGroup(t); if (!groups.has(g)) groups.set(g, []); groups.get(g)!.push(t);
   }
   const grpList = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const submit = () => { if (!subject.trim() || !tpl) return; create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, requesterId, templateId: tpl.id }); onClose(); };
+  const submit = () => { if (!subject.trim() || !tpl) return; create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, impact: impact || undefined, urgency: urgency || undefined, mode: mode || undefined, requesterId, templateId: tpl.id }); onClose(); };
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -538,7 +554,10 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
             <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
             {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>}
             {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
-            <label>Prioridad<select value={priority} onChange={(e) => setPriority(e.target.value as 'high' | 'medium' | 'low')}><option value="high">Alta</option><option value="medium">Media</option><option value="low">Baja</option></select></label>
+            <label>Prioridad<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
+            {pls && pls.impact.length > 0 && <label>Impacto<select value={impact} onChange={(e) => setImpact(e.target.value)}><option value="">— Seleccionar —</option>{pls.impact.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
+            {pls && pls.urgency.length > 0 && <label>Urgencia<select value={urgency} onChange={(e) => setUrgency(e.target.value)}><option value="">— Seleccionar —</option>{pls.urgency.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
+            {role !== 'requester' && pls && pls.mode.length > 0 && <label>Modo<select value={mode} onChange={(e) => setMode(e.target.value)}><option value="">— Seleccionar —</option>{pls.mode.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
             {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
               <button className="primary" onClick={submit} disabled={!subject.trim()}>Crear solicitud</button>
@@ -612,12 +631,12 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', null], ['Horas operativas', null], ['Grupos de días festivos', null], ['Departamentos', null], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', null], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
-  ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad', null], ['Impacto', null], ['Urgencia', null], ['Campos adicionales', null]]],
+  ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -646,6 +665,38 @@ function StatusAdmin({ tenant }: { tenant: TenantData }) {
         <input style={{ flex: 1, minWidth: 120 }} value={nn} onChange={(e) => setNn(e.target.value)} placeholder="Nuevo estado…" />
         <select value={nt} onChange={(e) => setNt(e.target.value as SlaCategory)}>{groups.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <button className="primary" onClick={() => { if (nn.trim() && !list.some((s) => s.name === nn.trim())) { commit([...list, { name: nn.trim(), timer: nt, color: '#4f46e5' }]); setNn(''); } }}>＋ Estado</button>
+      </div>
+    </div>
+  </>;
+}
+
+// Catálogos de valores (customizer): Prioridad/Impacto/Urgencia/Nivel/Modo/Tipos.
+const VALUE_LISTS: [keyof Picklists, string, boolean][] = [
+  ['priority', 'Prioridad', true], ['impact', 'Impacto', false], ['urgency', 'Urgencia', false],
+  ['level', 'Nivel', false], ['mode', 'Modo', false], ['requestType', 'Tipo de solicitud', false], ['taskType', 'Tipo de tarea', true],
+];
+function ValuesAdmin({ tenant }: { tenant: TenantData }) {
+  const setPicklist = useStore((s) => s.setPicklist);
+  const [tab, setTab] = useState<keyof Picklists>('priority');
+  const list = tenant.picklists?.[tab] ?? [];
+  const hasColor = VALUE_LISTS.find((v) => v[0] === tab)?.[2];
+  const [nn, setNn] = useState('');
+  const commit = (next: PickVal[]) => setPicklist(tab, next);
+  return <>
+    <div className="banner" style={{ marginBottom: 14 }}>Catálogos de valores del servicio de asistencia. La <b>Prioridad</b> lleva color (se usa en los chips) y alimenta la <b>matriz de prioridades</b> (Impacto × Urgencia).</div>
+    <div className="tabs" style={{ marginBottom: 14 }}>{VALUE_LISTS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k); setNn(''); }}>{l}</button>)}</div>
+    <div className="card" style={{ overflow: 'hidden' }}>
+      <table className="mgmt"><thead><tr><th>Nombre</th>{hasColor && <th style={{ width: 90 }}>Color</th>}<th style={{ width: 50 }} /></tr></thead>
+        <tbody>{list.map((v, idx) => <tr key={idx}>
+          <td><input className="cell-in" value={v.name} onChange={(e) => commit(list.map((x, i) => (i === idx ? { ...x, name: e.target.value } : x)))} /></td>
+          {hasColor && <td><input type="color" className="colorin" value={v.color ?? '#4f46e5'} onChange={(e) => commit(list.map((x, i) => (i === idx ? { ...x, color: e.target.value } : x)))} /></td>}
+          <td><button className="xbtn" onClick={() => commit(list.filter((_, i) => i !== idx))} aria-label="Eliminar">✕</button></td>
+        </tr>)}
+          {list.length === 0 && <tr><td colSpan={3} className="empty">Sin valores.</td></tr>}</tbody>
+      </table>
+      <div className="designer">
+        <input style={{ flex: 1, minWidth: 140 }} value={nn} onChange={(e) => setNn(e.target.value)} placeholder="Nuevo valor…" onKeyDown={(e) => { if (e.key === 'Enter' && nn.trim() && !list.some((x) => x.name === nn.trim())) { commit([...list, hasColor ? { name: nn.trim(), color: '#4f46e5' } : { name: nn.trim() }]); setNn(''); } }} />
+        <button className="primary" onClick={() => { if (nn.trim() && !list.some((x) => x.name === nn.trim())) { commit([...list, hasColor ? { name: nn.trim(), color: '#4f46e5' } : { name: nn.trim() }]); setNn(''); } }}>＋ Valor</button>
       </div>
     </div>
   </>;
@@ -717,6 +768,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'plantillas' && <CatalogAdmin tenant={tenant} />}
     {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
     {sec === 'estado' && <StatusAdmin tenant={tenant} />}
+    {sec === 'valores' && <ValuesAdmin tenant={tenant} />}
     {sec === 'notif' && <NotifAdmin tenant={tenant} />}
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}

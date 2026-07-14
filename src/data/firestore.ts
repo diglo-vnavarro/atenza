@@ -16,7 +16,7 @@
 // ============================================================================
 import { getFirebaseApp } from '../firebase.js';
 import type { Lifecycle, Template, Sla, StatusDef, NotifRule, AppNotification } from '../model.js';
-import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode } from './seed.js';
+import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode, Picklists } from './seed.js';
 
 let _fs: Awaited<ReturnType<typeof loadFs>> | null = null;
 async function loadFs() {
@@ -27,7 +27,7 @@ async function loadFs() {
 async function fs() { return (_fs ??= await loadFs()); }
 
 // ---- config del tenant que vive en el doc raíz ----
-interface TenantDoc { name: string; key: string; active: boolean; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; notifRules?: NotifRule[]; capacity: Record<string, Capacity>; counter: number }
+interface TenantDoc { name: string; key: string; active: boolean; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; picklists?: Picklists; notifRules?: NotifRule[]; capacity: Record<string, Capacity>; counter: number }
 
 /** Rol del usuario en un tenant (para decidir el filtro de tickets al suscribir). */
 export async function getMemberRole(tid: string, uid: string): Promise<string | null> {
@@ -42,7 +42,7 @@ export async function seedTenantToFirestore(t: TenantData): Promise<void> {
   const { m, db } = await fs();
   const batch = m.writeBatch(db);
   const tRef = m.doc(db, 'tenants', t.id);
-  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, categories: t.categories, categoryTree: t.categoryTree ?? [], statuses: t.statuses ?? [], notifRules: t.notifRules ?? [], capacity: t.capacity, counter: t.counter };
+  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, categories: t.categories, categoryTree: t.categoryTree ?? [], statuses: t.statuses ?? [], picklists: t.picklists, notifRules: t.notifRules ?? [], capacity: t.capacity, counter: t.counter };
   batch.set(tRef, tdoc);
   for (const mem of t.members) batch.set(m.doc(db, `tenants/${t.id}/members`, mem.uid), mem);
   for (const tk of t.tickets) batch.set(m.doc(db, `tenants/${t.id}/tickets`, tk.id), tk);
@@ -90,7 +90,7 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
 
   subs.push(m.onSnapshot(m.doc(db, 'tenants', tid), (d) => {
     const t = d.data() as TenantDoc | undefined;
-    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.categories = t.categories ?? []; acc.categoryTree = t.categoryTree ?? []; acc.statuses = t.statuses ?? []; acc.notifRules = t.notifRules ?? []; acc.capacity = t.capacity ?? {}; acc.counter = t.counter ?? 1000; }
+    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.categories = t.categories ?? []; acc.categoryTree = t.categoryTree ?? []; acc.statuses = t.statuses ?? []; acc.picklists = t.picklists; acc.notifRules = t.notifRules ?? []; acc.capacity = t.capacity ?? {}; acc.counter = t.counter ?? 1000; }
     emit();
   }));
   subs.push(m.onSnapshot(col('members'), (s) => { acc.members = s.docs.map((d) => d.data() as UiMember); emit(); }));

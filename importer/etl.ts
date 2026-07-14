@@ -48,11 +48,10 @@ async function api(path: string): Promise<Record<string, unknown>> {
 }
 
 // ---- mapeos ----
+// Guarda el NOMBRE real de prioridad de SDP (Alta/Media/Baja/Critica/Importante).
+// Si SDP no la trae, por defecto 'Media'. La UI resuelve color por el catálogo.
 function mapPriority(name?: string | null): string {
-  const n = (name ?? '').toLowerCase();
-  if (/(alta|crit|urgen|high)/.test(n)) return 'high';
-  if (/(baja|low)/.test(n)) return 'low';
-  return 'medium';
+  return (name ?? '').trim() || 'Media';
 }
 // etiqueta de estado SDP -> key del estado del ciclo de la plantilla (si coincide)
 function statusKey(templateId: string, statusName: string): string {

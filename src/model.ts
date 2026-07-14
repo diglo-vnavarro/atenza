@@ -53,6 +53,9 @@ export interface Ticket {
   item?: string;
   priority?: string;
   impact?: string;
+  urgency?: string;
+  level?: string;
+  mode?: string;
   /** plantilla/tipología concreta (define ciclo de vida y SLA aplicables). */
   templateId: string;
   /** estado actual = clave de un estado del ciclo de vida (o texto libre si la plantilla no lleva flujo). */
