@@ -94,11 +94,34 @@ function ChipMulti({ options, selected, onChange }: { options: string[]; selecte
   </div>;
 }
 
+// Buscador global de la barra superior: encuentra tickets por id/asunto/solicitante/
+// técnico y los abre. Reemplaza al input decorativo de la maqueta.
+function GlobalSearch({ tenant, onOpen }: { tenant: TenantData; onOpen: (id: string) => void }) {
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const ql = q.trim().toLowerCase();
+  const nameOf = (uid?: string | null) => tenant.members.find((m) => m.uid === uid)?.name ?? '';
+  const results = ql ? tenant.tickets.filter((t) => `${t.id} ${t.subject} ${nameOf(t.requesterId)} ${nameOf(t.technicianId)}`.toLowerCase().includes(ql)).slice(0, 8) : [];
+  return <div className="gsearch">
+    <label className="searchbox">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
+      <input value={q} onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)} placeholder="Buscar solicitudes, personas…" aria-label="Buscar" />
+    </label>
+    {open && ql && <div className="gsearch-dd">
+      {results.length === 0 ? <div className="gsearch-empty">Sin resultados para «{q}».</div>
+        : results.map((t) => <button key={t.id} className="gsearch-item" onMouseDown={() => { onOpen(t.id); setQ(''); setOpen(false); }}>
+          <span className="mono gs-id">{t.id}</span><span className="gs-subj">{t.subject}</span><span className="gs-req">{nameOf(t.requesterId) || '—'}</span>
+        </button>)}
+    </div>}
+  </div>;
+}
+
 export function App() {
   const db = useStore((s) => s.db);
   const currentUserId = useStore((s) => s.currentUserId);
   const activeTenantId = useStore((s) => s.activeTenantId);
   const setUser = useStore((s) => s.setUser);
+  const select = useStore((s) => s.select);
   const setTenant = useStore((s) => s.setTenant);
   const cloudReady = useStore((s) => s.cloudReady);
   const hasAccess = useStore((s) => s.hasAccess);
@@ -115,7 +138,13 @@ export function App() {
 
   // Identidad: en la nube = uid del usuario autenticado (los docs de miembro van
   // keyados por ese uid); en local = selector de personas (demo).
-  const effectiveUserId = firebaseEnabled ? (authUser?.uid ?? '') : currentUserId;
+  const realUserId = firebaseEnabled ? (authUser?.uid ?? '') : currentUserId;
+  // Un admin puede "representar" a otro usuario: ve el portal como ese usuario en
+  // modo SOLO LECTURA (readOnly desactiva toda acción).
+  const impersonateUid = useStore((s) => s.impersonateUid);
+  const setImpersonate = useStore((s) => s.setImpersonate);
+  const readOnly = !!impersonateUid;
+  const effectiveUserId = impersonateUid ?? realUserId;
   const user = buildUser(db, effectiveUserId);
   const myTenants = tenantsForUser(db, user);
   const tenant = db.tenants.find((t) => t.id === activeTenantId) ?? myTenants[0] ?? db.tenants[0];
@@ -161,12 +190,9 @@ export function App() {
             {myTenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
         )}
-        <label className="searchbox">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg>
-          <input placeholder="Buscar solicitudes, personas…" aria-label="Buscar" />
-        </label>
+        <GlobalSearch tenant={tenant} onOpen={(id) => { select(id); setView(isReq ? 'requests' : 'tickets'); }} />
         <div className="spring" />
-        <button className="newtop" onClick={() => setShowNew(true)}>＋ Nueva solicitud</button>
+        {!readOnly && <button className="newtop" onClick={() => setShowNew(true)}>＋ Nueva solicitud</button>}
         <Bell tenant={tenant} meUid={effectiveUserId} />
         <button className="iconbtn" onClick={toggleTheme} title="Tema" aria-label="Cambiar tema">◐</button>
         {firebaseEnabled ? <>
@@ -180,6 +206,11 @@ export function App() {
         <span className="rolebadge">{role === 'tenant_admin' ? 'Admin' : role === 'technician' ? 'Técnico' : 'Solicitante'}</span>
       </div>
 
+      {readOnly && <div className="imp-banner">
+        <span>👁 Estás viendo el portal <b>como {displayMember?.name ?? effectiveUserId}</b> ({role === 'requester' ? 'Solicitante' : role === 'technician' ? 'Técnico' : 'Admin'}) · solo lectura</span>
+        <button className="ghost" onClick={() => { setImpersonate(null); setView('home'); }}>Salir de la representación</button>
+      </div>}
+
       <div className="shell">
         <aside className="side">
           <div className="side-top">
@@ -187,7 +218,7 @@ export function App() {
             {!isReq && <button className={'modlink' + (activeView === 'home' ? ' on' : '')} onClick={() => setView('home')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>
               <span className="ml-l">Inicio</span></button>}
-            {!isReq && <button className={'modlink' + (activeView === 'tickets' ? ' on' : '')} onClick={() => setView('tickets')}>
+            {!isReq && caps.includes('viewAllTickets') && <button className={'modlink' + (activeView === 'tickets' ? ' on' : '')} onClick={() => setView('tickets')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v16" /></svg>
               <span className="ml-l">Solicitudes</span><span className="n">{openCount}</span></button>}
             {!isReq && <button className={'modlink' + (activeView === 'assigned' ? ' on' : '')} onClick={() => setView('assigned')}>
@@ -216,11 +247,13 @@ export function App() {
             <div style={{ flex: 1 }}><b>{a.title}</b><div className="ann-b">{a.body}</div></div>
             <button className="xbtn" onClick={() => setDismissedAnn([...dismissedAnn, a.id])} aria-label="Descartar">✕</button>
           </div>)}
-          {activeView === 'home' && !isReq && <Dashboard tenant={tenant} user={user} go={(v, f) => { if (f) setFilter(f); setView(v); }} />}
-          {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" />}
-          {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" />}
-          {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" />}
-          {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester'} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
+          {activeView === 'home' && !isReq && (caps.includes('viewReports')
+            ? <Dashboard tenant={tenant} user={user} go={(v, f) => { if (f) setFilter(f); setView(v); }} />
+            : <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />)}
+          {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" caps={caps} readOnly={readOnly} />}
+          {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />}
+          {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" caps={caps} readOnly={readOnly} />}
+          {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester' && !readOnly} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
           {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
         </main>
       </div>
@@ -310,8 +343,8 @@ function dueLabel(ms?: number | null): [string, string] {
 }
 const fmtDate = (ms: number) => new Date(ms).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-function Workspace({ tenant, role, user, filter, setFilter, scope }:
-  { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: 'all' | 'unassigned' | 'mine'; setFilter: (f: 'all' | 'unassigned' | 'mine') => void; scope: 'queue' | 'assigned' | 'requester' }) {
+function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnly }:
+  { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; filter: 'all' | 'unassigned' | 'mine'; setFilter: (f: 'all' | 'unassigned' | 'mine') => void; scope: 'queue' | 'assigned' | 'requester'; caps: string[]; readOnly: boolean }) {
   const selectedId = useStore((s) => s.selectedTicketId);
   const select = useStore((s) => s.select);
   const [vw, setVw] = useState<'list' | 'kanban'>('list');
@@ -336,7 +369,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope }:
   const counts = { all: all.length, unassigned: all.filter((t) => !t.technicianId).length, mine: all.filter((t) => t.technicianId === user.uid).length };
   const tabs: [typeof filter, string][] = [['all', 'Todas'], ['unassigned', 'Sin asignar'], ['mine', 'Mías']];
   const title = scope === 'requester' ? 'Mis solicitudes' : scope === 'assigned' ? 'Asignadas a mí' : 'Solicitudes';
-  const canAct = scope !== 'requester' && role !== 'requester';
+  const canAct = scope !== 'requester' && role !== 'requester' && !readOnly;
   const meName = tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo';
 
   const stLabel = (t: StoredTicket) => statusView(tenant, t).label;
@@ -383,7 +416,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope }:
     {selected && <div className="scrim" onClick={() => select(null)}>
       <aside className="drawer detail" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Solicitud ' + selected.id}>
         <div className="drawer-h"><h2>{selected.id} · {selected.type === 'incident' ? 'Incidencia' : 'Solicitud'}</h2><button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button></div>
-        <div className="drawer-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} meName={meName} /></div>
+        <div className="drawer-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} caps={caps} readOnly={readOnly} meName={meName} meUid={user.uid} /></div>
       </aside>
     </div>}
   </>;
@@ -404,7 +437,10 @@ function Kanban({ tenant, list, stLabel, onSelect, selectedId }:
   </div>)}</div>;
 }
 
-function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: StoredTicket; canAct: boolean; meName: string }) {
+function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { tenant: TenantData; t: StoredTicket; canAct: boolean; caps: string[]; readOnly: boolean; meName: string; meUid: string }) {
+  const canAssign = canAct && caps.includes('assign');
+  const canChangeStatus = canAct && caps.includes('changeStatus');
+  const canClose = caps.includes('close');
   const transition = useStore((s) => s.transition);
   const assign = useStore((s) => s.assign);
   const addComment = useStore((s) => s.addComment);
@@ -422,7 +458,6 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const [surveyComment, setSurveyComment] = useState('');
   const uploadAttachment = useStore((s) => s.uploadAttachment);
   const removeAttachment = useStore((s) => s.removeAttachment);
-  const meUid = useStore((s) => s.currentUserId);
   const setStatus = useStore((s) => s.setStatus);
   const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'tiempo' | 'aprobaciones' | 'adjuntos' | 'conversaciones'>('detalles');
   const [comment, setComment] = useState('');
@@ -498,7 +533,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
             <div className="stars ro">{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= t.survey!.rating ? 'on' : ''}>★</span>)}<b style={{ marginLeft: 8 }}>{t.survey!.rating}/5</b></div>
             {t.survey!.comment && <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 4 }}>{t.survey!.comment}</div>}
           </div>
-        : t.requesterId === meUid
+        : t.requesterId === meUid && !readOnly
           ? <div className="survey-box"><div className="k">¿Qué tal resolvimos tu solicitud?</div>
               <div className="stars">{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= surveyRating ? 'on' : ''} onClick={() => setSurveyRating(n)}>★</span>)}</div>
               <textarea rows={2} value={surveyComment} onChange={(e) => setSurveyComment(e.target.value)} placeholder="Comentario (opcional)…" style={{ width: '100%', marginTop: 6 }} />
@@ -506,17 +541,20 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
             </div>
           : null)}
       {canAct && <>
-        {nexts.length > 0 && <>
+        {nexts.length > 0 && canChangeStatus && <>
           <div className="section-t">Mover a <span className="pill">según flujo</span></div>
           <div className="trbtns">{nexts.map((tr) => {
-            const blocked = isClosingStatus(tenant.statuses, tr.to) && closeMissing.length > 0;
-            return <button key={tr.id} className="trbtn" disabled={blocked} title={blocked ? `Falta: ${closeMissing.join(', ')}` : ''} onClick={() => { setCloseErr(''); transition(t.id, tr.to); }}>{stateOf(lc!, tr.to)?.label} →</button>;
+            const closing = isClosingStatus(tenant.statuses, tr.to);
+            const noClose = closing && !canClose;
+            const blocked = noClose || (closing && closeMissing.length > 0);
+            return <button key={tr.id} className="trbtn" disabled={blocked} title={noClose ? 'No tienes permiso para cerrar/resolver' : blocked ? `Falta: ${closeMissing.join(', ')}` : ''} onClick={() => { setCloseErr(''); transition(t.id, tr.to); }}>{stateOf(lc!, tr.to)?.label} →</button>;
           })}</div>
         </>}
-        {statuses.length > 0 && <>
+        {statuses.length > 0 && canChangeStatus && <>
           <div className="section-t">Cambiar estado</div>
           <select className="statussel" value={statuses.some((s) => s.name === t.status) ? t.status : ''} onChange={(e) => {
             const to = e.target.value; if (!to) return;
+            if (isClosingStatus(tenant.statuses, to) && !canClose) { setCloseErr('No tienes permiso para cerrar/resolver.'); return; }
             if (isClosingStatus(tenant.statuses, to) && closeMissing.length) { setCloseErr(`Para pasar a «${to}» falta: ${closeMissing.join(', ')}.`); return; }
             setCloseErr(''); setStatus(t.id, to);
           }}>
@@ -527,6 +565,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
           </select>
           {closeErr && <div className="closeerr">⚠ {closeErr}</div>}
         </>}
+        {canAssign && <>
         <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span>{scoped.length > 0 && group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}<button className="linkbtn" style={{ marginLeft: 'auto' }} onClick={() => autoAssign(t.id)} title="Asigna al técnico menos cargado del grupo">⚡ Auto-asignar</button></div>
         {techs.map((m) => {
           const c = tenant.capacity[m.uid] ?? { used: 0, cap: 40 };
@@ -539,6 +578,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
             <span className={'state ' + s}>{label}</span>
           </button>;
         })}
+        </>}
       </>}
     </>}
 
@@ -619,7 +659,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
         {approvals.length === 0 && <div className="empty">Sin solicitudes de aprobación.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{approvals.map((a) => {
           const [lbl, col] = APV[a.status] ?? APV.pending!;
-          const canDecide = a.status === 'pending' && a.approverUid === meUid;
+          const canDecide = a.status === 'pending' && a.approverUid === meUid && !readOnly;
           return <div key={a.id} className="approw">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
               <b>{a.approverName}</b>
@@ -683,11 +723,12 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
           <option value="">↳ Insertar respuesta predefinida…</option>
           {(tenant.replyTemplates ?? []).map((rt) => <option key={rt.id} value={rt.id}>{rt.title}</option>)}
         </select>}
+        {readOnly ? <div className="empty" style={{ fontSize: 12 }}>Modo lectura: no puedes comentar mientras representas a un usuario.</div> : <>
         <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} style={{ width: '100%' }} placeholder={canAct ? 'Escribe una respuesta o nota…' : 'Escribe un comentario…'} />
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 8 }}>
           <button className="primary" onClick={() => { addComment(t.id, comment, meName, canAct && internal); setComment(''); }} disabled={!comment.trim()}>Comentar</button>
           {canAct && <label style={{ fontSize: 12, color: 'var(--ink-soft)', display: 'flex', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={internal} onChange={(e) => setInternal(e.target.checked)} /> Nota interna</label>}
-        </div>
+        </div></>}
       </div>
     </div>}
   </div>;
@@ -1466,6 +1507,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
   const addMember = useStore((s) => s.addMember);
   const updateMember = useStore((s) => s.updateMember);
   const removeMember = useStore((s) => s.removeMember);
+  const setImpersonate = useStore((s) => s.setImpersonate);
   const [name, setName] = useState(''); const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('technician');
   const [openUg, setOpenUg] = useState<string | null>(null);
@@ -1492,6 +1534,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
           <select value={m.status} onChange={(e) => updateMember(m.uid, { status: e.target.value as UiMember['status'] })} style={{ fontSize: 12 }}>
             {['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
           </select>
+          <button className="ghost" title="Ver el portal como este usuario (solo lectura)" onClick={() => setImpersonate(m.uid)}>👁 Ver como</button>
           <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeMember(m.uid)}>🗑</button>
         </div>
         {openUg === m.uid && <div style={{ padding: '2px 0 10px 26px' }}><div className="k">Grupos de usuarios</div><ChipMulti options={ugOptions} selected={m.userGroups ?? []} onChange={(ug) => updateMember(m.uid, { userGroups: ug })} /></div>}

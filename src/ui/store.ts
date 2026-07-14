@@ -28,6 +28,8 @@ interface NewTicket {
 interface State {
   db: DB;
   currentUserId: string;
+  /** uid al que un admin "representa" (ver el portal como ese usuario, solo lectura). null = nadie. */
+  impersonateUid: string | null;
   activeTenantId: string;
   adminSec: string;
   adminLcIndex: number;
@@ -37,6 +39,7 @@ interface State {
   layouts: Record<string, Record<string, { x: number; y: number }>>;
   startCloud: (uid: string) => Promise<void>;
   setUser: (uid: string) => void;
+  setImpersonate: (uid: string | null) => void;
   setTenant: (id: string) => void;
   setAdminSec: (s: string) => void;
   setAdminLc: (i: number) => void;
@@ -228,6 +231,7 @@ export const useStore = create<State>()(
       return {
         db: seed,
         currentUserId: 'u-admin',
+        impersonateUid: null,
         activeTenantId: 'diglo-it',
         adminSec: 'lifecycle',
         adminLcIndex: 0,
@@ -257,6 +261,7 @@ export const useStore = create<State>()(
           const db = get().db; const u = buildUser(db, uid); const ts = tenantsForUser(db, u);
           set({ currentUserId: uid, selectedTicketId: null, activeTenantId: ts[0]?.id ?? get().activeTenantId });
         },
+        setImpersonate: (uid) => set({ impersonateUid: uid, selectedTicketId: null }),
         setTenant: (id) => set({ activeTenantId: id, selectedTicketId: null }),
         setAdminSec: (s) => set({ adminSec: s }),
         setAdminLc: (i) => set({ adminLcIndex: i }),
