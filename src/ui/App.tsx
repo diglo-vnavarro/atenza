@@ -9,7 +9,8 @@ import { useAuth, doSignOut } from '../auth/auth.js';
 import { Login } from './Login.js';
 import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
-import type { SlaCategory, Stage, Template, FieldDef, FieldType } from '../model.js';
+import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
+import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate } from '../model.js';
 import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
@@ -36,6 +37,7 @@ const initials = (n: string) => n.replace(/\(.*?\)/g, '').trim().split(/\s+/).sl
 const fmtMins = (m: number) => (m >= 1440 ? Math.round(m / 1440) + 'd' : m >= 60 ? Math.round(m / 60) + 'h' : m + 'm');
 /** Duración exacta para el registro de tiempo: 90→"1h 30m", 45→"45m", 120→"2h". */
 const fmtDur = (m: number) => { const h = Math.floor(m / 60), mm = m % 60; return h && mm ? `${h}h ${mm}m` : h ? `${h}h` : `${mm}m`; };
+const fmtSize = (b: number) => (b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : b >= 1024 ? Math.round(b / 1024) + ' KB' : b + ' B');
 function capState(c: Capacity): [string, string] {
   if (c.off) return ['off', 'De vacaciones'];
   const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0;
@@ -386,9 +388,11 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const addWorklog = useStore((s) => s.addWorklog);
   const requestApproval = useStore((s) => s.requestApproval);
   const decideApproval = useStore((s) => s.decideApproval);
+  const uploadAttachment = useStore((s) => s.uploadAttachment);
+  const removeAttachment = useStore((s) => s.removeAttachment);
   const meUid = useStore((s) => s.currentUserId);
   const setStatus = useStore((s) => s.setStatus);
-  const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'tiempo' | 'aprobaciones' | 'conversaciones'>('detalles');
+  const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'tiempo' | 'aprobaciones' | 'adjuntos' | 'conversaciones'>('detalles');
   const [comment, setComment] = useState('');
   const [internal, setInternal] = useState(false);
   const [res, setRes] = useState(t.resolution ?? '');
@@ -401,6 +405,8 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const [apprSel, setApprSel] = useState<string[]>([]);
   const [apprNote, setApprNote] = useState('');
   const [apprComment, setApprComment] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState(false);
+  const [closeErr, setCloseErr] = useState('');
 
   const lc = lifecycleOfTicket(tenant, t);
   const sv = statusView(tenant, t);
@@ -419,11 +425,12 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const pct = ss ? Math.min(100, Math.round((ss.consumedMins / ss.targetMins) * 100)) : 0;
   const paused = sv.timer === 'stop_timer';
   const [due, dueSev] = dueLabel(t.resolveDueAt);
-  const comments = t.comments ?? []; const tasks = t.tasks ?? []; const worklog = t.worklog ?? []; const approvals = t.approvals ?? [];
+  const comments = t.comments ?? []; const tasks = t.tasks ?? []; const worklog = t.worklog ?? []; const approvals = t.approvals ?? []; const attachments = t.attachments ?? [];
   const totalMins = worklog.reduce((a, w) => a + w.mins, 0);
   const pendingAppr = approvals.filter((a) => a.status === 'pending').length;
+  const closeMissing = closureBlockers(tenant.closureRules, t);
   const memberName = (uid?: string | null) => tenant.members.find((m) => m.uid === uid)?.name;
-  const TABS: [typeof tab, string, number][] = [['detalles', 'Detalles', 0], ['resolucion', 'Resolución', 0], ['historico', 'Histórico', (t.statusHistory ?? []).length], ['tareas', 'Tareas', tasks.length], ['tiempo', 'Tiempo', worklog.length], ['aprobaciones', 'Aprobaciones', pendingAppr], ['conversaciones', 'Conversaciones', comments.length]];
+  const TABS: [typeof tab, string, number][] = [['detalles', 'Detalles', 0], ['resolucion', 'Resolución', 0], ['historico', 'Histórico', (t.statusHistory ?? []).length], ['tareas', 'Tareas', tasks.length], ['tiempo', 'Tiempo', worklog.length], ['aprobaciones', 'Aprobaciones', pendingAppr], ['adjuntos', 'Adjuntos', attachments.length], ['conversaciones', 'Conversaciones', comments.length]];
 
   return <div>
     <h3 style={{ fontSize: 16, marginBottom: 12 }}>{t.subject}</h3>
@@ -457,16 +464,24 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
       {canAct && <>
         {nexts.length > 0 && <>
           <div className="section-t">Mover a <span className="pill">según flujo</span></div>
-          <div className="trbtns">{nexts.map((tr) => <button key={tr.id} className="trbtn" onClick={() => transition(t.id, tr.to)}>{stateOf(lc!, tr.to)?.label} →</button>)}</div>
+          <div className="trbtns">{nexts.map((tr) => {
+            const blocked = isClosingStatus(tenant.statuses, tr.to) && closeMissing.length > 0;
+            return <button key={tr.id} className="trbtn" disabled={blocked} title={blocked ? `Falta: ${closeMissing.join(', ')}` : ''} onClick={() => { setCloseErr(''); transition(t.id, tr.to); }}>{stateOf(lc!, tr.to)?.label} →</button>;
+          })}</div>
         </>}
         {statuses.length > 0 && <>
           <div className="section-t">Cambiar estado</div>
-          <select className="statussel" value={statuses.some((s) => s.name === t.status) ? t.status : ''} onChange={(e) => e.target.value && setStatus(t.id, e.target.value)}>
+          <select className="statussel" value={statuses.some((s) => s.name === t.status) ? t.status : ''} onChange={(e) => {
+            const to = e.target.value; if (!to) return;
+            if (isClosingStatus(tenant.statuses, to) && closeMissing.length) { setCloseErr(`Para pasar a «${to}» falta: ${closeMissing.join(', ')}.`); return; }
+            setCloseErr(''); setStatus(t.id, to);
+          }}>
             <option value="">— Selecciona estado —</option>
             {(['in_progress', 'stop_timer', 'completed'] as SlaCategory[]).map((g) => <optgroup key={g} label={CAT[g][0]}>
               {statuses.filter((s) => s.timer === g).map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}
             </optgroup>)}
           </select>
+          {closeErr && <div className="closeerr">⚠ {closeErr}</div>}
         </>}
         <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span>{scoped.length > 0 && group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}</div>
         {techs.map((m) => {
@@ -590,6 +605,27 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
       </div>;
     })()}
 
+    {tab === 'adjuntos' && <div style={{ marginTop: 4 }}>
+      {attachments.length === 0 && <div className="empty">Sin adjuntos.</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{attachments.map((a) => <div key={a.id} className="atrow">
+        <span className="atname">📎 {(a.url || a.dataUrl) ? <a href={a.url || a.dataUrl} download={a.name} target="_blank" rel="noreferrer">{a.name}</a> : a.name}</span>
+        <span className="atmeta">{fmtSize(a.size)} · {a.uploadedByName} · {fmtDate(a.at)}</span>
+        {canAct && <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => removeAttachment(t.id, a.id)} aria-label="Eliminar">✕</button>}
+      </div>)}</div>
+      {canAct && <div style={{ marginTop: 12 }}>
+        <label className="filebtn">
+          {uploading ? 'Subiendo…' : '＋ Añadir adjunto'}
+          <input type="file" style={{ display: 'none' }} disabled={uploading} onChange={async (e) => {
+            const f = e.target.files?.[0]; if (!f) return;
+            if (f.size > 10 * 1024 * 1024) { alert('El fichero supera 10 MB.'); e.target.value = ''; return; }
+            setUploading(true);
+            try { await uploadAttachment(t.id, f, meName); } finally { setUploading(false); e.target.value = ''; }
+          }} />
+        </label>
+        <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 6 }}>Máximo 10 MB por fichero.</div>
+      </div>}
+    </div>}
+
     {tab === 'conversaciones' && <div style={{ marginTop: 4 }}>
       {comments.length === 0 && <div className="empty">Sin conversación todavía.</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>{comments.map((c, i) => <div key={i} className="comment">
@@ -597,6 +633,12 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
         <div className="comment-b" style={{ whiteSpace: 'pre-wrap' }}>{c.text}</div>
       </div>)}</div>
       <div style={{ marginTop: 12 }}>
+        {canAct && (tenant.replyTemplates ?? []).length > 0 && <select className="statussel" style={{ marginBottom: 6 }} value="" onChange={(e) => {
+          const rt = (tenant.replyTemplates ?? []).find((x) => x.id === e.target.value); if (rt) setComment(comment ? comment + '\n\n' + rt.body : rt.body);
+        }}>
+          <option value="">↳ Insertar respuesta predefinida…</option>
+          {(tenant.replyTemplates ?? []).map((rt) => <option key={rt.id} value={rt.id}>{rt.title}</option>)}
+        </select>}
         <textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={3} style={{ width: '100%' }} placeholder={canAct ? 'Escribe una respuesta o nota…' : 'Escribe un comentario…'} />
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 8 }}>
           <button className="primary" onClick={() => { addComment(t.id, comment, meName, canAct && internal); setComment(''); }} disabled={!comment.trim()}>Comentar</button>
@@ -763,10 +805,10 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
-  ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
-  ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
+  ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Asignación automática', null], ['Flujos de trabajo', null]]],
+  ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1024,6 +1066,44 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}
     {sec === 'miembros' && <MembersAdmin tenant={tenant} />}
+    {sec === 'cierre' && <ClosureAdmin tenant={tenant} />}
+    {sec === 'respuestas' && <ReplyTemplatesAdmin tenant={tenant} />}
+  </div>;
+}
+
+function ClosureAdmin({ tenant }: { tenant: TenantData }) {
+  const setClosureRules = useStore((s) => s.setClosureRules);
+  const rules: ClosureRules = tenant.closureRules ?? {};
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Requisitos que un ticket debe cumplir antes de pasar a un estado <b>Completado</b> (Resuelta/Cerrada). No aplican a «Cancelada».</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {CLOSURE_RULE_LABELS.map(([key, label]) => <label key={key} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+        <input type="checkbox" checked={!!rules[key]} onChange={(e) => setClosureRules({ ...rules, [key]: e.target.checked })} />
+        {label}
+      </label>)}
+    </div>
+  </div>;
+}
+
+function ReplyTemplatesAdmin({ tenant }: { tenant: TenantData }) {
+  const setReplyTemplates = useStore((s) => s.setReplyTemplates);
+  const list = tenant.replyTemplates ?? [];
+  const upd = (id: string, patch: Partial<ReplyTemplate>) => setReplyTemplates(list.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const add = () => setReplyTemplates([...list, { id: 'rt-' + Date.now(), title: 'Nueva respuesta', body: '' }]);
+  const del = (id: string) => setReplyTemplates(list.filter((x) => x.id !== id));
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Textos reutilizables que el técnico inserta en el hilo de conversación.</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {list.length === 0 && <div className="empty">Sin respuestas predefinidas.</div>}
+      {list.map((rt) => <div key={rt.id} className="rt-card">
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input style={{ flex: 1, fontWeight: 600 }} value={rt.title} onChange={(e) => upd(rt.id, { title: e.target.value })} placeholder="Título" />
+          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => del(rt.id)} aria-label="Eliminar">✕</button>
+        </div>
+        <textarea rows={3} value={rt.body} onChange={(e) => upd(rt.id, { body: e.target.value })} placeholder="Texto de la respuesta…" style={{ width: '100%', marginTop: 6 }} />
+      </div>)}
+    </div>
+    <button className="primary" style={{ marginTop: 10 }} onClick={add}>＋ Añadir respuesta</button>
   </div>;
 }
 

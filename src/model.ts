@@ -76,7 +76,27 @@ export interface Ticket {
   worklog?: WorkEntry[];
   /** solicitudes de aprobación (pestaña Aprobaciones). */
   approvals?: Approval[];
+  /** ficheros adjuntos (pestaña Adjuntos). */
+  attachments?: Attachment[];
 }
+
+/** Fichero adjunto. En la nube vive en Storage (`path`+`url`); en local va inline
+ *  como data URL (`dataUrl`) para que la demo funcione sin backend. */
+export interface Attachment {
+  id: string;
+  name: string;
+  size: number;
+  contentType?: string;
+  path?: string;
+  url?: string;
+  dataUrl?: string;
+  uploadedBy: string;
+  uploadedByName: string;
+  at: number;
+}
+
+/** Respuesta predefinida (texto reutilizable que el técnico inserta en el hilo). */
+export interface ReplyTemplate { id: string; title: string; body: string }
 
 export interface TicketComment { author: string; authorName: string; at: number; text: string; internal?: boolean }
 export interface TicketTask { id: string; text: string; done: boolean; assigneeUid?: string | null; dueAt?: number | null; type?: string }

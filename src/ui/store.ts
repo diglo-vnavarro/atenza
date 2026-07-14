@@ -1,7 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification } from '../model.js';
+import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification, ReplyTemplate, Attachment } from '../model.js';
 import type { User } from '../access.js';
+import type { ClosureRules } from '../closure.js';
+import { isClosingStatus, closureBlockers } from '../closure.js';
 import { canTransition, initialState } from '../lifecycle.js';
 import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
@@ -58,6 +60,10 @@ interface State {
   addWorklog: (ticketId: string, mins: number, note: string, techName: string) => void;
   requestApproval: (ticketId: string, approverUids: string[], note: string) => void;
   decideApproval: (ticketId: string, approvalId: string, decision: 'approved' | 'rejected', comment: string) => void;
+  uploadAttachment: (ticketId: string, file: File, uploaderName: string) => Promise<void>;
+  removeAttachment: (ticketId: string, attId: string) => void;
+  setClosureRules: (rules: ClosureRules) => void;
+  setReplyTemplates: (list: ReplyTemplate[]) => void;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -256,6 +262,7 @@ export const useStore = create<State>()(
           const tk = t.tickets.find((x) => x.id === ticketId); if (!tk) return;
           const lc = lifecycleOfTicket(t, tk);
           if (!canTransition(lc, tk.status, to)) return;
+          if (isClosingStatus(t.statuses, to) && closureBlockers(t.closureRules, tk).length) return; // salvaguarda de reglas de cierre
           const now = Date.now();
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
@@ -265,6 +272,7 @@ export const useStore = create<State>()(
         // Cambio de estado directo al catálogo (sin exigir transición del ciclo).
         setStatus: (ticketId, to) => {
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk || tk.status === to) return;
+          if (isClosingStatus(t.statuses, to) && closureBlockers(t.closureRules, tk).length) return; // salvaguarda de reglas de cierre
           const now = Date.now();
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
@@ -408,6 +416,39 @@ export const useStore = create<State>()(
           const who = t.members.find((m) => m.uid === s.currentUserId)?.name ?? 'Un aprobador';
           const verb = decision === 'approved' ? 'APROBÓ' : 'RECHAZÓ';
           pushNotifTo(t, [decided?.requestedBy ?? '', tk.technicianId ?? ''], tk, `${who} ${verb} · ${tk.id}: ${tk.subject}`);
+        },
+        // Sube un adjunto: en la nube va a Storage (path+url); en local, inline como
+        // data URL para que la demo funcione sin backend.
+        uploadAttachment: async (ticketId, file, uploaderName) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const id = 'at-' + Date.now(); const me = s.currentUserId; const base = { id, name: file.name, size: file.size, contentType: file.type || undefined, uploadedBy: me, uploadedByName: uploaderName, at: Date.now() };
+          let att: Attachment;
+          if (CLOUD) {
+            const { path, url } = await cloud.uploadAttachment(t.id, ticketId, id, file);
+            att = { ...base, path, url };
+          } else {
+            const dataUrl = await new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = () => rej(r.error); r.readAsDataURL(file); });
+            att = { ...base, dataUrl };
+          }
+          const cur = get().db.tenants.find((x) => x.id === t.id)?.tickets.find((x) => x.id === ticketId); // relee (subida async)
+          const attachments = [att, ...(cur?.attachments ?? [])];
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, attachments } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { attachments }).catch(errlog);
+        },
+        removeAttachment: (ticketId, attId) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const att = (tk.attachments ?? []).find((a) => a.id === attId);
+          const attachments = (tk.attachments ?? []).filter((a) => a.id !== attId);
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, attachments } : x)) })) }));
+          if (CLOUD) { void cloud.patchTicket(t.id, ticketId, { attachments }).catch(errlog); if (att?.path) void cloud.deleteAttachment(att.path).catch(errlog); }
+        },
+        setClosureRules: (rules) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, closureRules: rules })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { closureRules: rules }).catch(errlog); }
+        },
+        setReplyTemplates: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, replyTemplates: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { replyTemplates: list }).catch(errlog); }
         },
 
         addState: (label, category, stage) => {
@@ -557,6 +598,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v11', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v12', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );
