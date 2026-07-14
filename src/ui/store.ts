@@ -56,6 +56,8 @@ interface State {
   toggleTask: (ticketId: string, taskId: string) => void;
   moveTask: (ticketId: string, taskId: string, dir: number) => void;
   addWorklog: (ticketId: string, mins: number, note: string, techName: string) => void;
+  requestApproval: (ticketId: string, approverUids: string[], note: string) => void;
+  decideApproval: (ticketId: string, approvalId: string, decision: 'approved' | 'rejected', comment: string) => void;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -131,6 +133,19 @@ export const useStore = create<State>()(
       const NOTIF_LABEL: Record<NotifEvent, string> = {
         created: 'Nueva solicitud', assigned: 'Te han asignado una solicitud', status: 'Cambio de estado',
         resolved: 'Solicitud resuelta', comment: 'Nuevo comentario', internal_note: 'Nueva nota interna', sla_breach: 'SLA incumplido',
+        approval: 'Aprobación',
+      };
+      // Aviso dirigido a uids concretos (aprobaciones): no pasa por la matriz de
+      // reglas por rol; escribe una notificación de pantalla a cada destinatario.
+      const pushNotifTo = (t: TenantData, forUids: string[], ticket: StoredTicket, text: string) => {
+        const actor = get().currentUserId;
+        const notifs: AppNotification[] = forUids.filter((u) => u && u !== actor).map((forUid) => ({
+          id: 'n-' + Date.now() + '-' + (notifSeq++), at: Date.now(), event: 'approval', ticketId: ticket.id,
+          subject: ticket.subject, forUid, text,
+        }));
+        if (notifs.length === 0) return;
+        set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, notifications: [...notifs, ...(tt.notifications ?? [])] })) }));
+        if (CLOUD) for (const n of notifs) void cloud.writeNotification(t.id, n).catch(errlog);
       };
       const emitNotifs = (t: TenantData, event: NotifEvent, ticket: StoredTicket) => {
         const rule = (t.notifRules ?? []).find((r) => r.event === event);
@@ -361,6 +376,38 @@ export const useStore = create<State>()(
           const capacity = { ...t.capacity, [techUid]: { ...prev, used: Math.round((prev.used + mins / 60) * 10) / 10 } };
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, capacity, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, worklog } : x)) })) }));
           if (CLOUD) { void cloud.patchTicket(t.id, ticketId, { worklog }).catch(errlog); void cloud.patchTenantDoc(t.id, { capacity }).catch(errlog); }
+        },
+        // Solicita aprobación a uno o varios aprobadores y pone el ticket "Pendiente
+        // Aprobación" (estado que PAUSA el SLA en el catálogo). Avisa a los aprobadores.
+        requestApproval: (ticketId, approverUids, note) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk || approverUids.length === 0) return;
+          const me = s.currentUserId; const meName = t.members.find((m) => m.uid === me)?.name ?? me; const now = Date.now();
+          const news = approverUids.map((uid, i) => ({
+            id: 'ap-' + now + '-' + i, approverUid: uid, approverName: t.members.find((m) => m.uid === uid)?.name ?? uid,
+            status: 'pending' as const, requestedBy: me, requestedByName: meName, requestedAt: now, note: note.trim() || undefined,
+          }));
+          const approvals = [...news, ...(tk.approvals ?? [])];
+          // pone "Pendiente Aprobación" si existe en el catálogo del tenant y no lo está ya
+          const APPR = 'Pendiente Aprobación';
+          const toAppr = (t.statuses ?? []).some((x) => x.name === APPR) && tk.status !== APPR;
+          const hist = toAppr ? [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: APPR, from: now, to: null }] : tk.statusHistory;
+          const patch = toAppr ? { approvals, status: APPR, statusHistory: hist } : { approvals };
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, ...patch } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, patch).catch(errlog);
+          pushNotifTo(t, approverUids, tk, `Aprobación pendiente · ${tk.id}: ${tk.subject}`);
+        },
+        // Registra la decisión (aprobar/rechazar) de un aprobador y avisa al solicitante
+        // de la aprobación (quien la pidió) y al técnico asignado.
+        decideApproval: (ticketId, approvalId, decision, comment) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const now = Date.now();
+          const approvals = (tk.approvals ?? []).map((a) => (a.id === approvalId ? { ...a, status: decision, decidedAt: now, comment: comment.trim() || undefined } : a));
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, approvals } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { approvals }).catch(errlog);
+          const decided = approvals.find((a) => a.id === approvalId);
+          const who = t.members.find((m) => m.uid === s.currentUserId)?.name ?? 'Un aprobador';
+          const verb = decision === 'approved' ? 'APROBÓ' : 'RECHAZÓ';
+          pushNotifTo(t, [decided?.requestedBy ?? '', tk.technicianId ?? ''], tk, `${who} ${verb} · ${tk.id}: ${tk.subject}`);
         },
 
         addState: (label, category, stage) => {

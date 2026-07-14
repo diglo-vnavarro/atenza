@@ -384,8 +384,11 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const moveTask = useStore((s) => s.moveTask);
   const updateTask = useStore((s) => s.updateTask);
   const addWorklog = useStore((s) => s.addWorklog);
+  const requestApproval = useStore((s) => s.requestApproval);
+  const decideApproval = useStore((s) => s.decideApproval);
+  const meUid = useStore((s) => s.currentUserId);
   const setStatus = useStore((s) => s.setStatus);
-  const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'tiempo' | 'conversaciones'>('detalles');
+  const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'tiempo' | 'aprobaciones' | 'conversaciones'>('detalles');
   const [comment, setComment] = useState('');
   const [internal, setInternal] = useState(false);
   const [res, setRes] = useState(t.resolution ?? '');
@@ -395,6 +398,9 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const [taskType, setTaskType] = useState('');
   const [wlMins, setWlMins] = useState(30);
   const [wlNote, setWlNote] = useState('');
+  const [apprSel, setApprSel] = useState<string[]>([]);
+  const [apprNote, setApprNote] = useState('');
+  const [apprComment, setApprComment] = useState<Record<string, string>>({});
 
   const lc = lifecycleOfTicket(tenant, t);
   const sv = statusView(tenant, t);
@@ -413,10 +419,11 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const pct = ss ? Math.min(100, Math.round((ss.consumedMins / ss.targetMins) * 100)) : 0;
   const paused = sv.timer === 'stop_timer';
   const [due, dueSev] = dueLabel(t.resolveDueAt);
-  const comments = t.comments ?? []; const tasks = t.tasks ?? []; const worklog = t.worklog ?? [];
+  const comments = t.comments ?? []; const tasks = t.tasks ?? []; const worklog = t.worklog ?? []; const approvals = t.approvals ?? [];
   const totalMins = worklog.reduce((a, w) => a + w.mins, 0);
+  const pendingAppr = approvals.filter((a) => a.status === 'pending').length;
   const memberName = (uid?: string | null) => tenant.members.find((m) => m.uid === uid)?.name;
-  const TABS: [typeof tab, string, number][] = [['detalles', 'Detalles', 0], ['resolucion', 'Resolución', 0], ['historico', 'Histórico', (t.statusHistory ?? []).length], ['tareas', 'Tareas', tasks.length], ['tiempo', 'Tiempo', worklog.length], ['conversaciones', 'Conversaciones', comments.length]];
+  const TABS: [typeof tab, string, number][] = [['detalles', 'Detalles', 0], ['resolucion', 'Resolución', 0], ['historico', 'Histórico', (t.statusHistory ?? []).length], ['tareas', 'Tareas', tasks.length], ['tiempo', 'Tiempo', worklog.length], ['aprobaciones', 'Aprobaciones', pendingAppr], ['conversaciones', 'Conversaciones', comments.length]];
 
   return <div>
     <h3 style={{ fontSize: 16, marginBottom: 12 }}>{t.subject}</h3>
@@ -543,6 +550,45 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
         <button className="primary" onClick={() => { addWorklog(t.id, wlMins, wlNote, meName); setWlNote(''); setWlMins(30); }} disabled={!wlMins || wlMins <= 0}>Registrar tiempo</button>
       </div>}
     </div>}
+
+    {tab === 'aprobaciones' && (() => {
+      const candidates = tenant.members.filter((m) => m.status === 'active' && m.uid !== meUid);
+      const toggle = (uid: string) => setApprSel(apprSel.includes(uid) ? apprSel.filter((x) => x !== uid) : [...apprSel, uid]);
+      const send = () => { if (apprSel.length) { requestApproval(t.id, apprSel, apprNote); setApprSel([]); setApprNote(''); } };
+      const APV: Record<string, [string, string]> = { pending: ['Pendiente', 'var(--warn)'], approved: ['Aprobada', 'var(--ok)'], rejected: ['Rechazada', 'var(--crit)'] };
+      return <div style={{ marginTop: 4 }}>
+        {approvals.length === 0 && <div className="empty">Sin solicitudes de aprobación.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{approvals.map((a) => {
+          const [lbl, col] = APV[a.status] ?? APV.pending!;
+          const canDecide = a.status === 'pending' && a.approverUid === meUid;
+          return <div key={a.id} className="approw">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+              <b>{a.approverName}</b>
+              <span className="pill" style={{ color: col, borderColor: col }}>{lbl}</span>
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>Solicitada por {a.requestedByName} · {fmtDate(a.requestedAt)}</div>
+            {a.note && <div style={{ fontSize: 13, marginTop: 4 }}>{a.note}</div>}
+            {a.decidedAt && <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 4 }}>{lbl} · {fmtDate(a.decidedAt)}{a.comment ? ` — ${a.comment}` : ''}</div>}
+            {canDecide && <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input style={{ flex: 1, minWidth: 140 }} value={apprComment[a.id] ?? ''} onChange={(e) => setApprComment({ ...apprComment, [a.id]: e.target.value })} placeholder="Comentario (opcional)…" />
+              <button className="primary" onClick={() => decideApproval(t.id, a.id, 'approved', apprComment[a.id] ?? '')}>Aprobar</button>
+              <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => decideApproval(t.id, a.id, 'rejected', apprComment[a.id] ?? '')}>Rechazar</button>
+            </div>}
+          </div>;
+        })}</div>
+        {canAct && <div style={{ marginTop: 12, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+          <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 6 }}>Solicitar aprobación a:</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {candidates.map((m) => <button key={m.uid} type="button" className={'chipsel' + (apprSel.includes(m.uid) ? ' on' : '')} onClick={() => toggle(m.uid)}>{m.name}</button>)}
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            <input style={{ flex: 1, minWidth: 160 }} value={apprNote} onChange={(e) => setApprNote(e.target.value)} placeholder="Motivo (opcional)…" />
+            <button className="primary" onClick={send} disabled={apprSel.length === 0}>Solicitar aprobación</button>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 6 }}>Al solicitar, la solicitud pasa a «Pendiente Aprobación» (pausa el SLA).</div>
+        </div>}
+      </div>;
+    })()}
 
     {tab === 'conversaciones' && <div style={{ marginTop: 4 }}>
       {comments.length === 0 && <div className="empty">Sin conversación todavía.</div>}

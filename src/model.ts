@@ -74,12 +74,31 @@ export interface Ticket {
   tasks?: TicketTask[];
   /** registro de tiempo trabajado (pestaña Tiempo). */
   worklog?: WorkEntry[];
+  /** solicitudes de aprobación (pestaña Aprobaciones). */
+  approvals?: Approval[];
 }
 
 export interface TicketComment { author: string; authorName: string; at: number; text: string; internal?: boolean }
 export interface TicketTask { id: string; text: string; done: boolean; assigneeUid?: string | null; dueAt?: number | null; type?: string }
 /** Registro de tiempo trabajado en un ticket (alimenta la capacidad del técnico). */
 export interface WorkEntry { id: string; techUid: string; techName: string; mins: number; at: number; note?: string }
+
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+/** Solicitud de aprobación a una persona concreta (como SDP: nivel de aprobación con aprobadores). */
+export interface Approval {
+  id: string;
+  approverUid: string;
+  approverName: string;
+  status: ApprovalStatus;
+  requestedBy: string;
+  requestedByName: string;
+  requestedAt: number;
+  /** motivo de la solicitud. */
+  note?: string;
+  decidedAt?: number;
+  /** comentario de la decisión (aprobar/rechazar). */
+  comment?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Ciclos de vida y SLA
@@ -170,7 +189,7 @@ export interface StatusDef {
 // Reglas de notificación: qué avisos se emiten en cada evento del ticket, por
 // qué canal (pantalla / correo) y a quién (solicitante / técnico / grupo).
 // ---------------------------------------------------------------------------
-export type NotifEvent = 'created' | 'assigned' | 'status' | 'resolved' | 'comment' | 'internal_note' | 'sla_breach';
+export type NotifEvent = 'created' | 'assigned' | 'status' | 'resolved' | 'comment' | 'internal_note' | 'sla_breach' | 'approval';
 export interface NotifChannel { screen?: boolean; mail?: boolean }
 export interface NotifRule {
   event: NotifEvent;
