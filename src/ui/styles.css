@@ -64,6 +64,19 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .detailpane .drawer-h{position:sticky; top:0; background:var(--surface); z-index:1;}
 .det-empty{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:11px; height:280px; color:var(--ink-faint); font-size:12.5px; text-align:center; padding:20px;}
 @media (max-width:1100px){ .wsplit{flex-direction:column;} .detailpane{width:100%; position:static; max-height:none;} }
+/* Administración: dos paneles */
+.adm{display:flex; gap:14px; align-items:flex-start;}
+.adm-nav{width:232px; flex:none; background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--sh); padding:8px 8px 14px; position:sticky; top:0; max-height:calc(100vh - 76px); overflow-y:auto;}
+.adm-g{display:flex; align-items:center; gap:6px; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700; padding:12px 8px 5px;}
+.adm-ic{font-size:12px;}
+.adm-i{display:flex; align-items:center; gap:6px; width:100%; text-align:left; border:none; background:none; padding:6px 9px; border-radius:6px; font-size:12.5px; color:var(--ink-soft); margin-bottom:1px;}
+.adm-i:hover:not(.dim){background:var(--sink); color:var(--ink);}
+.adm-i.on{background:var(--accent-soft); color:var(--accent-deep); font-weight:600;}
+.adm-i.dim{color:var(--ink-faint); cursor:default;}
+.adm-i .soon{margin-left:auto; font-size:9px; color:var(--ink-faint); border:1px solid var(--line); border-radius:8px; padding:0 5px; font-weight:600;}
+.adm-pane{flex:1; min-width:0;}
+.adm-crumb{font-size:13px; font-weight:650; color:var(--ink); margin-bottom:12px;}
+@media (max-width:900px){ .adm{flex-direction:column;} .adm-nav{width:100%; position:static; max-height:none;} }
 .row{display:grid; grid-template-columns:70px 1fr auto; gap:10px; align-items:center; padding:11px 14px; border-bottom:1px solid var(--line); border-left:3px solid transparent; background:none; width:100%; text-align:left; font-family:inherit; color:inherit; font-size:13.5px;}
 .row:last-child{border-bottom:none;} .row:hover{background:var(--sink);}
 .row.sel{border-left-color:var(--accent); background:var(--accent-soft);}

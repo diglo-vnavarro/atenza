@@ -1188,20 +1188,18 @@ function KbModule({ tenant, canManage, meName }: { tenant: TenantData; canManage
   </div>;
 }
 
+const ADMIN_FIRST = ADMIN_AREAS.flatMap((a) => a[2]).find(([, k]) => k)?.[1] ?? 'plantillas';
 function AdminConfig({ tenant }: { tenant: TenantData }) {
-  const [sec, setSec] = useState<string | null>(null);
-  if (!sec) return <div>
-    <div className="hd"><h1>Administración · {tenant.name}</h1><span className="sub">Configura sin código, por áreas.</span></div>
-    <div className="cfg-grid">
-      {ADMIN_AREAS.map((a) => <div key={a[0]} className="cfg-cat">
-        <h3><span className="cfg-ic">{a[1]}</span>{a[0]}</h3>
-        <div className="cfg-links">{a[2].map(([l, k], i) => <Fragment key={l}>{i > 0 && <span className="sep">·</span>}<button className={k ? 'cfg-lk' : 'cfg-lk soon'} disabled={!k} onClick={() => k && setSec(k)}>{l}</button></Fragment>)}</div>
-      </div>)}
-    </div>
-    <p className="cfg-note">Las opciones atenuadas llegan en el siguiente pase (Estado, jerarquía de Categorías, Reglas de notificación) — ya están en la maqueta.</p>
-  </div>;
-  return <div>
-    <div className="crumb"><button className="crumb-b" onClick={() => setSec(null)}>‹ Configuración</button><span className="sep">·</span><b>{ADMIN_TITLE[sec] ?? sec}</b></div>
+  const [sec, setSec] = useState<string>(ADMIN_FIRST);
+  return <div className="adm">
+    <nav className="adm-nav">
+      {ADMIN_AREAS.map((a) => <Fragment key={a[0]}>
+        <div className="adm-g"><span className="adm-ic">{a[1]}</span>{a[0]}</div>
+        {a[2].map(([l, k]) => <button key={l} className={'adm-i' + (k ? '' : ' dim') + (k && k === sec ? ' on' : '')} disabled={!k} onClick={() => k && setSec(k)}>{l}{!k && <span className="soon">pronto</span>}</button>)}
+      </Fragment>)}
+    </nav>
+    <div className="adm-pane">
+      <div className="adm-crumb">{ADMIN_TITLE[sec] ?? sec}</div>
     {sec === 'plantillas' && <CatalogAdmin tenant={tenant} />}
     {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
     {sec === 'estado' && <StatusAdmin tenant={tenant} />}
@@ -1222,6 +1220,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'anuncios' && <AnnouncementsAdmin tenant={tenant} />}
     {sec === 'auditoria' && <AuditAdmin tenant={tenant} />}
     {sec === 'entrante' && <InboundAdmin tenant={tenant} />}
+    </div>
   </div>;
 }
 
