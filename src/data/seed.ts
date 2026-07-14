@@ -3,6 +3,14 @@
 import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef, NotifRule, AppNotification, ReplyTemplate } from '../model.js';
 import type { ClosureRules } from '../closure.js';
 import { DEFAULT_CLOSURE_RULES } from '../closure.js';
+import type { BusinessRule } from '../rules.js';
+
+// Regla de negocio de ejemplo (diglo-it): enruta las incidencias de Redes al
+// grupo Redes al crearlas. El admin la edita/añade en Automatización.
+export const DEFAULT_BUSINESS_RULES: BusinessRule[] = [
+  { id: 'br-redes', name: 'Incidencias de Redes → grupo Redes', enabled: true, match: 'all',
+    conditions: [{ field: 'category', op: 'contains', value: 'Red' }], actions: [{ type: 'setGroup', value: 'g-red' }] },
+];
 
 // Respuestas predefinidas por defecto (el admin las edita).
 export const DEFAULT_REPLY_TEMPLATES: ReplyTemplate[] = [
@@ -163,6 +171,8 @@ export interface TenantData {
   closureRules?: ClosureRules;
   /** respuestas predefinidas (para insertar en el hilo). */
   replyTemplates?: ReplyTemplate[];
+  /** reglas de negocio (condición → acción al crear el ticket). */
+  businessRules?: BusinessRule[];
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
@@ -326,7 +336,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES,
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES,
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -350,7 +360,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], userGroups: ['Clientes Leasys', 'Gestores'], roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES,
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], userGroups: ['Clientes Leasys', 'Gestores'], roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: [],
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [

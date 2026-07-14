@@ -277,6 +277,15 @@ input,textarea{font-family:var(--sans); font-size:13px; color:var(--ink); backgr
 .switch .track::after{content:""; position:absolute; top:2px; left:2px; width:18px; height:18px; border-radius:50%; background:#fff; transition:transform .15s; box-shadow:0 1px 2px rgba(0,0,0,.3);}
 .switch input:checked + .track{background:var(--ok);}
 .switch input:checked + .track::after{transform:translateX(16px);}
+.rule-card{border:1px solid var(--line); border-radius:11px; background:var(--surface); overflow:hidden;}
+.rule-h{display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--sink); border-bottom:1px solid var(--line);}
+.rule-body{padding:10px 12px; display:flex; flex-direction:column; gap:7px;}
+.rule-row{display:flex; align-items:center; gap:7px; flex-wrap:wrap; font-size:13px;}
+.rule-row.cond{padding-left:10px;}
+.rule-lbl{font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); min-width:64px;}
+.rule-row select, .rule-row input{font-size:13px;}
+.linkbtn{align-self:flex-start; background:none; border:none; color:var(--accent); font-size:12px; cursor:pointer; padding:2px 0;}
+.linkbtn:hover{text-decoration:underline;}
 .comment{border:1px solid var(--line); border-radius:10px; padding:10px 12px; background:var(--surface);}
 .comment-h{display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--ink); margin-bottom:5px;}
 .comment-at{margin-left:auto; font-family:var(--mono); font-size:10.5px; color:var(--ink-faint);}

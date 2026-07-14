@@ -4,6 +4,8 @@ import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketTyp
 import type { User } from '../access.js';
 import type { ClosureRules } from '../closure.js';
 import { isClosingStatus, closureBlockers } from '../closure.js';
+import type { BusinessRule } from '../rules.js';
+import { applyBusinessRules } from '../rules.js';
 import { canTransition, initialState } from '../lifecycle.js';
 import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
@@ -64,6 +66,7 @@ interface State {
   removeAttachment: (ticketId: string, attId: string) => void;
   setClosureRules: (rules: ClosureRules) => void;
   setReplyTemplates: (list: ReplyTemplate[]) => void;
+  setBusinessRules: (list: BusinessRule[]) => void;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -230,17 +233,26 @@ export const useStore = create<State>()(
           const lc = tpl?.lifecycleId ? t.lifecycles.find((l) => l.id === tpl.lifecycleId) ?? null : null;
           const init = lc ? initialState(lc)?.key ?? 'open' : 'open';
           const now = Date.now(); const id = genId(t);
-          const ticket: StoredTicket = {
+          const draft = {
             id, type: tpl?.type ?? 'incident', subject: nt.subject, description: nt.description,
             requesterId: nt.requesterId, technicianId: nt.technicianId ?? null, category: nt.category,
             subcategory: nt.subcategory, item: nt.item,
             priority: nt.priority, impact: nt.impact, urgency: nt.urgency, mode: nt.mode, level: nt.level, site: nt.site,
             templateId: tpl?.id ?? 'tpl-inc', status: init,
-            slaId: SLA_BY_PRIORITY[nt.priority] ?? null, statusHistory: [{ state: init, from: now, to: null }],
           };
+          // Reglas de negocio: aplican patch (prioridad/grupo/estado/técnico) al crear.
+          const ro = applyBusinessRules(t.businessRules, draft as StoredTicket);
+          const merged = { ...draft, ...ro.patch };
+          const finalStatus = merged.status ?? init;
+          const ticket: StoredTicket = {
+            ...merged, status: finalStatus,
+            slaId: SLA_BY_PRIORITY[merged.priority ?? ''] ?? null,
+            statusHistory: [{ state: finalStatus, from: now, to: null }],
+          } as StoredTicket;
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
           if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
           emitNotifs(t, 'created', ticket);
+          if (ro.patch.technicianId) emitNotifs(t, 'assigned', ticket); // una regla asignó técnico
         },
 
         assign: (ticketId, techUid) => {
@@ -451,6 +463,10 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, replyTemplates: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { replyTemplates: list }).catch(errlog); }
         },
+        setBusinessRules: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, businessRules: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { businessRules: list }).catch(errlog); }
+        },
 
         addState: (label, category, stage) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => editLc(t, s.adminLcIndex, (lc) => {
@@ -605,6 +621,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v12', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v13', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

@@ -10,6 +10,7 @@ import { Login } from './Login.js';
 import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
 import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
+import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
 import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate } from '../model.js';
 import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
 
@@ -805,10 +806,10 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
-  ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Asignación automática', null], ['Flujos de trabajo', null]]],
+  ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Asignación automática', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1069,6 +1070,58 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'cierre' && <ClosureAdmin tenant={tenant} />}
     {sec === 'respuestas' && <ReplyTemplatesAdmin tenant={tenant} />}
     {sec === 'traspaso' && <EnablementAdmin tenant={tenant} />}
+    {sec === 'reglas' && <BusinessRulesAdmin tenant={tenant} />}
+  </div>;
+}
+
+function BusinessRulesAdmin({ tenant }: { tenant: TenantData }) {
+  const setBusinessRules = useStore((s) => s.setBusinessRules);
+  const rules = tenant.businessRules ?? [];
+  const save = (list: BusinessRule[]) => setBusinessRules(list);
+  const upd = (id: string, patch: Partial<BusinessRule>) => save(rules.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const add = () => save([...rules, { id: 'br-' + Date.now(), name: 'Nueva regla', enabled: false, match: 'all', conditions: [{ field: 'category', op: 'eq', value: '' }], actions: [{ type: 'setGroup', value: '' }] }]);
+  const del = (id: string) => save(rules.filter((r) => r.id !== id));
+  // valor de una acción según su tipo
+  const actionValues = (type: RuleActionType): [string, string][] => {
+    if (type === 'setPriority') return (tenant.picklists?.priority ?? []).map((p) => [p.name, p.name]);
+    if (type === 'setGroup') return tenant.groups.map((g) => [g.id, g.name]);
+    if (type === 'setStatus') return (tenant.statuses ?? []).map((s) => [s.name, s.name]);
+    if (type === 'assignTo') return tenant.members.filter((m) => m.role !== 'requester').map((m) => [m.uid, m.name]);
+    return [];
+  };
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Al crear una solicitud, si se cumplen las condiciones se aplican las acciones (enrutar a grupo, fijar prioridad/estado, asignar técnico). Las reglas se evalúan en orden.</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {rules.length === 0 && <div className="empty">Sin reglas de negocio.</div>}
+      {rules.map((r) => <div key={r.id} className="rule-card">
+        <div className="rule-h">
+          <label className="switch"><input type="checkbox" checked={r.enabled} onChange={(e) => upd(r.id, { enabled: e.target.checked })} /><span className="track" /></label>
+          <input style={{ flex: 1, fontWeight: 600 }} value={r.name} onChange={(e) => upd(r.id, { name: e.target.value })} />
+          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => del(r.id)} aria-label="Eliminar">✕</button>
+        </div>
+        <div className="rule-body">
+          <div className="rule-row"><span className="rule-lbl">Si</span>
+            <select value={r.match} onChange={(e) => upd(r.id, { match: e.target.value as 'all' | 'any' })}><option value="all">se cumplen TODAS</option><option value="any">se cumple ALGUNA</option></select>
+          </div>
+          {r.conditions.map((c, i) => <div key={i} className="rule-row cond">
+            <select value={c.field} onChange={(e) => { const cs = [...r.conditions]; cs[i] = { ...c, field: e.target.value }; upd(r.id, { conditions: cs }); }}>{RULE_FIELDS.map(([f, l]) => <option key={f} value={f}>{l}</option>)}</select>
+            <select value={c.op} onChange={(e) => { const cs = [...r.conditions]; cs[i] = { ...c, op: e.target.value as typeof c.op }; upd(r.id, { conditions: cs }); }}>{RULE_OPS.map(([o, l]) => <option key={o} value={o}>{l}</option>)}</select>
+            {c.op !== 'empty' && c.op !== 'notempty' && <input value={c.value ?? ''} placeholder="valor" onChange={(e) => { const cs = [...r.conditions]; cs[i] = { ...c, value: e.target.value }; upd(r.id, { conditions: cs }); }} />}
+            <button className="xbtn" onClick={() => upd(r.id, { conditions: r.conditions.filter((_, j) => j !== i) })} aria-label="Quitar condición">✕</button>
+          </div>)}
+          <button className="linkbtn" onClick={() => upd(r.id, { conditions: [...r.conditions, { field: 'category', op: 'eq', value: '' }] })}>＋ condición</button>
+
+          <div className="rule-row" style={{ marginTop: 8 }}><span className="rule-lbl">Entonces</span></div>
+          {r.actions.map((a, i) => { const vals = actionValues(a.type); return <div key={i} className="rule-row cond">
+            <select value={a.type} onChange={(e) => { const as = [...r.actions]; as[i] = { type: e.target.value as RuleActionType, value: '' }; upd(r.id, { actions: as }); }}>{RULE_ACTIONS.map(([tp, l]) => <option key={tp} value={tp}>{l}</option>)}</select>
+            <select value={a.value} onChange={(e) => { const as = [...r.actions]; as[i] = { ...a, value: e.target.value }; upd(r.id, { actions: as }); }}><option value="">—</option>{vals.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+            <button className="xbtn" onClick={() => upd(r.id, { actions: r.actions.filter((_, j) => j !== i) })} aria-label="Quitar acción">✕</button>
+          </div>; })}
+          <button className="linkbtn" onClick={() => upd(r.id, { actions: [...r.actions, { type: 'setGroup', value: '' }] })}>＋ acción</button>
+        </div>
+      </div>)}
+    </div>
+    <button className="primary" style={{ marginTop: 12 }} onClick={add}>＋ Añadir regla</button>
   </div>;
 }
 
