@@ -15,6 +15,8 @@
     "sync": "tsx scripts/sync-tickets.ts",
     "sync:dry": "tsx scripts/sync-tickets.ts --dry-run",
     "sync:job": "tsx importer/etl.ts && tsx scripts/sync-tickets.ts",
+    "enrich:members": "tsx scripts/enrich-members.ts",
+    "enrich:members:dry": "tsx scripts/enrich-members.ts --dry-run",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\""
   },
   "dependencies": {
