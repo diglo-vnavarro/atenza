@@ -800,7 +800,7 @@ function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantDa
             <label className="searchbox drawer-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plantilla de solicitud" /></label>
             {grpList.map(([g, tps], i) => { const isOpen = open[g] ?? (i === 0 || !!q); return <div key={g} className={'catgrp' + (isOpen ? ' open' : '')}>
               <button className="catgrp-h" onClick={() => setOpen((o) => ({ ...o, [g]: !isOpen }))}>
-                <span className="catgrp-ic" style={{ background: 'var(--accent)' }}>{g[0]}</span>
+                <span className={'catgrp-ic' + ((tenant.serviceCategoryIcons ?? {})[g] ? ' emoji' : '')} style={(tenant.serviceCategoryIcons ?? {})[g] ? undefined : { background: 'var(--accent)' }}>{(tenant.serviceCategoryIcons ?? {})[g] ?? g[0]}</span>
                 <span className="catgrp-n">{g}</span><span className="catgrp-c">{tps.length}</span>
                 <svg className="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M9 6l6 6-6 6" /></svg>
               </button>
@@ -897,13 +897,13 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
-  ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
+  ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', 'servicios'], ['Reglas del formulario', null]]],
   ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', '✉️', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
-  ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Exportar / archivar', null]]],
+  ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1222,7 +1222,41 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'auditoria' && <AuditAdmin tenant={tenant} />}
     {sec === 'entrante' && <InboundAdmin tenant={tenant} />}
     {sec === 'campos' && <CustomFieldsAdmin tenant={tenant} />}
+    {sec === 'servicios' && <ServiceCatalogAdmin tenant={tenant} />}
+    {sec === 'sync' && <SyncAdmin tenant={tenant} />}
     </div>
+  </div>;
+}
+
+// Categoría de servicio: agrupa las plantillas del catálogo de «Nueva solicitud».
+// Se listan las categorías reales (de las plantillas) y se puede editar su icono.
+function ServiceCatalogAdmin({ tenant }: { tenant: TenantData }) {
+  const setServiceIcon = useStore((s) => s.setServiceIcon);
+  const icons = tenant.serviceCategoryIcons ?? {};
+  const cats = [...new Set(tenant.templates.map((t) => tplGroup(t)))].sort((a, b) => a.localeCompare(b));
+  const count = (c: string) => tenant.templates.filter((t) => tplGroup(t) === c).length;
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Categorías de servicio del catálogo de «Nueva solicitud» (importadas de SDP). Cada plantilla pertenece a una. Edita el <b>icono</b> (emoji) que se muestra en el catálogo. Los iconos originales de SDP son imágenes protegidas del servlet y no se pueden reutilizar directamente; aquí se elige uno editable.</p>
+    <table className="mgmt"><thead><tr><th style={{ width: 60 }}>Icono</th><th>Categoría de servicio</th><th style={{ width: 120 }}>Plantillas</th></tr></thead>
+      <tbody>{cats.map((c) => <tr key={c}>
+        <td><input value={icons[c] ?? ''} onChange={(e) => setServiceIcon(c, e.target.value.slice(0, 2))} placeholder="📁" style={{ width: 46, textAlign: 'center', fontSize: 16 }} maxLength={2} /></td>
+        <td style={{ fontWeight: 500 }}>{c}</td>
+        <td className="soft">{count(c)}</td>
+      </tr>)}</tbody></table>
+  </div>;
+}
+
+// Estado de la sincronización SDP → Atenza (el job corre server-side; aquí se ve).
+function SyncAdmin({ tenant }: { tenant: TenantData }) {
+  const synced = tenant.tickets.filter((t) => (t as unknown as { syncedAt?: number }).syncedAt);
+  const last = synced.reduce((m, t) => Math.max(m, (t as unknown as { syncedAt?: number }).syncedAt ?? 0), 0);
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">La sincronización SDP → Atenza corre <b>server-side</b> como un Cloud Run Job disparado por Cloud Scheduler (cada 4 h), de forma desatendida. Trae los tickets activos de SDP y hace un <i>merge</i> idempotente preservando lo añadido en Atenza.</p>
+    <div className="facts" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <div><div className="k">Tickets sincronizados desde SDP</div><div style={{ fontSize: 20, fontWeight: 700 }}>{synced.length}<span style={{ fontSize: 12, color: 'var(--ink-faint)', fontWeight: 400 }}> / {tenant.tickets.length} totales</span></div></div>
+      <div><div className="k">Última sincronización</div><div style={{ fontSize: 15, fontWeight: 600 }}>{last ? fmtDate(last) : '—'}</div></div>
+    </div>
+    <div className="banner" style={{ marginTop: 14 }}>Programación: <b>cada 4 h</b> (Europe/Madrid). Ejecución manual y logs desde GCP (Cloud Scheduler «atenza-sync-sdp» / Cloud Run Job «sync-sdp»). Runbook: <span className="mono">docs/SYNC-JOB.md</span>. Desde la app es de solo lectura; disparar bajo demanda requiere permisos de GCP.</div>
   </div>;
 }
 

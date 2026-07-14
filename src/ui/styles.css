@@ -164,6 +164,9 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .modlink .n{position:absolute; top:3px; right:3px; font-family:var(--mono); font-size:8.5px; font-weight:700; background:var(--accent); color:var(--accent-ink); padding:0 4px; border-radius:8px; min-width:14px; text-align:center; line-height:1.5;}
 .modlink:hover{background:var(--sink); color:var(--ink);}
 .modlink.on{background:var(--accent-soft); color:var(--accent-deep);}
+.modlink.on::before{content:""; position:absolute; left:-8px; top:9px; bottom:9px; width:3px; border-radius:0 3px 3px 0; background:var(--accent);}
+.modlink svg{stroke-width:1.9;}
+.modlink.on svg{stroke-width:2.3;}
 .modlink.on{background:var(--accent-soft); color:var(--accent);}
 .modlink.on .n{background:var(--accent); color:var(--accent-ink);}
 
@@ -215,6 +218,7 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .catgrp-h{width:100%; display:flex; align-items:center; gap:11px; padding:11px 13px; border:none; background:var(--surface); color:var(--ink); font-size:13.5px; font-weight:650; text-align:left;}
 .catgrp-h:hover{background:var(--sink);}
 .catgrp-ic{width:28px; height:28px; border-radius:7px; display:grid; place-items:center; color:var(--accent-ink); font-weight:800; font-size:13px; flex:none;}
+.catgrp-ic.emoji{background:var(--surface-2); font-size:16px;}
 .catgrp-n{flex:1;}
 .catgrp-c{font-family:var(--mono); font-size:11px; color:var(--ink-faint);}
 .catgrp .chev{color:var(--ink-faint); transition:transform .2s;}

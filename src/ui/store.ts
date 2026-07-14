@@ -77,6 +77,7 @@ interface State {
   autoAssign: (ticketId: string) => string | null;
   setWebhooks: (list: Webhook[]) => void;
   setCustomFields: (list: FieldDef[]) => void;
+  setServiceIcon: (category: string, icon: string) => void;
   saveKbArticle: (a: import('../kb.js').KbArticle) => void;
   removeKbArticle: (id: string) => void;
   viewKbArticle: (id: string) => void;
@@ -528,6 +529,10 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, customFields: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { customFields: list }).catch(errlog); }
         },
+        setServiceIcon: (category, icon) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, serviceCategoryIcons: { ...(t.serviceCategoryIcons ?? {}), [category]: icon } })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { serviceCategoryIcons: t.serviceCategoryIcons ?? {} }).catch(errlog); }
+        },
         saveKbArticle: (a) => {
           const prev = activeT(get())?.kbArticles?.find((x) => x.id === a.id);
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => { const list = t.kbArticles ?? []; const has = list.some((x) => x.id === a.id); return { ...t, kbArticles: has ? list.map((x) => (x.id === a.id ? a : x)) : [a, ...list] }; }) }));
@@ -742,6 +747,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v19', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v20', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );
