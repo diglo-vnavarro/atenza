@@ -51,7 +51,8 @@ const SKIP = new Set(['status', 'technician', 'group', 'created_time', 'due_by_t
 
 const cleanSection = (name: string | undefined): string => {
   const n = (name ?? '').trim();
-  if (!n || n === ':::' || /^-?\d+$/.test(n)) return DEF_SEC;
+  // nombres vacíos, numéricos o solo-puntuación (":::", ".", "-1"…) = placeholder de SDP
+  if (!n || /^-?\d+$/.test(n) || /^[^\p{L}\p{N}]+$/u.test(n)) return DEF_SEC;
   if (/^resolution$/i.test(n)) return 'Resolución';
   if (/^requester details$/i.test(n)) return 'Detalles del solicitante';
   return n;
