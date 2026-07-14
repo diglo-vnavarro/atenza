@@ -14,6 +14,7 @@ import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleAction
 import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent } from '../model.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
+import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
@@ -106,6 +107,7 @@ export function App() {
   useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
   const [, setTheme] = useState<'light' | 'dark' | null>(null);
   const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin'>('home');
+  const [dismissedAnn, setDismissedAnn] = useState<string[]>([]);
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
 
@@ -207,6 +209,11 @@ export function App() {
         </aside>
 
         <main className="main">
+          {visibleAnnouncements(tenant.announcements, !isReq).filter((a) => !dismissedAnn.includes(a.id)).map((a) => <div key={a.id} className="announce">
+            <span className="ann-ic">📣</span>
+            <div style={{ flex: 1 }}><b>{a.title}</b><div className="ann-b">{a.body}</div></div>
+            <button className="xbtn" onClick={() => setDismissedAnn([...dismissedAnn, a.id])} aria-label="Descartar">✕</button>
+          </div>)}
           {activeView === 'home' && !isReq && <Dashboard tenant={tenant} user={user} go={(v, f) => { if (f) setFilter(f); setView(v); }} />}
           {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" />}
           {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" />}
@@ -828,10 +835,11 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
+  ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1148,6 +1156,31 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'traspaso' && <EnablementAdmin tenant={tenant} />}
     {sec === 'reglas' && <BusinessRulesAdmin tenant={tenant} />}
     {sec === 'webhooks' && <WebhooksAdmin tenant={tenant} />}
+    {sec === 'anuncios' && <AnnouncementsAdmin tenant={tenant} />}
+  </div>;
+}
+
+function AnnouncementsAdmin({ tenant }: { tenant: TenantData }) {
+  const save = useStore((s) => s.saveAnnouncement);
+  const remove = useStore((s) => s.removeAnnouncement);
+  const meName = useStore((s) => { const t = s.db.tenants.find((x) => x.id === s.activeTenantId); return t?.members.find((m) => m.uid === s.currentUserId)?.name ?? 'Admin'; });
+  const list = (tenant.announcements ?? []).slice().sort((a, b) => b.at - a.at);
+  const upd = (id: string, patch: Partial<Announcement>) => { const a = list.find((x) => x.id === id); if (a) save({ ...a, ...patch }); };
+  const AUD: [Audience, string][] = [['all', 'Todos'], ['staff', 'Solo técnicos'], ['requesters', 'Solo solicitantes']];
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Avisos globales que se muestran como banner a técnicos y/o solicitantes.</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {list.length === 0 && <div className="empty">Sin anuncios.</div>}
+      {list.map((a) => <div key={a.id} className="rt-card">
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <input style={{ flex: 1, fontWeight: 600 }} value={a.title} onChange={(e) => upd(a.id, { title: e.target.value })} placeholder="Título" />
+          <select value={a.audience} onChange={(e) => upd(a.id, { audience: e.target.value as Audience })}>{AUD.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => remove(a.id)} aria-label="Eliminar">✕</button>
+        </div>
+        <textarea rows={2} value={a.body} onChange={(e) => upd(a.id, { body: e.target.value })} placeholder="Mensaje…" style={{ width: '100%', marginTop: 6 }} />
+      </div>)}
+    </div>
+    <button className="primary" style={{ marginTop: 10 }} onClick={() => save({ id: 'an-' + Date.now(), title: 'Nuevo anuncio', body: '', audience: 'all', authorName: meName, at: Date.now() })}>＋ Añadir anuncio</button>
   </div>;
 }
 

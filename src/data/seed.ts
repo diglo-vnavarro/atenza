@@ -6,6 +6,11 @@ import { DEFAULT_CLOSURE_RULES } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import type { Webhook } from '../webhooks.js';
 import type { KbArticle } from '../kb.js';
+import type { Announcement } from '../announce.js';
+
+export const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
+  { id: 'an-mant', title: 'Mantenimiento de la VPN el sábado', body: 'El sábado de 08:00 a 10:00 la VPN estará en mantenimiento. Puede haber cortes breves de acceso remoto.', audience: 'all', authorName: 'Vicente Navarro', at: 1_781_500_000_000 },
+];
 
 // Base de conocimiento de ejemplo (diglo-it).
 const T0 = 1_781_000_000_000;
@@ -190,6 +195,8 @@ export interface TenantData {
   webhooks?: Webhook[];
   /** base de conocimiento (Soluciones). */
   kbArticles?: KbArticle[];
+  /** anuncios globales (banner). */
+  announcements?: Announcement[];
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
@@ -353,7 +360,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES,
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES, announcements: DEFAULT_ANNOUNCEMENTS,
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -377,7 +384,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], userGroups: ['Clientes Leasys', 'Gestores'], roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: [], webhooks: [], kbArticles: [],
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], userGroups: ['Clientes Leasys', 'Gestores'], roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: [], webhooks: [], kbArticles: [], announcements: [],
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [

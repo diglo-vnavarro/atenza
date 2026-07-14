@@ -76,6 +76,8 @@ interface State {
   removeKbArticle: (id: string) => void;
   viewKbArticle: (id: string) => void;
   submitSurvey: (ticketId: string, rating: number, comment: string) => void;
+  saveAnnouncement: (a: import('../announce.js').Announcement) => void;
+  removeAnnouncement: (id: string) => void;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -519,6 +521,14 @@ export const useStore = create<State>()(
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, survey } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { survey }).catch(errlog);
         },
+        saveAnnouncement: (a) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => { const list = t.announcements ?? []; const has = list.some((x) => x.id === a.id); return { ...t, announcements: has ? list.map((x) => (x.id === a.id ? a : x)) : [a, ...list] }; }) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { announcements: t.announcements ?? [] }).catch(errlog); }
+        },
+        removeAnnouncement: (id) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, announcements: (t.announcements ?? []).filter((x) => x.id !== id) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { announcements: t.announcements ?? [] }).catch(errlog); }
+        },
         // Auto-asigna al técnico MENOS cargado (OrganiZate) del grupo del ticket.
         autoAssign: (ticketId) => {
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return null;
@@ -680,6 +690,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v15', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v16', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );
