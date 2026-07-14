@@ -351,11 +351,11 @@ export function makeSeed(now: number): DB {
   const it: TenantData = {
     id: 'diglo-it', name: 'Diglo ITSM', key: 'itdesk', active: true,
     members: [
-      { uid: 'u-admin', email: 'vnavarro@digloservicer.com', name: 'Vicente Navarro', color: '#4f46e5', role: 'tenant_admin', status: 'active', external: false },
-      { uid: 'u-elena', email: 'eandres@digloservicer.com', name: 'Elena Andrés', color: '#0f766e', role: 'technician', status: 'active', external: false },
-      { uid: 'u-oscar', email: 'oigualada@digloservicer.com', name: 'Óscar Igualada', color: '#b45309', role: 'technician', status: 'active', external: false },
-      { uid: 'u-sergio', email: 'sfrias@digloservicer.com', name: 'Sergio Frías', color: '#0369a1', role: 'technician', status: 'active', external: false },
-      { uid: 'u-bea', email: 'bcabado@digloservicer.com', name: 'Beatriz Cabado', color: '#be185d', role: 'technician', status: 'active', external: false },
+      { uid: 'u-admin', email: 'vnavarro@digloservicer.com', name: 'Vicente Navarro', color: '#4f46e5', role: 'tenant_admin', status: 'active', external: false, roleName: 'SDAdmin', groupIds: ['g-n1', 'g-red'], site: 'Madrid - Sede central', department: 'Sistemas', userGroups: ['Todos los empleados'], enabled: true },
+      { uid: 'u-elena', email: 'eandres@digloservicer.com', name: 'Elena Andrés', color: '#0f766e', role: 'technician', status: 'active', external: false, roleName: 'SDCo-ordinator', groupIds: ['g-n1'], site: 'Madrid - Sede central', department: 'Soporte a usuarios', userGroups: ['Todos los empleados'], enabled: true },
+      { uid: 'u-oscar', email: 'oigualada@digloservicer.com', name: 'Óscar Igualada', color: '#b45309', role: 'technician', status: 'active', external: false, roleName: 'SDCo-ordinator', groupIds: ['g-n2'], site: 'Barcelona', department: 'Soporte a usuarios' },
+      { uid: 'u-sergio', email: 'sfrias@digloservicer.com', name: 'Sergio Frías', color: '#0369a1', role: 'technician', status: 'active', external: false, roleName: 'SDCo-ordinator', groupIds: ['g-red'], site: 'Madrid - Sede central', department: 'Redes y Comunicaciones' },
+      { uid: 'u-bea', email: 'bcabado@digloservicer.com', name: 'Beatriz Cabado', color: '#be185d', role: 'technician', status: 'active', external: false, roleName: 'SDCo-ordinator', groupIds: ['g-n1', 'g-n2'], site: 'Valencia', department: 'Soporte a usuarios' },
       { uid: 'u-laura', email: 'laura.gomez@digloservicer.com', name: 'Laura Gómez', color: '#7c3aed', role: 'requester', status: 'active', external: false, site: 'Madrid - Sede central', department: 'Operaciones', userGroups: ['Todos los empleados', 'Operaciones'] },
     ],
     lifecycles: [rlc, srLc, iamLc, opsLc], templates: [
@@ -379,9 +379,9 @@ export function makeSeed(now: number): DB {
   const leasys: TenantData = {
     id: 'leasys', name: 'Diglo Leasys', key: 'leasys', active: true,
     members: [
-      { uid: 'u-javier', email: 'jquesada@digloservicer.com', name: 'Javier Quesada', color: '#15803d', role: 'tenant_admin', status: 'active', external: false },
-      { uid: 'u-marta', email: 'marta@leasys.com', name: 'Marta Ruiz', color: '#4338ca', role: 'technician', status: 'active', external: true },
-      { uid: 'u-cli', email: 'cliente@leasys.com', name: 'Cliente Leasys', color: '#64748b', role: 'requester', status: 'active', external: true },
+      { uid: 'u-javier', email: 'jquesada@digloservicer.com', name: 'Javier Quesada', color: '#15803d', role: 'tenant_admin', status: 'active', external: false, roleName: 'SDAdmin', groupIds: ['g-lea'], site: 'Sede Leasys', department: 'Portal', userGroups: ['Gestores'], enabled: true },
+      { uid: 'u-marta', email: 'marta@leasys.com', name: 'Marta Ruiz', color: '#4338ca', role: 'technician', status: 'active', external: true, roleName: 'SDCo-ordinator', groupIds: ['g-lea'], site: 'Remoto', department: 'Facturación', userGroups: ['Gestores'] },
+      { uid: 'u-cli', email: 'cliente@leasys.com', name: 'Cliente Leasys', color: '#64748b', role: 'requester', status: 'active', external: true, site: 'Remoto', department: 'Contratos', userGroups: ['Clientes Leasys'] },
     ],
     lifecycles: [leasysLc], templates: [
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
