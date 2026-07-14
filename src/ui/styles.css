@@ -448,9 +448,14 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .fcol.dragover,.ffull.dragover{border-style:solid; border-color:var(--accent); background:var(--accent-soft);}
 .fgrip{color:var(--ink-faint); font-size:13px; cursor:grab; flex:none; user-select:none;}
 .fcard-top{display:flex; gap:6px; align-items:center;}
-.fcard .fname{flex:1; min-width:0; font-size:12.5px; font-weight:500;}
+.fcard .fname{flex:1; min-width:0; font-size:12.5px; font-weight:600; border:1px solid transparent; background:transparent; padding:3px 5px; border-radius:5px;}
+.fcard .fname:hover,.fcard .fname:focus{border-color:var(--line); background:var(--surface-2); outline:none;}
+.fcard .freq{color:var(--crit); font-weight:800;}
+.fcard-pv{pointer-events:none;}
+.fcard-pv .pv-inp{background:var(--surface-2); border-style:dashed; font-size:11.5px; padding:6px 9px;}
+.fcard-tools{display:flex; gap:4px; align-items:center; flex-wrap:wrap; padding-top:5px; border-top:1px solid var(--line-soft, var(--line));}
+.fcard .ftype{font-size:11px; max-width:120px;}
 .fcard-row{display:flex; gap:5px; align-items:center; flex-wrap:wrap;}
-.fcard .ftype{font-size:11.5px; flex:1; min-width:80px;}
 .ftag{font-size:10.5px; border:1px solid var(--line); background:var(--surface-2); border-radius:6px; padding:2px 7px; color:var(--ink-soft); cursor:pointer;}
 .ftag.on{background:var(--accent-soft); border-color:var(--accent); color:var(--accent-deep); font-weight:600;}
 .fcard .xbtn.on{background:var(--accent-soft); color:var(--accent-deep);}

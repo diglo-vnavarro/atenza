@@ -1900,14 +1900,15 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
     <div className="fcard-top">
       <span className="fgrip" title="Arrastrar">⠿</span>
       <input className="fname" value={f.label} onChange={(e) => patch(f.id, { label: e.target.value })} />
+      {f.mandatory && <span className="freq" title="Obligatorio">*</span>}
       <button className="xbtn" onClick={() => del(f.id)} aria-label="Eliminar campo">✕</button>
     </div>
-    <div className="fcard-row">
+    <div className="fcard-pv">{pvInput(f)}</div>
+    <div className="fcard-tools">
       <select className="ftype" value={f.type} onChange={(e) => patch(f.id, { type: e.target.value as FieldType })}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
       <button className={'ftag' + (f.mandatory ? ' on' : '')} onClick={() => patch(f.id, { mandatory: !f.mandatory })} title="Obligatorio">Oblig.</button>
       <button className={'ftag' + (f.requesterVisible !== false ? ' on' : '')} onClick={() => patch(f.id, { requesterVisible: f.requesterVisible === false })} title="Visible al solicitante">Solic.</button>
-    </div>
-    <div className="fcard-row">
+      <span style={{ flex: 1 }} />
       <button className="xbtn" onClick={() => moveInCol(f, -1)} aria-label="Subir">↑</button>
       <button className="xbtn" onClick={() => moveInCol(f, 1)} aria-label="Bajar">↓</button>
       {!f.full && <button className="xbtn" onClick={() => patch(f.id, { col: f.col === 2 ? 1 : 2 })} title="Cambiar de columna">{f.col === 2 ? '←' : '→'}</button>}
