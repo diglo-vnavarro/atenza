@@ -443,7 +443,10 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .fcol-h{font-family:var(--mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700;}
 .fcol-empty{color:var(--ink-faint); font-size:12px; text-align:center; padding:6px 0;}
 .ffull{margin-top:10px; background:var(--surface); border:1px dashed var(--line-2, var(--line)); border-radius:9px; padding:8px; display:flex; flex-direction:column; gap:7px;}
-.fcard{border:1px solid var(--line); border-radius:8px; background:var(--surface); padding:7px 8px; display:flex; flex-direction:column; gap:6px;}
+.fcard{border:1px solid var(--line); border-radius:8px; background:var(--surface); padding:7px 8px; display:flex; flex-direction:column; gap:6px; cursor:grab;}
+.fcard:active{cursor:grabbing;}
+.fcol.dragover,.ffull.dragover{border-style:solid; border-color:var(--accent); background:var(--accent-soft);}
+.fgrip{color:var(--ink-faint); font-size:13px; cursor:grab; flex:none; user-select:none;}
 .fcard-top{display:flex; gap:6px; align-items:center;}
 .fcard .fname{flex:1; min-width:0; font-size:12.5px; font-weight:500;}
 .fcard-row{display:flex; gap:5px; align-items:center; flex-wrap:wrap;}

@@ -895,14 +895,14 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
-  ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
+  ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', '✉️', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1220,6 +1220,38 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'anuncios' && <AnnouncementsAdmin tenant={tenant} />}
     {sec === 'auditoria' && <AuditAdmin tenant={tenant} />}
     {sec === 'entrante' && <InboundAdmin tenant={tenant} />}
+    {sec === 'campos' && <CustomFieldsAdmin tenant={tenant} />}
+    </div>
+  </div>;
+}
+
+// Catálogo de campos adicionales (ad-hoc) del tenant. Distinto del creador de
+// formularios (Plantillas y campos): aquí se DEFINEN los campos que luego se
+// arrastran a los formularios; los campos "por defecto" (Asunto, Prioridad…) son
+// de sistema y no se listan aquí.
+function CustomFieldsAdmin({ tenant }: { tenant: TenantData }) {
+  const setCustomFields = useStore((s) => s.setCustomFields);
+  const list = tenant.customFields ?? [];
+  const upd = (id: string, p: Partial<FieldDef>) => setCustomFields(list.map((x) => (x.id === id ? { ...x, ...p } : x)));
+  const del = (id: string) => setCustomFields(list.filter((x) => x.id !== id));
+  const [nl, setNl] = useState(''); const [nt, setNt] = useState<FieldType>('text');
+  const add = () => { if (!nl.trim()) return; setCustomFields([...list, { id: 'cf-' + Date.now(), label: nl.trim(), type: nt, requesterVisible: true }]); setNl(''); };
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Campos <b>adicionales</b> (ad-hoc) de esta instancia. Los defines aquí una vez y luego los <b>arrastras</b> a los formularios en «Plantillas y campos». Los campos por defecto de SDP (Asunto, Prioridad, Categoría…) son de sistema y no se editan aquí.</p>
+    <table className="mgmt"><thead><tr><th>Campo</th><th>Tipo</th><th>Obligatorio</th><th>Visible solicitante</th><th /></tr></thead>
+      <tbody>{list.length === 0 ? <tr><td colSpan={5}><div className="empty">Sin campos adicionales.</div></td></tr>
+        : list.map((f) => <tr key={f.id}>
+          <td><input value={f.label} onChange={(e) => upd(f.id, { label: e.target.value })} style={{ width: '100%', fontWeight: 500 }} /></td>
+          <td><select value={f.type} onChange={(e) => upd(f.id, { type: e.target.value as FieldType })}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></td>
+          <td><button className={'toggle' + (f.mandatory ? ' on' : '')} onClick={() => upd(f.id, { mandatory: !f.mandatory })} /></td>
+          <td><button className={'toggle' + (f.requesterVisible !== false ? ' on' : '')} onClick={() => upd(f.id, { requesterVisible: f.requesterVisible === false })} /></td>
+          <td><button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => del(f.id)} aria-label="Eliminar">✕</button></td>
+        </tr>)}
+      </tbody></table>
+    <div className="add-field" style={{ marginTop: 12 }}>
+      <input value={nl} onChange={(e) => setNl(e.target.value)} placeholder="Nuevo campo adicional…" onKeyDown={(e) => { if (e.key === 'Enter') add(); }} />
+      <select value={nt} onChange={(e) => setNt(e.target.value as FieldType)}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+      <button className="primary" onClick={add}>＋ Campo adicional</button>
     </div>
   </div>;
 }
@@ -1814,6 +1846,8 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const [nft, setNft] = useState<FieldType>('text');
   const [nsec, setNsec] = useState('');
   const [ncol, setNcol] = useState<1 | 2>(1);
+  const [drag, setDrag] = useState<string | null>(null);
+  const [over, setOver] = useState<string | null>(null);
 
   const secOf = (f: FieldDef) => f.section || DEF_SEC;
   const sections = defs.reduce<string[]>((a, f) => { const s = secOf(f); if (!a.includes(s)) a.push(s); return a; }, []);
@@ -1828,9 +1862,27 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const delSection = (sec: string) => { if (confirm(`¿Eliminar la sección "${sec}" y sus campos?`)) commit(defs.filter((x) => secOf(x) !== sec)); };
   const addField = () => { if (!nf.trim()) return; commit([...defs, { id: 'f-' + Date.now(), label: nf.trim(), type: nft, requesterVisible: true, section: nsec.trim() || sections[0] || DEF_SEC, col: ncol }]); setNf(''); };
   const addSection = () => { const name = prompt('Nombre de la nueva sección:'); if (name && name.trim()) commit([...defs, { id: 'f-' + Date.now(), label: 'Campo', type: 'text', requesterVisible: true, section: name.trim(), col: 1 }]); };
+  // arrastrar-soltar: reubica el campo arrastrado a sección/columna/ancho, insertando
+  // antes de beforeId si se soltó sobre una tarjeta, o al final de la columna si no.
+  const relocate = (dragId: string, section: string, col: 1 | 2, full: boolean, beforeId?: string) => {
+    if (dragId === beforeId) return;
+    const arr = defs.slice();
+    const i = arr.findIndex((x) => x.id === dragId); if (i < 0) return;
+    const [f] = arr.splice(i, 1);
+    const moved: FieldDef = { ...f!, section, col, full: full || undefined };
+    if (beforeId) { let bi = arr.findIndex((x) => x.id === beforeId); if (bi < 0) bi = arr.length; arr.splice(bi, 0, moved); } else arr.push(moved);
+    commit(arr);
+  };
+  const catalog = (tenant.customFields ?? []).filter((cf) => !defs.some((d) => d.label === cf.label));
+  const addFromCatalog = (cfId: string) => { const cf = (tenant.customFields ?? []).find((x) => x.id === cfId); if (cf) commit([...defs, { ...cf, id: 'f-' + Date.now(), section: nsec.trim() || sections[0] || DEF_SEC, col: ncol }]); };
 
-  const fcard = (f: FieldDef) => <div key={f.id} className="fcard">
+  const fcard = (f: FieldDef) => <div key={f.id} className="fcard" draggable
+    onDragStart={(e) => { setDrag(f.id); e.dataTransfer.effectAllowed = 'move'; }}
+    onDragEnd={() => { setDrag(null); setOver(null); }}
+    onDragOver={(e) => { if (drag && drag !== f.id) { e.preventDefault(); e.stopPropagation(); } }}
+    onDrop={(e) => { if (drag) { e.preventDefault(); e.stopPropagation(); relocate(drag, secOf(f), f.col === 2 ? 2 : 1, !!f.full, f.id); setDrag(null); setOver(null); } }}>
     <div className="fcard-top">
+      <span className="fgrip" title="Arrastrar">⠿</span>
       <input className="fname" value={f.label} onChange={(e) => patch(f.id, { label: e.target.value })} />
       <button className="xbtn" onClick={() => del(f.id)} aria-label="Eliminar campo">✕</button>
     </div>
@@ -1873,13 +1925,24 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
             {sections.length > 1 && <button className="xbtn" onClick={() => delSection(sec)} aria-label="Eliminar sección">🗑</button>}
           </div>
           <div className="fcols">
-            {([1, 2] as const).map((col) => <div key={col} className="fcol">
+            {([1, 2] as const).map((col) => { const key = `${sec}|${col}`; return <div key={col}
+              className={'fcol' + (over === key && drag ? ' dragover' : '')}
+              onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(key); } }}
+              onDragLeave={() => setOver((o) => (o === key ? null : o))}
+              onDrop={(e) => { if (drag) { e.preventDefault(); relocate(drag, sec, col, false); setDrag(null); setOver(null); } }}>
               <div className="fcol-h">Columna {col === 1 ? 'izquierda' : 'derecha'}</div>
               {colFields(sec, col).map(fcard)}
-              {colFields(sec, col).length === 0 && <div className="fcol-empty">—</div>}
-            </div>)}
+              {colFields(sec, col).length === 0 && <div className="fcol-empty">Suelta un campo aquí</div>}
+            </div>; })}
           </div>
-          {fullFields(sec).length > 0 && <div className="ffull"><div className="fcol-h">Ancho completo</div>{fullFields(sec).map(fcard)}</div>}
+          <div className={'ffull' + (over === `${sec}|full` && drag ? ' dragover' : '')}
+            onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(`${sec}|full`); } }}
+            onDragLeave={() => setOver((o) => (o === `${sec}|full` ? null : o))}
+            onDrop={(e) => { if (drag) { e.preventDefault(); relocate(drag, sec, 1, true); setDrag(null); setOver(null); } }}>
+            <div className="fcol-h">Ancho completo</div>
+            {fullFields(sec).map(fcard)}
+            {fullFields(sec).length === 0 && <div className="fcol-empty">Suelta aquí para ancho completo</div>}
+          </div>
         </div>)}
         <div className="add-field">
           <input value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Nuevo campo…" onKeyDown={(e) => { if (e.key === 'Enter') addField(); }} />
@@ -1888,6 +1951,7 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
           <select value={ncol} onChange={(e) => setNcol(Number(e.target.value) as 1 | 2)} title="Columna"><option value={1}>Izq.</option><option value={2}>Der.</option></select>
           <button className="primary" onClick={addField}>＋ Campo</button>
           <button className="ghost" onClick={addSection}>＋ Sección</button>
+          {catalog.length > 0 && <select value="" onChange={(e) => { if (e.target.value) addFromCatalog(e.target.value); }} title="Añadir campo adicional del catálogo"><option value="">＋ Campo adicional…</option>{catalog.map((cf) => <option key={cf.id} value={cf.id}>{cf.label}</option>)}</select>}
         </div>
       </div>
 
