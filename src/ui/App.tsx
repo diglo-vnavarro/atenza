@@ -192,7 +192,7 @@ export function App() {
         )}
         <GlobalSearch tenant={tenant} onOpen={(id) => { select(id); setView(isReq ? 'requests' : 'tickets'); }} />
         <div className="spring" />
-        {!readOnly && <button className="newtop" onClick={() => setShowNew(true)}>＋ Nueva solicitud</button>}
+        <button className="newtop" onClick={() => setShowNew(true)} title={readOnly ? 'Ver el catálogo que ve este usuario (solo lectura)' : ''}>＋ Nueva solicitud</button>
         <Bell tenant={tenant} meUid={effectiveUserId} />
         <button className="iconbtn" onClick={toggleTheme} title="Tema" aria-label="Cambiar tema">◐</button>
         {firebaseEnabled ? <>
@@ -255,7 +255,7 @@ export function App() {
         </main>
       </div>
 
-      {showNew && <NewTicket tenant={tenant} role={role} user={user} onClose={() => setShowNew(false)} />}
+      {showNew && <NewTicket tenant={tenant} role={role} user={user} readOnly={readOnly} onClose={() => setShowNew(false)} />}
     </div>
   );
 }
@@ -743,7 +743,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
 
 const tplGroup = (t: Template) => t.group ?? (t.type === 'incident' ? 'Incidencias' : 'Solicitudes de servicio');
 
-function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; onClose: () => void }) {
+function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; readOnly?: boolean; onClose: () => void }) {
   const create = useStore((s) => s.createTicket);
   const [tpl, setTpl] = useState<Template | null>(tenant.templates.length === 1 ? tenant.templates[0]! : null);
   const [q, setQ] = useState('');
@@ -823,8 +823,9 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
             {role !== 'requester' && pls && pls.mode.length > 0 && <label>Modo<select value={mode} onChange={(e) => setMode(e.target.value)}><option value="">— Seleccionar —</option>{pls.mode.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
             {(tenant.sites ?? []).length > 0 && <label>Sede<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
             {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
+            {readOnly && <div className="empty" style={{ fontSize: 12, marginTop: 4 }}>👁 Modo lectura: estás viendo el catálogo que ve este usuario; no puedes crear la solicitud.</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button className="primary" onClick={submit} disabled={!subject.trim()}>Crear solicitud</button>
+              <button className="primary" onClick={submit} disabled={!subject.trim() || readOnly}>Crear solicitud</button>
               <button className="ghost" onClick={onClose}>Cancelar</button>
             </div>
           </div>}
@@ -1848,6 +1849,22 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const [ncol, setNcol] = useState<1 | 2>(1);
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
+  const [view, setView] = useState<'tech' | 'req'>('tech');
+  const [showPrev, setShowPrev] = useState(false);
+  const [palTab, setPalTab] = useState<'avail' | 'new'>('avail');
+  const [palQ, setPalQ] = useState('');
+  const [palDrag, setPalDrag] = useState<{ kind: 'type' | 'catalog'; value: string } | null>(null);
+  const TYPE_LABEL: Record<string, string> = Object.fromEntries(FIELD_TYPES);
+  // añade un campo nuevo (desde la paleta: tipo o campo del catálogo) a una posición.
+  const addFromPalette = (section: string, col: 1 | 2, full: boolean, beforeId?: string) => {
+    if (!palDrag) return;
+    let nfld: FieldDef;
+    if (palDrag.kind === 'catalog') { const cf = (tenant.customFields ?? []).find((x) => x.id === palDrag.value); if (!cf) return; nfld = { ...cf, id: 'f-' + Date.now(), section, col, full: full || undefined }; }
+    else nfld = { id: 'f-' + Date.now(), label: 'Nuevo ' + (TYPE_LABEL[palDrag.value] ?? 'campo').toLowerCase(), type: palDrag.value as FieldType, requesterVisible: true, section, col, full: full || undefined };
+    const arr = defs.slice();
+    if (beforeId) { let bi = arr.findIndex((x) => x.id === beforeId); if (bi < 0) bi = arr.length; arr.splice(bi, 0, nfld); } else arr.push(nfld);
+    commit(arr); setPalDrag(null); setOver(null);
+  };
 
   const secOf = (f: FieldDef) => f.section || DEF_SEC;
   const sections = defs.reduce<string[]>((a, f) => { const s = secOf(f); if (!a.includes(s)) a.push(s); return a; }, []);
@@ -1874,13 +1891,12 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
     commit(arr);
   };
   const catalog = (tenant.customFields ?? []).filter((cf) => !defs.some((d) => d.label === cf.label));
-  const addFromCatalog = (cfId: string) => { const cf = (tenant.customFields ?? []).find((x) => x.id === cfId); if (cf) commit([...defs, { ...cf, id: 'f-' + Date.now(), section: nsec.trim() || sections[0] || DEF_SEC, col: ncol }]); };
 
   const fcard = (f: FieldDef) => <div key={f.id} className="fcard" draggable
     onDragStart={(e) => { setDrag(f.id); e.dataTransfer.effectAllowed = 'move'; }}
     onDragEnd={() => { setDrag(null); setOver(null); }}
-    onDragOver={(e) => { if (drag && drag !== f.id) { e.preventDefault(); e.stopPropagation(); } }}
-    onDrop={(e) => { if (drag) { e.preventDefault(); e.stopPropagation(); relocate(drag, secOf(f), f.col === 2 ? 2 : 1, !!f.full, f.id); setDrag(null); setOver(null); } }}>
+    onDragOver={(e) => { if ((drag && drag !== f.id) || palDrag) { e.preventDefault(); e.stopPropagation(); } }}
+    onDrop={(e) => { if (palDrag) { e.preventDefault(); e.stopPropagation(); addFromPalette(secOf(f), f.col === 2 ? 2 : 1, !!f.full, f.id); } else if (drag) { e.preventDefault(); e.stopPropagation(); relocate(drag, secOf(f), f.col === 2 ? 2 : 1, !!f.full, f.id); setDrag(null); setOver(null); } }}>
     <div className="fcard-top">
       <span className="fgrip" title="Arrastrar">⠿</span>
       <input className="fname" value={f.label} onChange={(e) => patch(f.id, { label: e.target.value })} />
@@ -1916,60 +1932,91 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
       <ChipMulti options={tenant.userGroups ?? []} selected={tpl.userGroups ?? []} onChange={(ug) => updateTemplate(tpl.id, { userGroups: ug })} />
     </div>}
 
-    <div className="fbx">
-      <div className="fbx-build">
-        <div className="fbx-htitle">Diseño del formulario <span className="pill">secciones · 2 columnas</span></div>
-        {sections.map((sec) => <div key={sec} className="fsec">
-          <div className="fsec-h">
-            <input className="fsec-name" value={sec} onChange={(e) => renameSection(sec, e.target.value)} />
-            {sections.length > 1 && <button className="xbtn" onClick={() => delSection(sec)} aria-label="Eliminar sección">🗑</button>}
-          </div>
-          <div className="fcols">
-            {([1, 2] as const).map((col) => { const key = `${sec}|${col}`; return <div key={col}
-              className={'fcol' + (over === key && drag ? ' dragover' : '')}
-              onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(key); } }}
-              onDragLeave={() => setOver((o) => (o === key ? null : o))}
-              onDrop={(e) => { if (drag) { e.preventDefault(); relocate(drag, sec, col, false); setDrag(null); setOver(null); } }}>
-              <div className="fcol-h">Columna {col === 1 ? 'izquierda' : 'derecha'}</div>
-              {colFields(sec, col).map(fcard)}
-              {colFields(sec, col).length === 0 && <div className="fcol-empty">Suelta un campo aquí</div>}
+    <div className="te-tabs">
+      <button className={view === 'tech' ? 'on' : ''} onClick={() => { setView('tech'); setShowPrev(false); }}>Vista del técnico</button>
+      <button className={view === 'req' ? 'on' : ''} onClick={() => { setView('req'); setShowPrev(false); }}>Vista del solicitante</button>
+      <button className="dim" disabled>Información de recurso<span className="soon">pronto</span></button>
+      <button className="dim" disabled>Aprobaciones<span className="soon">pronto</span></button>
+      <button className="dim" disabled>Tareas<span className="soon">pronto</span></button>
+      <button className="dim" disabled>Listas de comprobación<span className="soon">pronto</span></button>
+      <button className="dim" disabled>Reglas del formulario<span className="soon">pronto</span></button>
+      <button className="te-prev" onClick={() => setShowPrev(!showPrev)}>{showPrev ? '‹ Volver al editor' : '⤢ Vista preliminar'}</button>
+    </div>
+
+    <div className="fbx2">
+      <div className="fbx-canvas">
+        {showPrev
+          ? <div className="preview">
+              <div className="pv-head">Vista preliminar · {view === 'tech' ? 'formulario del técnico' : 'formulario del solicitante'}</div>
+              <div className="pv-body">
+                {sections.map((sec) => { const vis = defs.filter((f) => secOf(f) === sec && (view === 'tech' || f.requesterVisible !== false)); if (vis.length === 0) return null; return <div key={sec} className="pv-sec">
+                  <div className="pv-sec-t">{sec}</div>
+                  <div className="pv2">
+                    {([1, 2] as const).map((col) => <div key={col} className="pv2col">
+                      {vis.filter((f) => !f.full && (f.col === 2 ? 2 : 1) === col).map((f) => <div key={f.id} className="pv-field"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}
+                    </div>)}
+                    {vis.filter((f) => f.full).map((f) => <div key={f.id} className="pv-field full"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}
+                  </div>
+                </div>; })}
+                {defs.filter((f) => view === 'tech' || f.requesterVisible !== false).length === 0 && <div className="empty">Sin campos visibles en esta vista.</div>}
+              </div>
+            </div>
+          : <>
+            {view === 'req' && <div className="banner" style={{ marginBottom: 10 }}>Editando la <b>vista del solicitante</b>: solo se muestran los campos marcados como visibles para el solicitante.</div>}
+            {sections.map((sec) => { const vf = (arr: FieldDef[]) => view === 'tech' ? arr : arr.filter((f) => f.requesterVisible !== false); return <div key={sec} className="fsec">
+              <div className="fsec-h">
+                <span className="fgrip" title="Sección">⠿</span>
+                <input className="fsec-name" value={sec} onChange={(e) => renameSection(sec, e.target.value)} />
+                {sections.length > 1 && <button className="xbtn" onClick={() => delSection(sec)} aria-label="Eliminar sección">🗑</button>}
+              </div>
+              <div className="fcols">
+                {([1, 2] as const).map((col) => { const key = `${sec}|${col}`; return <div key={col}
+                  className={'fcol' + (over === key && (drag || palDrag) ? ' dragover' : '')}
+                  onDragOver={(e) => { if (drag || palDrag) { e.preventDefault(); setOver(key); } }}
+                  onDragLeave={() => setOver((o) => (o === key ? null : o))}
+                  onDrop={(e) => { if (palDrag) { e.preventDefault(); addFromPalette(sec, col, false); } else if (drag) { e.preventDefault(); relocate(drag, sec, col, false); setDrag(null); setOver(null); } }}>
+                  <div className="fcol-h">Columna {col === 1 ? 'izquierda' : 'derecha'}</div>
+                  {vf(colFields(sec, col)).map(fcard)}
+                  {vf(colFields(sec, col)).length === 0 && <div className="fcol-empty">Suelta un campo aquí</div>}
+                </div>; })}
+              </div>
+              <div className={'ffull' + (over === `${sec}|full` && (drag || palDrag) ? ' dragover' : '')}
+                onDragOver={(e) => { if (drag || palDrag) { e.preventDefault(); setOver(`${sec}|full`); } }}
+                onDragLeave={() => setOver((o) => (o === `${sec}|full` ? null : o))}
+                onDrop={(e) => { if (palDrag) { e.preventDefault(); addFromPalette(sec, 1, true); } else if (drag) { e.preventDefault(); relocate(drag, sec, 1, true); setDrag(null); setOver(null); } }}>
+                <div className="fcol-h">Ancho completo</div>
+                {vf(fullFields(sec)).map(fcard)}
+                {vf(fullFields(sec)).length === 0 && <div className="fcol-empty">Suelta aquí para ancho completo</div>}
+              </div>
             </div>; })}
-          </div>
-          <div className={'ffull' + (over === `${sec}|full` && drag ? ' dragover' : '')}
-            onDragOver={(e) => { if (drag) { e.preventDefault(); setOver(`${sec}|full`); } }}
-            onDragLeave={() => setOver((o) => (o === `${sec}|full` ? null : o))}
-            onDrop={(e) => { if (drag) { e.preventDefault(); relocate(drag, sec, 1, true); setDrag(null); setOver(null); } }}>
-            <div className="fcol-h">Ancho completo</div>
-            {fullFields(sec).map(fcard)}
-            {fullFields(sec).length === 0 && <div className="fcol-empty">Suelta aquí para ancho completo</div>}
-          </div>
-        </div>)}
-        <div className="add-field">
-          <input value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Nuevo campo…" onKeyDown={(e) => { if (e.key === 'Enter') addField(); }} />
-          <select value={nft} onChange={(e) => setNft(e.target.value as FieldType)}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-          <select value={nsec} onChange={(e) => setNsec(e.target.value)} title="Sección">{sections.map((s) => <option key={s} value={s}>{s}</option>)}</select>
-          <select value={ncol} onChange={(e) => setNcol(Number(e.target.value) as 1 | 2)} title="Columna"><option value={1}>Izq.</option><option value={2}>Der.</option></select>
-          <button className="primary" onClick={addField}>＋ Campo</button>
-          <button className="ghost" onClick={addSection}>＋ Sección</button>
-          {catalog.length > 0 && <select value="" onChange={(e) => { if (e.target.value) addFromCatalog(e.target.value); }} title="Añadir campo adicional del catálogo"><option value="">＋ Campo adicional…</option>{catalog.map((cf) => <option key={cf.id} value={cf.id}>{cf.label}</option>)}</select>}
-        </div>
+            <button className="ghost" style={{ marginTop: 6 }} onClick={addSection}>＋ Nueva sección</button>
+          </>}
       </div>
 
-      <div className="preview">
-        <div className="pv-head">Vista previa · formulario del solicitante</div>
-        <div className="pv-body">
-          {sections.map((sec) => { const vis = defs.filter((f) => secOf(f) === sec && f.requesterVisible !== false); if (vis.length === 0) return null; return <div key={sec} className="pv-sec">
-            <div className="pv-sec-t">{sec}</div>
-            <div className="pv2">
-              {([1, 2] as const).map((col) => <div key={col} className="pv2col">
-                {vis.filter((f) => !f.full && (f.col === 2 ? 2 : 1) === col).map((f) => <div key={f.id} className="pv-field"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}
-              </div>)}
-              {vis.filter((f) => f.full).map((f) => <div key={f.id} className="pv-field full"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}
-            </div>
-          </div>; })}
-          {defs.filter((f) => f.requesterVisible !== false).length === 0 && <div className="empty">Ningún campo visible para el solicitante.</div>}
+      <aside className="fbx-pal">
+        <div className="pal-h">Arrastrar y soltar campos</div>
+        <div className="pal-tabs">
+          <button className={palTab === 'avail' ? 'on' : ''} onClick={() => setPalTab('avail')}>Disponible</button>
+          <button className={palTab === 'new' ? 'on' : ''} onClick={() => setPalTab('new')}>Nuevo</button>
         </div>
-      </div>
+        {palTab === 'avail' ? <>
+          <input className="pal-q" value={palQ} onChange={(e) => setPalQ(e.target.value)} placeholder="Buscar campo…" />
+          <div className="pal-list">
+            <div className="pal-g">Tipos de campo</div>
+            {FIELD_TYPES.filter(([, l]) => l.toLowerCase().includes(palQ.toLowerCase())).map(([v, l]) => <div key={v} className="pal-item" draggable onDragStart={() => setPalDrag({ kind: 'type', value: v })} onDragEnd={() => { setPalDrag(null); setOver(null); }}><span className="fgrip">⠿</span>{l}</div>)}
+            <div className="pal-g">Campos adicionales del catálogo</div>
+            {catalog.filter((cf) => cf.label.toLowerCase().includes(palQ.toLowerCase())).map((cf) => <div key={cf.id} className="pal-item cf" draggable onDragStart={() => setPalDrag({ kind: 'catalog', value: cf.id })} onDragEnd={() => { setPalDrag(null); setOver(null); }}><span className="fgrip">⠿</span>{cf.label}</div>)}
+            {catalog.length === 0 && <div className="fcol-empty" style={{ fontSize: 11 }}>Todos los campos del catálogo ya están en el formulario. Créalos en «Campos adicionales».</div>}
+          </div>
+        </> : <div className="pal-new">
+          <input value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Etiqueta del campo…" />
+          <select value={nft} onChange={(e) => setNft(e.target.value as FieldType)}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          <select value={nsec} onChange={(e) => setNsec(e.target.value)} title="Sección">{sections.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+          <select value={ncol} onChange={(e) => setNcol(Number(e.target.value) as 1 | 2)} title="Columna"><option value={1}>Columna izquierda</option><option value={2}>Columna derecha</option></select>
+          <button className="primary" onClick={addField} disabled={!nf.trim()}>＋ Añadir al formulario</button>
+          <div className="fcol-empty" style={{ fontSize: 11, textAlign: 'left' }}>O arrastra un tipo desde «Disponible» al canvas.</div>
+        </div>}
+      </aside>
     </div>
   </div>;
 }
