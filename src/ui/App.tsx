@@ -11,7 +11,8 @@ import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
 import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
 import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
-import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate } from '../model.js';
+import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent } from '../model.js';
+import type { Webhook } from '../webhooks.js';
 import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
@@ -807,10 +808,10 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
-  ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Asignación automática', null], ['Flujos de trabajo', null]]],
+  ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1072,6 +1073,36 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'respuestas' && <ReplyTemplatesAdmin tenant={tenant} />}
     {sec === 'traspaso' && <EnablementAdmin tenant={tenant} />}
     {sec === 'reglas' && <BusinessRulesAdmin tenant={tenant} />}
+    {sec === 'webhooks' && <WebhooksAdmin tenant={tenant} />}
+  </div>;
+}
+
+function WebhooksAdmin({ tenant }: { tenant: TenantData }) {
+  const setWebhooks = useStore((s) => s.setWebhooks);
+  const list = tenant.webhooks ?? [];
+  const upd = (id: string, patch: Partial<Webhook>) => setWebhooks(list.map((w) => (w.id === id ? { ...w, ...patch } : w)));
+  const add = () => setWebhooks([...list, { id: 'wh-' + Date.now(), name: 'Nuevo webhook', enabled: false, url: '', events: ['created'] }]);
+  const del = (id: string) => setWebhooks(list.filter((w) => w.id !== id));
+  const toggleEv = (w: Webhook, ev: NotifEvent) => upd(w.id, { events: w.events.includes(ev) ? w.events.filter((e) => e !== ev) : [...w.events, ev] });
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Envía un POST JSON a una URL externa (Slack, Teams, n8n…) cuando ocurre un evento del ticket. Disparo best-effort desde el cliente; en producción se moverá a una Cloud Function.</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {list.length === 0 && <div className="empty">Sin webhooks.</div>}
+      {list.map((w) => <div key={w.id} className="rule-card">
+        <div className="rule-h">
+          <label className="switch"><input type="checkbox" checked={w.enabled} onChange={(e) => upd(w.id, { enabled: e.target.checked })} /><span className="track" /></label>
+          <input style={{ flex: 1, fontWeight: 600 }} value={w.name} onChange={(e) => upd(w.id, { name: e.target.value })} placeholder="Nombre" />
+          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => del(w.id)} aria-label="Eliminar">✕</button>
+        </div>
+        <div className="rule-body">
+          <input value={w.url} onChange={(e) => upd(w.id, { url: e.target.value })} placeholder="https://hooks.slack.com/…" />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+            {NOTIF_EVENTS.map(([ev, lbl]) => <button key={ev} type="button" className={'chipsel' + (w.events.includes(ev) ? ' on' : '')} onClick={() => toggleEv(w, ev)}>{lbl}</button>)}
+          </div>
+        </div>
+      </div>)}
+    </div>
+    <button className="primary" style={{ marginTop: 12 }} onClick={add}>＋ Añadir webhook</button>
   </div>;
 }
 

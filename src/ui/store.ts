@@ -7,6 +7,8 @@ import { isClosingStatus, closureBlockers } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import { applyBusinessRules } from '../rules.js';
 import { pickByLoad } from '../assign.js';
+import type { Webhook } from '../webhooks.js';
+import { webhooksFor } from '../webhooks.js';
 import { canTransition, initialState } from '../lifecycle.js';
 import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
@@ -69,6 +71,7 @@ interface State {
   setReplyTemplates: (list: ReplyTemplate[]) => void;
   setBusinessRules: (list: BusinessRule[]) => void;
   autoAssign: (ticketId: string) => string | null;
+  setWebhooks: (list: Webhook[]) => void;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -167,6 +170,11 @@ export const useStore = create<State>()(
         if (CLOUD) for (const n of notifs) void cloud.writeNotification(t.id, n).catch(errlog);
       };
       const emitNotifs = (t: TenantData, event: NotifEvent, ticket: StoredTicket) => {
+        // Webhooks salientes (best-effort no-cors): independientes de los avisos en
+        // pantalla. Producción → mover a Cloud Function con triggers de Firestore.
+        for (const h of webhooksFor(t.webhooks, event)) {
+          void fetch(h.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event, ticketId: ticket.id, subject: ticket.subject, at: Date.now(), tenant: t.id }) }).catch(() => { /* best-effort */ });
+        }
         const rule = (t.notifRules ?? []).find((r) => r.event === event);
         if (!rule) return;
         const actor = get().currentUserId;
@@ -483,6 +491,10 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, businessRules: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { businessRules: list }).catch(errlog); }
         },
+        setWebhooks: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, webhooks: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { webhooks: list }).catch(errlog); }
+        },
         // Auto-asigna al técnico MENOS cargado (OrganiZate) del grupo del ticket.
         autoAssign: (ticketId) => {
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return null;
@@ -644,6 +656,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v13', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v14', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );
