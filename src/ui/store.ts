@@ -23,6 +23,7 @@ interface NewTicket {
   priority: string; impact?: string; urgency?: string; mode?: string; level?: string; site?: string;
   requesterId: string; technicianId?: string | null;
   templateId?: string;
+  udf?: Record<string, string>;
 }
 
 interface State {
@@ -78,6 +79,8 @@ interface State {
   setWebhooks: (list: Webhook[]) => void;
   setCustomFields: (list: FieldDef[]) => void;
   setServiceIcon: (category: string, icon: string) => void;
+  adminTemplateId: string | null;
+  setAdminTemplate: (id: string | null) => void;
   saveKbArticle: (a: import('../kb.js').KbArticle) => void;
   removeKbArticle: (id: string) => void;
   viewKbArticle: (id: string) => void;
@@ -281,6 +284,7 @@ export const useStore = create<State>()(
             subcategory: nt.subcategory, item: nt.item,
             priority: nt.priority, impact: nt.impact, urgency: nt.urgency, mode: nt.mode, level: nt.level, site: nt.site,
             templateId: tpl?.id ?? 'tpl-inc', status: init,
+            ...(nt.udf && Object.keys(nt.udf).length ? { udf: nt.udf } : {}),
           };
           // Reglas de negocio: aplican patch (prioridad/grupo/estado/técnico) al crear.
           const ro = applyBusinessRules(t.businessRules, draft as StoredTicket);
@@ -533,6 +537,8 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, serviceCategoryIcons: { ...(t.serviceCategoryIcons ?? {}), [category]: icon } })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { serviceCategoryIcons: t.serviceCategoryIcons ?? {} }).catch(errlog); }
         },
+        adminTemplateId: null,
+        setAdminTemplate: (id) => set({ adminTemplateId: id }),
         saveKbArticle: (a) => {
           const prev = activeT(get())?.kbArticles?.find((x) => x.id === a.id);
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => { const list = t.kbArticles ?? []; const has = list.some((x) => x.id === a.id); return { ...t, kbArticles: has ? list.map((x) => (x.id === a.id ? a : x)) : [a, ...list] }; }) }));
@@ -747,6 +753,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v20', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v21', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

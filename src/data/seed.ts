@@ -383,6 +383,8 @@ export function makeSeed(now: number): DB {
           { id: 'fd-imp', label: 'Impacto', type: 'select', requesterVisible: true, section: 'Detalles de la solicitud', col: 1 },
           { id: 'fd-urg', label: 'Urgencia', type: 'select', requesterVisible: true, section: 'Detalles de la solicitud', col: 2 },
           { id: 'fd-desc', label: 'Descripción', type: 'textarea', mandatory: true, requesterVisible: true, section: 'Detalles de la solicitud', full: true },
+          { id: 'fd-asset', label: 'Nº de activo', type: 'text', requesterVisible: true, section: 'Información adicional', col: 1 },
+          { id: 'fd-vip', label: 'Usuario VIP', type: 'bool', requesterVisible: false, section: 'Información adicional', full: true },
         ] },
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,

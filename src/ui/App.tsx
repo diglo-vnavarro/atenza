@@ -535,6 +535,18 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
         <div className="slabar"><span style={{ width: pct + '%', background: ss.breached ? 'var(--crit)' : paused ? 'var(--warn)' : 'var(--ok)' }} /></div>
       </div>}
       {t.description && <div className="desc" style={{ whiteSpace: 'pre-wrap' }}>{richToText(t.description)}</div>}
+      {t.udf && Object.keys(t.udf).length > 0 && (() => {
+        const tpl = tenant.templates.find((x) => x.id === t.templateId);
+        const labelOf = (id: string) => tpl?.fieldDefs?.find((f) => f.id === id)?.label ?? id;
+        const nameOf = (id: string) => tenant.members.find((m) => m.uid === id)?.name;
+        const entries = Object.entries(t.udf).filter(([, v]) => v !== '' && v != null);
+        return entries.length > 0 ? <div style={{ marginTop: 12 }}>
+          <div className="k">Campos adicionales</div>
+          <div className="facts" style={{ marginTop: 6 }}>{entries.map(([id, v]) => <div key={id}>
+            <div className="k">{labelOf(id)}</div><span style={{ fontSize: 13 }}>{v === 'true' ? 'Sí' : v === 'false' ? 'No' : (nameOf(v) ?? v)}</span>
+          </div>)}</div>
+        </div> : null;
+      })()}
       {isClosingStatus(tenant.statuses, t.status) && (t.survey
         ? <div className="survey-box"><div className="k">Satisfacción (CSAT)</div>
             <div className="stars ro">{[1, 2, 3, 4, 5].map((n) => <span key={n} className={n <= t.survey!.rating ? 'on' : ''}>★</span>)}<b style={{ marginLeft: 8 }}>{t.survey!.rating}/5</b></div>
@@ -763,6 +775,7 @@ function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantDa
   const [description, setDescription] = useState('');
   const requesters = tenant.members.filter((m) => m.role === 'requester');
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
+  const [udf, setUdf] = useState<Record<string, string>>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
   // Matriz de prioridades: al elegir impacto + urgencia, calcula la prioridad
@@ -786,7 +799,63 @@ function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantDa
     const g = tplGroup(t); if (!groups.has(g)) groups.set(g, []); groups.get(g)!.push(t);
   }
   const grpList = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const submit = () => { if (!subject.trim() || !tpl) return; create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, impact: impact || undefined, urgency: urgency || undefined, mode: mode || undefined, site: site || undefined, requesterId, templateId: tpl.id }); onClose(); };
+
+  // --- Formulario dinámico: renderiza el layout de la plantilla (fieldDefs) ---
+  const defs = tpl?.fieldDefs ?? [];
+  const hasDefs = defs.length > 0;
+  const visDefs = defs.filter((f) => !(role === 'requester' && f.requesterVisible === false));
+  const hasSubject = visDefs.some((f) => sysRoleOf(f.label) === 'subject');
+  const setU = (id: string, v: string) => setUdf((u) => ({ ...u, [id]: v }));
+  // valida obligatorios visibles (asunto + campos adicionales marcados como obligatorios)
+  const missingReq = visDefs.some((f) => {
+    if (!f.mandatory) return false;
+    const r = sysRoleOf(f.label);
+    if (r === 'subject') return !subject.trim();
+    if (r === 'custom') return !(udf[f.id] ?? '').trim();
+    return false;
+  });
+  const canSubmit = !!subject.trim() && !!tpl && !missingReq && !readOnly;
+  const submit = () => { if (!canSubmit || !tpl) return; create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, impact: impact || undefined, urgency: urgency || undefined, mode: mode || undefined, site: site || undefined, requesterId, templateId: tpl.id, udf }); onClose(); };
+
+  const reqStar = (f: FieldDef) => f.mandatory ? <span className="req" title="Obligatorio">*</span> : null;
+  // clasificación (categoría → subcategoría → artículo) en cascada, un solo bloque
+  const catControl = <Fragment key="__cat">
+    <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+    {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>}
+    {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
+  </Fragment>;
+  const customControl = (f: FieldDef) => {
+    const v = udf[f.id] ?? ''; const lbl = <>{f.label}{reqStar(f)}</>;
+    switch (f.type) {
+      case 'textarea': return <label key={f.id}>{lbl}<textarea value={v} onChange={(e) => setU(f.id, e.target.value)} rows={3} /></label>;
+      case 'bool': return <label key={f.id} className="nf-bool"><input type="checkbox" checked={v === 'true'} onChange={(e) => setU(f.id, e.target.checked ? 'true' : 'false')} /> {f.label}{reqStar(f)}</label>;
+      case 'date': return <label key={f.id}>{lbl}<input type="date" value={v} onChange={(e) => setU(f.id, e.target.value)} /></label>;
+      case 'number': return <label key={f.id}>{lbl}<input type="number" value={v} onChange={(e) => setU(f.id, e.target.value)} /></label>;
+      case 'person': return <label key={f.id}>{lbl}<select value={v} onChange={(e) => setU(f.id, e.target.value)}><option value="">— Seleccionar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>;
+      case 'attachment': return <label key={f.id}>{lbl}<span className="soft" style={{ fontSize: 12 }}>Se adjunta tras crear la solicitud</span></label>;
+      default: return <label key={f.id}>{lbl}<input value={v} onChange={(e) => setU(f.id, e.target.value)} /></label>;
+    }
+  };
+  const control = (f: FieldDef): import('react').ReactNode => {
+    if (role === 'requester' && f.requesterVisible === false) return null;
+    const r = sysRoleOf(f.label);
+    if (r === 'skip' || r === 'subcategory' || r === 'item') return null;
+    switch (r) {
+      case 'subject': return <label key={f.id} className="nf-span">{f.label}{reqStar(f)}<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>;
+      case 'description': return <label key={f.id} className="nf-span">{f.label}{reqStar(f)}<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>;
+      case 'category': return catControl;
+      case 'priority': return <label key={f.id}>{f.label}{reqStar(f)}<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>;
+      case 'impact': return <label key={f.id}>{f.label}{reqStar(f)}<select value={impact} onChange={(e) => setImpact(e.target.value)}><option value="">— Seleccionar —</option>{(pls?.impact ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
+      case 'urgency': return <label key={f.id}>{f.label}{reqStar(f)}<select value={urgency} onChange={(e) => setUrgency(e.target.value)}><option value="">— Seleccionar —</option>{(pls?.urgency ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
+      case 'mode': if (role === 'requester') return null; return <label key={f.id}>{f.label}{reqStar(f)}<select value={mode} onChange={(e) => setMode(e.target.value)}><option value="">— Seleccionar —</option>{(pls?.mode ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
+      case 'site': return <label key={f.id}>{f.label}{reqStar(f)}<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>;
+      case 'requester': if (role === 'requester') return null; return <label key={f.id}>{f.label}{reqStar(f)}<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>;
+      default: return customControl(f);
+    }
+  };
+  const dynSections = visDefs.reduce<string[]>((a, f) => { const s = secOf(f); if (!a.includes(s)) a.push(s); return a; }, []);
+  const colFieldsOf = (sec: string, col: 1 | 2) => visDefs.filter((f) => secOf(f) === sec && !f.full && (f.col === 2 ? 2 : 1) === col);
+  const fullFieldsOf = (sec: string) => visDefs.filter((f) => secOf(f) === sec && f.full);
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -810,22 +879,34 @@ function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantDa
               </button>)}</div>}
             </div>; })}
             {grpList.length === 0 && <div className="empty">Ninguna plantilla coincide con «{q}».</div>}
-          </> : <div className="form">
+          </> : <div className="form nf-form">
             <button className="backbtn" onClick={() => setTpl(tenant.templates.length === 1 ? tpl : null)}>‹ {tplGroup(tpl)} · {tpl.name}</button>
-            <label>Asunto<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
-            <label>Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>
-            <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-            {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>}
-            {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
-            <label>Prioridad<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
-            {pls && pls.impact.length > 0 && <label>Impacto<select value={impact} onChange={(e) => setImpact(e.target.value)}><option value="">— Seleccionar —</option>{pls.impact.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
-            {pls && pls.urgency.length > 0 && <label>Urgencia<select value={urgency} onChange={(e) => setUrgency(e.target.value)}><option value="">— Seleccionar —</option>{pls.urgency.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
-            {role !== 'requester' && pls && pls.mode.length > 0 && <label>Modo<select value={mode} onChange={(e) => setMode(e.target.value)}><option value="">— Seleccionar —</option>{pls.mode.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
-            {(tenant.sites ?? []).length > 0 && <label>Sede<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
-            {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
+            {hasDefs ? <>
+              {!hasSubject && <div className="nf-sec"><label>Asunto<span className="req" title="Obligatorio">*</span><input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label></div>}
+              {dynSections.map((sec) => <div key={sec} className="nf-sec">
+                <div className="nf-sec-h">{sec}</div>
+                <div className="nf-cols">
+                  <div className="nf-col">{colFieldsOf(sec, 1).map(control)}</div>
+                  <div className="nf-col">{colFieldsOf(sec, 2).map(control)}</div>
+                </div>
+                {fullFieldsOf(sec).map(control)}
+              </div>)}
+            </> : <>
+              <label>Asunto<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
+              <label>Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>
+              <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+              {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>}
+              {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
+              <label>Prioridad<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
+              {pls && pls.impact.length > 0 && <label>Impacto<select value={impact} onChange={(e) => setImpact(e.target.value)}><option value="">— Seleccionar —</option>{pls.impact.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
+              {pls && pls.urgency.length > 0 && <label>Urgencia<select value={urgency} onChange={(e) => setUrgency(e.target.value)}><option value="">— Seleccionar —</option>{pls.urgency.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
+              {role !== 'requester' && pls && pls.mode.length > 0 && <label>Modo<select value={mode} onChange={(e) => setMode(e.target.value)}><option value="">— Seleccionar —</option>{pls.mode.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
+              {(tenant.sites ?? []).length > 0 && <label>Sede<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
+              {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
+            </>}
             {readOnly && <div className="empty" style={{ fontSize: 12, marginTop: 4 }}>👁 Modo lectura: estás viendo el catálogo que ve este usuario; no puedes crear la solicitud.</div>}
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button className="primary" onClick={submit} disabled={!subject.trim() || readOnly}>Crear solicitud</button>
+              <button className="primary" onClick={submit} disabled={!canSubmit}>Crear solicitud</button>
               <button className="ghost" onClick={onClose}>Cancelar</button>
             </div>
           </div>}
@@ -1222,27 +1303,52 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'auditoria' && <AuditAdmin tenant={tenant} />}
     {sec === 'entrante' && <InboundAdmin tenant={tenant} />}
     {sec === 'campos' && <CustomFieldsAdmin tenant={tenant} />}
-    {sec === 'servicios' && <ServiceCatalogAdmin tenant={tenant} />}
+    {sec === 'servicios' && <ServiceCatalogAdmin tenant={tenant} nav={setSec} />}
     {sec === 'sync' && <SyncAdmin tenant={tenant} />}
     </div>
   </div>;
 }
 
+// Paleta de iconos sugeridos para categorías de servicio (IT).
+const ICON_PALETTE = ['🛠️', '📥', '💻', '🖥️', '🖨️', '📧', '🔐', '🔑', '🌐', '📶', '🗄️', '📁', '📦', '⚙️', '🧰', '🎫', '🛡️', '🚨', '☁️', '🔧', '👤', '👥', '📞', '💳', '🏢', '📝'];
+
 // Categoría de servicio: agrupa las plantillas del catálogo de «Nueva solicitud».
-// Se listan las categorías reales (de las plantillas) y se puede editar su icono.
-function ServiceCatalogAdmin({ tenant }: { tenant: TenantData }) {
+// Se listan las categorías reales (de las plantillas). Cada categoría se despliega
+// para (a) elegir su icono y (b) ver/abrir sus plantillas en el editor.
+function ServiceCatalogAdmin({ tenant, nav }: { tenant: TenantData; nav: (s: string) => void }) {
   const setServiceIcon = useStore((s) => s.setServiceIcon);
+  const setAdminTemplate = useStore((s) => s.setAdminTemplate);
   const icons = tenant.serviceCategoryIcons ?? {};
   const cats = [...new Set(tenant.templates.map((t) => tplGroup(t)))].sort((a, b) => a.localeCompare(b));
-  const count = (c: string) => tenant.templates.filter((t) => tplGroup(t) === c).length;
+  const tplsOf = (c: string) => tenant.templates.filter((t) => tplGroup(t) === c);
+  const [open, setOpen] = useState<string | null>(cats[0] ?? null);
+  const openEditor = (id: string) => { setAdminTemplate(id); nav('plantillas'); };
   return <div className="card" style={{ padding: 16 }}>
-    <p className="cfg-lead">Categorías de servicio del catálogo de «Nueva solicitud» (importadas de SDP). Cada plantilla pertenece a una. Edita el <b>icono</b> (emoji) que se muestra en el catálogo. Los iconos originales de SDP son imágenes protegidas del servlet y no se pueden reutilizar directamente; aquí se elige uno editable.</p>
-    <table className="mgmt"><thead><tr><th style={{ width: 60 }}>Icono</th><th>Categoría de servicio</th><th style={{ width: 120 }}>Plantillas</th></tr></thead>
-      <tbody>{cats.map((c) => <tr key={c}>
-        <td><input value={icons[c] ?? ''} onChange={(e) => setServiceIcon(c, e.target.value.slice(0, 2))} placeholder="📁" style={{ width: 46, textAlign: 'center', fontSize: 16 }} maxLength={2} /></td>
-        <td style={{ fontWeight: 500 }}>{c}</td>
-        <td className="soft">{count(c)}</td>
-      </tr>)}</tbody></table>
+    <p className="cfg-lead">Categorías de servicio del catálogo de «Nueva solicitud» (importadas de SDP). Cada plantilla pertenece a una. Despliega una categoría para elegir su <b>icono</b> (se muestra en el catálogo) y abrir sus plantillas en el editor de formularios. Los iconos originales de SDP son imágenes protegidas del servlet y no se pueden reutilizar directamente; aquí eliges uno editable.</p>
+    <div className="svc-cats">{cats.map((c) => {
+      const tpls = tplsOf(c); const isOpen = open === c;
+      return <div key={c} className={'svc-cat' + (isOpen ? ' on' : '')}>
+        <button className="svc-head" onClick={() => setOpen(isOpen ? null : c)}>
+          <span className="svc-ic">{icons[c] || '📁'}</span>
+          <span className="svc-name">{c}</span>
+          <span className="badge">{tpls.length}</span>
+          <span className="svc-chev">{isOpen ? '▾' : '▸'}</span>
+        </button>
+        {isOpen && <div className="svc-body">
+          <div className="svc-icon-row">
+            <span className="soft" style={{ fontSize: 12 }}>Icono:</span>
+            {ICON_PALETTE.map((e) => <button key={e} className={'svc-emo' + (icons[c] === e ? ' sel' : '')} onClick={() => setServiceIcon(c, e)} title={e}>{e}</button>)}
+            <input value={icons[c] ?? ''} onChange={(e) => setServiceIcon(c, e.target.value.slice(0, 2))} placeholder="✎" style={{ width: 40, textAlign: 'center', fontSize: 15 }} maxLength={2} title="Escribe otro emoji" />
+          </div>
+          <div className="svc-tpls">{tpls.map((t) => <div key={t.id} className="svc-tpl">
+            <span className={'chip ' + (t.type === 'incident' ? 'inc' : 'srv')}>{t.type === 'incident' ? 'Incidencia' : 'Solicitud'}</span>
+            <span className="svc-tpl-name">{t.name}</span>
+            <span className="soft" style={{ fontSize: 11 }}>{(t.fieldDefs ?? t.fields).length} campos</span>
+            <button className="ghost sm" onClick={() => openEditor(t.id)}>Abrir editor →</button>
+          </div>)}</div>
+        </div>}
+      </div>;
+    })}</div>
   </div>;
 }
 
@@ -1792,6 +1898,31 @@ const FIELD_TYPES: [FieldType, string][] = [['text', 'Texto'], ['textarea', 'Tex
 const ftLabel = (t: FieldType) => FIELD_TYPES.find((x) => x[0] === t)?.[1] ?? t;
 const defsOf = (tp: Template): FieldDef[] => tp.fieldDefs ?? tp.fields.map((label, i) => ({ id: 'f' + i, label, type: 'text' as FieldType, requesterVisible: true }));
 
+// Clasifica un campo del formulario por su etiqueta hacia un "campo de sistema"
+// (con control estructurado propio) o 'custom' (campo adicional/UDF genérico).
+// 'skip' = campo que no se rellena al crear (técnico, estado, fechas…).
+type SysRole = 'subject' | 'description' | 'category' | 'subcategory' | 'item' | 'priority' | 'impact' | 'urgency' | 'mode' | 'site' | 'requester' | 'custom' | 'skip';
+const normLbl = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+function sysRoleOf(label: string): SysRole {
+  const n = normLbl(label);
+  if (/categoria de servicio|service category/.test(n)) return 'skip';
+  if (/(asunto|titulo|subject|resumen|title)/.test(n)) return 'subject';
+  if (/(descripcion|description|detalle)/.test(n)) return 'description';
+  if (/(subcategoria|subcategory)/.test(n)) return 'subcategory';
+  if (/(categoria|category|clasificacion)/.test(n)) return 'category';
+  if (/(articulo|elemento|\bitem\b)/.test(n)) return 'item';
+  if (/(prioridad|priority)/.test(n)) return 'priority';
+  if (/(impacto|impact)/.test(n)) return 'impact';
+  if (/(urgencia|urgency)/.test(n)) return 'urgency';
+  if (/(\bmodo\b|request mode|\bmode\b)/.test(n)) return 'mode';
+  if (/(\bsede\b|\bsite\b|ubicacion|location|localizacion)/.test(n)) return 'site';
+  if (/(solicitante|requester|reportad|reporter)/.test(n)) return 'requester';
+  if (/(tecnico|technician|asignad|assignee|grupo|group|estado|status|\bnivel\b|\blevel\b|cread|created|resuelt|resolved|cerrad|closed|fecha)/.test(n)) return 'skip';
+  return 'custom';
+}
+const DEF_SEC = 'Detalles de la solicitud';
+const secOf = (f: FieldDef) => f.section || DEF_SEC;
+
 function CatalogAdmin({ tenant }: { tenant: TenantData }) {
   const addCategory = useStore((s) => s.addCategory);
   const addTemplate = useStore((s) => s.addTemplate);
@@ -1802,7 +1933,10 @@ function CatalogAdmin({ tenant }: { tenant: TenantData }) {
   const [tlc, setTlc] = useState(tenant.lifecycles[0]?.id ?? null);
   const [raw, setRaw] = useState('');
   const [msg, setMsg] = useState('');
-  const [sel, setSel] = useState<string | null>(tenant.templates[0]?.id ?? null);
+  const adminTemplateId = useStore((s) => s.adminTemplateId);
+  const setAdminTemplate = useStore((s) => s.setAdminTemplate);
+  const [sel, setSel] = useState<string | null>(adminTemplateId ?? tenant.templates[0]?.id ?? null);
+  useEffect(() => { if (adminTemplateId) { setSel(adminTemplateId); setAdminTemplate(null); } }, [adminTemplateId, setAdminTemplate]);
   const tpl = tenant.templates.find((t) => t.id === sel) ?? null;
   const doImport = () => {
     try {
@@ -1857,7 +1991,6 @@ function CatalogAdmin({ tenant }: { tenant: TenantData }) {
   </div>;
 }
 
-const DEF_SEC = 'Detalles de la solicitud';
 const pvInput = (f: FieldDef) => {
   if (f.type === 'textarea') return f.label.toLowerCase().startsWith('descrip')
     ? <div className="pv-rte"><div className="pv-bar"><b>B</b> <i>I</i> <u>U</u><span style={{ opacity: .5 }}> · 🔗 🖼</span></div><div className="pv-area" /></div>

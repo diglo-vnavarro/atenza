@@ -80,6 +80,8 @@ export interface Ticket {
   attachments?: Attachment[];
   /** encuesta de satisfacción del solicitante al cierre. */
   survey?: Survey;
+  /** valores de campos adicionales (UDF) del formulario, indexados por id de FieldDef. */
+  udf?: Record<string, string>;
 }
 
 /** Encuesta de satisfacción (CSAT): valoración 1–5 del solicitante al resolverse. */
