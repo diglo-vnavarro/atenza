@@ -1,0 +1,13 @@
+.git
+node_modules
+dist
+.zoho.local
+.env
+.env.local
+*.local
+infra
+importer/imported-seed.json
+importer/imported-tickets.json
+importer/imported-categories.json
+importer/imported-masterdata.json
+importer/identity-map.json

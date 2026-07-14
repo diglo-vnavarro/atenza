@@ -1,0 +1,20 @@
+# Qué NO subir al build de Cloud Build / Cloud Run (--source).
+# NUNCA subir secretos ni PII ni artefactos locales.
+.git
+node_modules
+dist
+# Secretos y credenciales
+.zoho.local
+.env
+.env.local
+*.local
+infra/terraform/*.tfstate*
+infra/terraform/backend.hcl
+infra/terraform/terraform.tfvars
+infra/terraform/.terraform
+# PII / snapshots locales (el ETL los regenera en runtime)
+importer/imported-seed.json
+importer/imported-tickets.json
+importer/imported-categories.json
+importer/imported-masterdata.json
+importer/identity-map.json

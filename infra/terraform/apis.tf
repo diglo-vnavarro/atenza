@@ -14,6 +14,12 @@ locals {
     "iam.googleapis.com",
     "iamcredentials.googleapis.com",
     "sts.googleapis.com",
+    # Sync periódica SDP → Atenza (Cloud Run Job + Scheduler)
+    "run.googleapis.com",
+    "cloudscheduler.googleapis.com",
+    "secretmanager.googleapis.com",
+    "cloudbuild.googleapis.com",
+    "artifactregistry.googleapis.com",
   ]
 }
 

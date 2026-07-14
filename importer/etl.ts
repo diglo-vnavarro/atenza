@@ -25,15 +25,24 @@ const CORP = process.env.SDP_CORP_DOMAIN ?? 'digloservicer.com';
 const EXCLUDE = ['Cancelada', 'Cerrada', 'Resuelta'];
 
 interface Tok { access_token: string; refresh_token?: string; client_id: string; client_secret: string }
-const zoho: Tok = JSON.parse(readFileSync(ZOHO, 'utf8'));
-const seed = JSON.parse(readFileSync(join(here, 'imported-seed.json'), 'utf8')) as { templates: { id: string; lifecycleId: string | null }[]; lifecycles: Lifecycle[] };
+// Token headless: de variables de entorno (Cloud Run / Secret Manager) si están,
+// si no del fichero .zoho.local (uso local). En modo env NO se reescribe fichero.
+const FROM_ENV = !!process.env.ZOHO_REFRESH_TOKEN;
+const zoho: Tok = FROM_ENV
+  ? { access_token: process.env.ZOHO_ACCESS_TOKEN ?? '', refresh_token: process.env.ZOHO_REFRESH_TOKEN, client_id: process.env.ZOHO_CLIENT_ID ?? '', client_secret: process.env.ZOHO_CLIENT_SECRET ?? '' }
+  : JSON.parse(readFileSync(ZOHO, 'utf8'));
+// imported-seed.json (mapeo etiqueta de estado → key del ciclo) es OPCIONAL: si no
+// está (p. ej. en el contenedor), se degrada a guardar el nombre de estado literal.
+let seed: { templates: { id: string; lifecycleId: string | null }[]; lifecycles: Lifecycle[] };
+try { seed = JSON.parse(readFileSync(join(here, 'imported-seed.json'), 'utf8')); }
+catch { seed = { templates: [], lifecycles: [] }; }
 
 async function refresh(): Promise<void> {
   if (!zoho.refresh_token) return;
   const body = new URLSearchParams({ grant_type: 'refresh_token', refresh_token: zoho.refresh_token, client_id: zoho.client_id, client_secret: zoho.client_secret });
   const r = await fetch('https://accounts.zoho.eu/oauth/v2/token', { method: 'POST', body });
   const j = (await r.json()) as { access_token?: string };
-  if (j.access_token) { zoho.access_token = j.access_token; writeFileSync(ZOHO, JSON.stringify(zoho)); }
+  if (j.access_token) { zoho.access_token = j.access_token; if (!FROM_ENV) try { writeFileSync(ZOHO, JSON.stringify(zoho)); } catch { /* FS de solo lectura */ } }
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function api(path: string): Promise<Record<string, unknown>> {

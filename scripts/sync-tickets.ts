@@ -27,10 +27,12 @@ const importer = join(here, '..', 'importer');
 const { tickets, members } = JSON.parse(readFileSync(join(importer, 'imported-tickets.json'), 'utf8')) as {
   tickets: Record<string, unknown>[]; members: Record<string, unknown>[];
 };
-const mapPath = join(importer, 'identity-map.json');
-const idMap: Record<string, string> = existsSync(mapPath)
-  ? Object.fromEntries(Object.entries(JSON.parse(readFileSync(mapPath, 'utf8')) as Record<string, string>).filter(([k]) => !k.startsWith('_')))
-  : {};
+// Mapa de identidad: de env IDENTITY_MAP_JSON (Cloud Run) si está, si no del
+// fichero importer/identity-map.json (uso local). Se ignoran claves con "_".
+const rawMap: Record<string, string> = process.env.IDENTITY_MAP_JSON
+  ? JSON.parse(process.env.IDENTITY_MAP_JSON)
+  : (() => { const p = join(importer, 'identity-map.json'); return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : {}; })();
+const idMap: Record<string, string> = Object.fromEntries(Object.entries(rawMap).filter(([k]) => !k.startsWith('_')));
 const TENANT = process.env.TENANT ?? 'diglo-it';
 const DRY = process.env.DRY_RUN === '1' || process.argv.includes('--dry-run');
 
