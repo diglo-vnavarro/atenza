@@ -163,6 +163,14 @@ service cloud.firestore {
         allow update: if (isMember(tid) && resource.data.forUid == uid()) || isPlatformAdmin();
         allow delete: if isAdmin(tid)  || isPlatformAdmin();
       }
+
+      // Registro de auditoría: append-only. Cualquier miembro crea; lee staff/admin;
+      // NO se actualiza ni borra (traza inmutable).
+      match /audit/{docId} {
+        allow read:   if isTech(tid) || isPlatformAdmin();
+        allow create: if isMember(tid);
+        allow update, delete: if false;
+      }
     }
   }
 }

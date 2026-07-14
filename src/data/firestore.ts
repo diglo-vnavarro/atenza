@@ -21,6 +21,7 @@ import type { BusinessRule } from '../rules.js';
 import type { Webhook } from '../webhooks.js';
 import type { KbArticle } from '../kb.js';
 import type { Announcement } from '../announce.js';
+import type { AuditEntry } from '../audit.js';
 import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode, Picklists, PriorityMatrix, BusinessHours, RoleDef } from './seed.js';
 
 let _fs: Awaited<ReturnType<typeof loadFs>> | null = null;
@@ -86,7 +87,7 @@ export type Unsub = () => void;
 export async function subscribeTenant(tid: string, requesterFilterUid: string | null, onData: (t: TenantData) => void, meUid?: string): Promise<Unsub> {
   const { m, db } = await fs();
   const acc: Partial<TenantData> & { id: string } = {
-    id: tid, members: [], tickets: [], lifecycles: [], templates: [], slas: [], groups: [], categories: [], capacity: {}, notifications: [],
+    id: tid, members: [], tickets: [], lifecycles: [], templates: [], slas: [], groups: [], categories: [], capacity: {}, notifications: [], audit: [],
     name: tid, key: tid, active: true, counter: 1000,
   };
   const emit = () => onData(acc as TenantData);
@@ -116,7 +117,16 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
     subs.push(m.onSnapshot(nq, (s) => { acc.notifications = s.docs.map((d) => d.data() as AppNotification).sort((a, b) => b.at - a.at).slice(0, 50); emit(); }));
   }
 
+  // registro de auditoría: últimos 200 (append-only), más recientes primero
+  const aq = m.query(col('audit'), m.orderBy('at', 'desc'), m.limit(200));
+  subs.push(m.onSnapshot(aq, (s) => { acc.audit = s.docs.map((d) => d.data() as AuditEntry); emit(); }));
+
   return () => subs.forEach((u) => u());
+}
+
+export async function writeAudit(tid: string, e: AuditEntry): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, `tenants/${tid}/audit`, e.id), e);
 }
 
 export async function writeNotification(tid: string, n: AppNotification): Promise<void> {

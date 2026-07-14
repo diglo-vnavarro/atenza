@@ -22,7 +22,10 @@ const ZOHO = join(ROOT, '.zoho.local');
 const BASE = process.env.SDP_BASE ?? 'https://digloitsm.sdpondemand.manageengine.eu/app/itdesk';
 const ACCEPT = 'application/vnd.manageengine.sdp.v3+json';
 const CORP = process.env.SDP_CORP_DOMAIN ?? 'digloservicer.com';
-const EXCLUDE = ['Cancelada', 'Cerrada', 'Resuelta'];
+// Alcance: 'active' (por defecto, convivencia = excluye Cancelada/Cerrada/Resuelta)
+// o 'all' (ETL histórico COMPLETO para el corte por instancia; incluye todo, ~23k).
+const SCOPE = process.env.SCOPE ?? 'active';
+const EXCLUDE = SCOPE === 'all' ? [] : ['Cancelada', 'Cerrada', 'Resuelta'];
 
 interface Tok { access_token: string; refresh_token?: string; client_id: string; client_secret: string }
 // Token headless: de variables de entorno (Cloud Run / Secret Manager) si están,

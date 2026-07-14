@@ -58,6 +58,21 @@ Por defecto cada 4 h (`sync_schedule="0 */4 * * *"`, `Europe/Madrid`). Cambia co
 `-var 'sync_schedule=...'` en `terraform apply`. El scheduler ya está creado y
 dispara `sync-sdp:run`.
 
+## ETL histórico completo (corte por instancia)
+
+Durante la convivencia la sync trae solo tickets **activos**. En el corte de una
+instancia (cuando se apaga SDP para ella) se trae el histórico completo con
+`SCOPE=all` (incluye Cancelada/Cerrada/Resuelta, ~23k en Diglo ITSM):
+
+```bash
+SCOPE=all npx tsx importer/etl.ts   # regenera imported-tickets.json con TODO
+GOOGLE_APPLICATION_CREDENTIALS=<adc> GOOGLE_CLOUD_PROJECT=diglo-desk-pd TENANT=diglo-it npm run sync
+```
+
+El merge sigue siendo idempotente y preserva lo añadido en Atenza. El **archivado /
+retención** a largo plazo (mover histórico frío a almacenamiento barato / BigQuery)
+queda como política de gobierno posterior, no bloquea el corte.
+
 ## Seguridad / convivencia
 - Solo trae tickets **activos** (excluye Cancelada/Cerrada/Resuelta).
 - Es **idempotente** y **no destructivo** (preserva lo de Atenza). Reejecutable.

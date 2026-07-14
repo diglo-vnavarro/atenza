@@ -142,6 +142,7 @@ const CLOUD = firebaseEnabled;
 const errlog = (e: unknown) => console.error('[cloud write]', e);
 let unsubs: Array<() => void> = [];
 let notifSeq = 0;
+let auditSeq = 0;
 // FASE DE PRUEBAS: todo correo se redirige a este usuario (candado también en las
 // reglas de Firestore: la colección `mail` solo admite `to` == este valor).
 const MAIL_TEST_MODE = true;
@@ -211,6 +212,14 @@ export const useStore = create<State>()(
             void cloud.enqueueMail(TEST_EMAIL, subject, html).catch(errlog);
           }
         }
+      };
+      // Registro de auditoría (append-only): local acotado a 300; nube = subcolección.
+      const logAudit = (t: TenantData, action: string, summary: string, target?: string) => {
+        const actor = get().currentUserId;
+        const actorName = t.members.find((m) => m.uid === actor)?.name ?? actor;
+        const e = { id: 'au-' + Date.now() + '-' + (auditSeq++), at: Date.now(), actorUid: actor, actorName, action, target, summary };
+        set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, audit: [e, ...(tt.audit ?? [])].slice(0, 300) })) }));
+        if (CLOUD) void cloud.writeAudit(t.id, e).catch(errlog);
       };
 
       return {
@@ -283,6 +292,7 @@ export const useStore = create<State>()(
           if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
           emitNotifs(t, 'created', ticket);
           if (ro.patch.technicianId || autoAssigned) emitNotifs(t, 'assigned', ticket); // regla asignó / auto por carga
+          logAudit(t, 'ticket.create', `${ticket.id}: ${ticket.subject}`, ticket.id);
         },
 
         assign: (ticketId, techUid) => {
@@ -297,7 +307,7 @@ export const useStore = create<State>()(
           }
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, technicianId: techUid, status, statusHistory: hist } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { technicianId: techUid, status, statusHistory: hist }).catch(errlog);
-          if (techUid) emitNotifs(t, 'assigned', { ...tk, technicianId: techUid, status });
+          if (techUid) { emitNotifs(t, 'assigned', { ...tk, technicianId: techUid, status }); logAudit(t, 'ticket.assign', `${tk.id} → ${t.members.find((m) => m.uid === techUid)?.name ?? techUid}`, tk.id); }
         },
 
         transition: (ticketId, to) => {
@@ -311,6 +321,7 @@ export const useStore = create<State>()(
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist }).catch(errlog);
           emitNotifs(t, 'status', { ...tk, status: to, statusHistory: hist });
+          logAudit(t, to === 'Resuelta' ? 'ticket.resolve' : 'ticket.status', `${tk.id} → ${to}`, tk.id);
         },
         // Cambio de estado directo al catálogo (sin exigir transición del ciclo).
         setStatus: (ticketId, to) => {
@@ -321,6 +332,7 @@ export const useStore = create<State>()(
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist }).catch(errlog);
           emitNotifs(t, to === 'Resuelta' ? 'resolved' : 'status', { ...tk, status: to, statusHistory: hist });
+          logAudit(t, to === 'Resuelta' ? 'ticket.resolve' : 'ticket.status', `${tk.id} → ${to}`, tk.id);
         },
         setStatuses: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, statuses: list })) }));
@@ -459,6 +471,7 @@ export const useStore = create<State>()(
           const who = t.members.find((m) => m.uid === s.currentUserId)?.name ?? 'Un aprobador';
           const verb = decision === 'approved' ? 'APROBÓ' : 'RECHAZÓ';
           pushNotifTo(t, [decided?.requestedBy ?? '', tk.technicianId ?? ''], tk, `${who} ${verb} · ${tk.id}: ${tk.subject}`);
+          logAudit(t, 'approval.decide', `${tk.id}: ${who} ${verb}`, tk.id);
         },
         // Sube un adjunto: en la nube va a Storage (path+url); en local, inline como
         // data URL para que la demo funcione sin backend.
@@ -503,8 +516,10 @@ export const useStore = create<State>()(
         },
         // Base de conocimiento: alta/edición (upsert por id) y borrado.
         saveKbArticle: (a) => {
+          const prev = activeT(get())?.kbArticles?.find((x) => x.id === a.id);
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => { const list = t.kbArticles ?? []; const has = list.some((x) => x.id === a.id); return { ...t, kbArticles: has ? list.map((x) => (x.id === a.id ? a : x)) : [a, ...list] }; }) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { kbArticles: t.kbArticles ?? [] }).catch(errlog); }
+          if (a.status === 'published' && prev?.status !== 'published') { const t = activeT(get()); if (t) logAudit(t, 'kb.publish', a.title, a.id); }
         },
         removeKbArticle: (id) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, kbArticles: (t.kbArticles ?? []).filter((x) => x.id !== id) })) }));
@@ -669,6 +684,7 @@ export const useStore = create<State>()(
           const ids = new Set(uids);
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.map((x) => (ids.has(x.uid) ? { ...x, enabled } : x)) })) }));
           if (CLOUD) { const t = activeT(get()); if (t) for (const m of t.members) if (ids.has(m.uid)) void cloud.writeMember(t.id, m).catch(errlog); }
+          const t = activeT(get()); if (t) logAudit(t, 'member.enable', `${uids.length} miembro(s) ${enabled ? 'habilitados' : 'deshabilitados'} en Atenza`);
         },
         removeMember: (uid) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.filter((x) => x.uid !== uid) })) }));

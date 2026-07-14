@@ -15,6 +15,7 @@ import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, 
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
+import { auditLabel } from '../audit.js';
 import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
@@ -838,8 +839,9 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
+  ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1157,6 +1159,25 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'reglas' && <BusinessRulesAdmin tenant={tenant} />}
     {sec === 'webhooks' && <WebhooksAdmin tenant={tenant} />}
     {sec === 'anuncios' && <AnnouncementsAdmin tenant={tenant} />}
+    {sec === 'auditoria' && <AuditAdmin tenant={tenant} />}
+  </div>;
+}
+
+function AuditAdmin({ tenant }: { tenant: TenantData }) {
+  const [f, setF] = useState('');
+  const all = tenant.audit ?? [];
+  const list = all.filter((e) => !f || e.action === f);
+  const actions = [...new Set(all.map((e) => e.action))];
+  return <div className="card" style={{ overflow: 'hidden' }}>
+    <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--line)', display: 'flex', gap: 10, alignItems: 'center' }}>
+      <span className="cfg-lead" style={{ margin: 0, flex: 1 }}>Traza inmutable de acciones. En la nube se guarda como subcolección append-only (últimos 200).</span>
+      <select value={f} onChange={(e) => setF(e.target.value)}><option value="">Todas las acciones</option>{actions.map((a) => <option key={a} value={a}>{auditLabel(a)}</option>)}</select>
+    </div>
+    <table className="mgmt"><thead><tr><th style={{ width: 150 }}>Fecha</th><th style={{ width: 150 }}>Autor</th><th style={{ width: 160 }}>Acción</th><th>Detalle</th></tr></thead>
+      <tbody>{list.length === 0
+        ? <tr><td colSpan={4}><div className="empty">Sin eventos registrados.</div></td></tr>
+        : list.map((e) => <tr key={e.id}><td className="id">{fmtDate(e.at)}</td><td>{e.actorName}</td><td><span className="stbadge">{auditLabel(e.action)}</span></td><td className="note">{e.summary}</td></tr>)}
+      </tbody></table>
   </div>;
 }
 

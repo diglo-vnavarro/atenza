@@ -7,6 +7,7 @@ import type { BusinessRule } from '../rules.js';
 import type { Webhook } from '../webhooks.js';
 import type { KbArticle } from '../kb.js';
 import type { Announcement } from '../announce.js';
+import type { AuditEntry } from '../audit.js';
 
 export const DEFAULT_ANNOUNCEMENTS: Announcement[] = [
   { id: 'an-mant', title: 'Mantenimiento de la VPN el sábado', body: 'El sábado de 08:00 a 10:00 la VPN estará en mantenimiento. Puede haber cortes breves de acceso remoto.', audience: 'all', authorName: 'Vicente Navarro', at: 1_781_500_000_000 },
@@ -197,6 +198,8 @@ export interface TenantData {
   kbArticles?: KbArticle[];
   /** anuncios globales (banner). */
   announcements?: Announcement[];
+  /** registro de auditoría (append-only; en la nube es subcolección). */
+  audit?: AuditEntry[];
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
