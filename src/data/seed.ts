@@ -361,7 +361,17 @@ export function makeSeed(now: number): DB {
       { uid: 'u-laura', email: 'laura.gomez@digloservicer.com', name: 'Laura Gómez', color: '#7c3aed', role: 'requester', status: 'active', external: false, site: 'Madrid - Sede central', department: 'Operaciones', userGroups: ['Todos los empleados', 'Operaciones'] },
     ],
     lifecycles: [rlc, srLc, iamLc, opsLc], templates: [
-      { id: 'tpl-inc', type: 'incident', name: 'Incidencia', lifecycleId: 'lc-inc', slaId: null, fields: ['subject', 'description', 'category', 'priority', 'impact'] },
+      { id: 'tpl-inc', type: 'incident', name: 'Incidencia', lifecycleId: 'lc-inc', slaId: null, fields: ['subject', 'description', 'category', 'priority', 'impact'],
+        fieldDefs: [
+          { id: 'fd-req', label: 'Solicitante', type: 'person', mandatory: true, requesterVisible: true, section: 'Detalles del solicitante', col: 1 },
+          { id: 'fd-site', label: 'Sede', type: 'select', requesterVisible: true, section: 'Detalles del solicitante', col: 2 },
+          { id: 'fd-subj', label: 'Asunto', type: 'text', mandatory: true, requesterVisible: true, section: 'Detalles de la solicitud', col: 1, full: true },
+          { id: 'fd-cat', label: 'Categoría', type: 'select', mandatory: true, requesterVisible: true, section: 'Detalles de la solicitud', col: 1 },
+          { id: 'fd-pri', label: 'Prioridad', type: 'select', mandatory: true, requesterVisible: true, section: 'Detalles de la solicitud', col: 2 },
+          { id: 'fd-imp', label: 'Impacto', type: 'select', requesterVisible: true, section: 'Detalles de la solicitud', col: 1 },
+          { id: 'fd-urg', label: 'Urgencia', type: 'select', requesterVisible: true, section: 'Detalles de la solicitud', col: 2 },
+          { id: 'fd-desc', label: 'Descripción', type: 'textarea', mandatory: true, requesterVisible: true, section: 'Detalles de la solicitud', full: true },
+        ] },
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],

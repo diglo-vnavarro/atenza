@@ -1784,6 +1784,20 @@ function CatalogAdmin({ tenant }: { tenant: TenantData }) {
   </div>;
 }
 
+const DEF_SEC = 'Detalles de la solicitud';
+const pvInput = (f: FieldDef) => {
+  if (f.type === 'textarea') return f.label.toLowerCase().startsWith('descrip')
+    ? <div className="pv-rte"><div className="pv-bar"><b>B</b> <i>I</i> <u>U</u><span style={{ opacity: .5 }}> · 🔗 🖼</span></div><div className="pv-area" /></div>
+    : <div className="pv-inp tall" />;
+  if (f.type === 'bool') return <div className="pv-inp">◯ Sí&nbsp;&nbsp;&nbsp;◯ No</div>;
+  if (f.type === 'select' || f.type === 'reference') return <div className="pv-inp">Seleccionar… <span className="chev">▾</span></div>;
+  if (f.type === 'person') return <div className="pv-inp">Seleccionar persona… <span className="chev">▾</span></div>;
+  if (f.type === 'attachment') return <div className="pv-inp">📎 Adjuntar archivo</div>;
+  if (f.type === 'date') return <div className="pv-inp">dd/mm/aaaa</div>;
+  if (f.type === 'number') return <div className="pv-inp mono">0</div>;
+  return <div className="pv-inp" />;
+};
+
 function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: Template; onDeleted: () => void }) {
   const updateTemplate = useStore((s) => s.updateTemplate);
   const removeTemplate = useStore((s) => s.removeTemplate);
@@ -1792,22 +1806,42 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const commit = (next: FieldDef[]) => setTemplateFields(tpl.id, next);
   const [nf, setNf] = useState('');
   const [nft, setNft] = useState<FieldType>('text');
-  const move = (i: number, d: number) => { const j = i + d; if (j < 0 || j >= defs.length) return; const next = defs.slice(); [next[i], next[j]] = [next[j]!, next[i]!]; commit(next); };
-  const preview = defs.filter((f) => f.requesterVisible !== false);
-  const pvInput = (f: FieldDef) => {
-    if (f.type === 'textarea') return f.label.toLowerCase().startsWith('descrip')
-      ? <div className="pv-rte"><div className="pv-bar"><b>B</b> <i>I</i> <u>U</u><span style={{ opacity: .5 }}> · PT Sans ▾ · 🔗 🖼</span></div><div className="pv-area" /></div>
-      : <div className="pv-inp tall" />;
-    if (f.type === 'bool') return <div className="pv-inp">◯ Sí&nbsp;&nbsp;&nbsp;◯ No</div>;
-    if (f.type === 'select' || f.type === 'reference') return <div className="pv-inp">Seleccionar… <span className="chev">▾</span></div>;
-    if (f.type === 'person') return <div className="pv-inp">Seleccionar persona… <span className="chev">▾</span></div>;
-    if (f.type === 'attachment') return <div className="pv-inp">📎 Adjuntar archivo</div>;
-    if (f.type === 'date') return <div className="pv-inp">dd/mm/aaaa</div>;
-    if (f.type === 'number') return <div className="pv-inp mono">0</div>;
-    return <div className="pv-inp" />;
-  };
+  const [nsec, setNsec] = useState('');
+  const [ncol, setNcol] = useState<1 | 2>(1);
 
-  return <div className="card">
+  const secOf = (f: FieldDef) => f.section || DEF_SEC;
+  const sections = defs.reduce<string[]>((a, f) => { const s = secOf(f); if (!a.includes(s)) a.push(s); return a; }, []);
+  if (sections.length === 0) sections.push(DEF_SEC);
+  const patch = (id: string, p: Partial<FieldDef>) => commit(defs.map((x) => (x.id === id ? { ...x, ...p } : x)));
+  const del = (id: string) => commit(defs.filter((x) => x.id !== id));
+  const swap = (a: string, b: string) => { const n = defs.slice(); const ia = n.findIndex((x) => x.id === a), ib = n.findIndex((x) => x.id === b); if (ia < 0 || ib < 0) return; [n[ia], n[ib]] = [n[ib]!, n[ia]!]; commit(n); };
+  const colFields = (sec: string, col: 1 | 2) => defs.filter((f) => secOf(f) === sec && !f.full && (f.col === 2 ? 2 : 1) === col);
+  const fullFields = (sec: string) => defs.filter((f) => secOf(f) === sec && f.full);
+  const moveInCol = (f: FieldDef, dir: number) => { const sibs = colFields(secOf(f), f.col === 2 ? 2 : 1); const i = sibs.findIndex((x) => x.id === f.id); const j = i + dir; if (j < 0 || j >= sibs.length) return; swap(f.id, sibs[j]!.id); };
+  const renameSection = (old: string, val: string) => commit(defs.map((x) => (secOf(x) === old ? { ...x, section: val || DEF_SEC } : x)));
+  const delSection = (sec: string) => { if (confirm(`¿Eliminar la sección "${sec}" y sus campos?`)) commit(defs.filter((x) => secOf(x) !== sec)); };
+  const addField = () => { if (!nf.trim()) return; commit([...defs, { id: 'f-' + Date.now(), label: nf.trim(), type: nft, requesterVisible: true, section: nsec.trim() || sections[0] || DEF_SEC, col: ncol }]); setNf(''); };
+  const addSection = () => { const name = prompt('Nombre de la nueva sección:'); if (name && name.trim()) commit([...defs, { id: 'f-' + Date.now(), label: 'Campo', type: 'text', requesterVisible: true, section: name.trim(), col: 1 }]); };
+
+  const fcard = (f: FieldDef) => <div key={f.id} className="fcard">
+    <div className="fcard-top">
+      <input className="fname" value={f.label} onChange={(e) => patch(f.id, { label: e.target.value })} />
+      <button className="xbtn" onClick={() => del(f.id)} aria-label="Eliminar campo">✕</button>
+    </div>
+    <div className="fcard-row">
+      <select className="ftype" value={f.type} onChange={(e) => patch(f.id, { type: e.target.value as FieldType })}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+      <button className={'ftag' + (f.mandatory ? ' on' : '')} onClick={() => patch(f.id, { mandatory: !f.mandatory })} title="Obligatorio">Oblig.</button>
+      <button className={'ftag' + (f.requesterVisible !== false ? ' on' : '')} onClick={() => patch(f.id, { requesterVisible: f.requesterVisible === false })} title="Visible al solicitante">Solic.</button>
+    </div>
+    <div className="fcard-row">
+      <button className="xbtn" onClick={() => moveInCol(f, -1)} aria-label="Subir">↑</button>
+      <button className="xbtn" onClick={() => moveInCol(f, 1)} aria-label="Bajar">↓</button>
+      {!f.full && <button className="xbtn" onClick={() => patch(f.id, { col: f.col === 2 ? 1 : 2 })} title="Cambiar de columna">{f.col === 2 ? '←' : '→'}</button>}
+      <button className={'xbtn' + (f.full ? ' on' : '')} onClick={() => patch(f.id, { full: !f.full })} title="Ancho completo">⤢</button>
+    </div>
+  </div>;
+
+  return <div className="card te">
     <div className="te-head">
       <input className="te-name" value={tpl.name} onChange={(e) => updateTemplate(tpl.id, { name: e.target.value })} />
       <button className="xbtn" style={{ marginLeft: 'auto' }} onClick={() => { if (confirm(`¿Eliminar la plantilla "${tpl.name}"?`)) { removeTemplate(tpl.id); onDeleted(); } }}>🗑 Eliminar</button>
@@ -1823,33 +1857,47 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
       <div className="k">Visible para grupos de usuarios <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(vacío = la ve cualquier solicitante)</span></div>
       <ChipMulti options={tenant.userGroups ?? []} selected={tpl.userGroups ?? []} onChange={(ug) => updateTemplate(tpl.id, { userGroups: ug })} />
     </div>}
-    <div className="banner" style={{ marginTop: 4 }}>Constructor de formularios: arrastra/ordena, marca <b>obligatorio</b> y <b>quién lo ve</b>. La vista previa es lo que verá quien crea la solicitud.</div>
-    <div className="fb">
-      <div className="fb-list">
-        {defs.map((f, i) => <div key={f.id} className="field">
-          <span className="grip" aria-hidden>⣿</span>
-          <div className="fmeta">
-            <input className="fname" value={f.label} onChange={(e) => commit(defs.map((x) => (x.id === f.id ? { ...x, label: e.target.value } : x)))} />
-            <select className="ftype" value={f.type} onChange={(e) => commit(defs.map((x) => (x.id === f.id ? { ...x, type: e.target.value as FieldType } : x)))}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+
+    <div className="fbx">
+      <div className="fbx-build">
+        <div className="fbx-htitle">Diseño del formulario <span className="pill">secciones · 2 columnas</span></div>
+        {sections.map((sec) => <div key={sec} className="fsec">
+          <div className="fsec-h">
+            <input className="fsec-name" value={sec} onChange={(e) => renameSection(sec, e.target.value)} />
+            {sections.length > 1 && <button className="xbtn" onClick={() => delSection(sec)} aria-label="Eliminar sección">🗑</button>}
           </div>
-          <label className="fctl">Oblig.<button className={'toggle' + (f.mandatory ? ' on' : '')} onClick={() => commit(defs.map((x) => (x.id === f.id ? { ...x, mandatory: !x.mandatory } : x)))} /></label>
-          <label className="fctl">Solic.<button className={'toggle' + (f.requesterVisible !== false ? ' on' : '')} onClick={() => commit(defs.map((x) => (x.id === f.id ? { ...x, requesterVisible: x.requesterVisible === false } : x)))} /></label>
-          <span className="fmove"><button className="xbtn" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Subir">↑</button><button className="xbtn" onClick={() => move(i, 1)} disabled={i === defs.length - 1} aria-label="Bajar">↓</button></span>
-          <button className="xbtn" onClick={() => commit(defs.filter((x) => x.id !== f.id))} aria-label="Eliminar campo">✕</button>
+          <div className="fcols">
+            {([1, 2] as const).map((col) => <div key={col} className="fcol">
+              <div className="fcol-h">Columna {col === 1 ? 'izquierda' : 'derecha'}</div>
+              {colFields(sec, col).map(fcard)}
+              {colFields(sec, col).length === 0 && <div className="fcol-empty">—</div>}
+            </div>)}
+          </div>
+          {fullFields(sec).length > 0 && <div className="ffull"><div className="fcol-h">Ancho completo</div>{fullFields(sec).map(fcard)}</div>}
         </div>)}
-        {defs.length === 0 && <div className="empty">Sin campos. Añade el primero abajo.</div>}
         <div className="add-field">
-          <input value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Nombre del nuevo campo…" onKeyDown={(e) => { if (e.key === 'Enter' && nf.trim()) { commit([...defs, { id: 'f-' + Date.now(), label: nf.trim(), type: nft, requesterVisible: true }]); setNf(''); } }} />
+          <input value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Nuevo campo…" onKeyDown={(e) => { if (e.key === 'Enter') addField(); }} />
           <select value={nft} onChange={(e) => setNft(e.target.value as FieldType)}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-          <button className="primary" onClick={() => { if (nf.trim()) { commit([...defs, { id: 'f-' + Date.now(), label: nf.trim(), type: nft, requesterVisible: true }]); setNf(''); } }}>＋ Campo</button>
+          <select value={nsec} onChange={(e) => setNsec(e.target.value)} title="Sección">{sections.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+          <select value={ncol} onChange={(e) => setNcol(Number(e.target.value) as 1 | 2)} title="Columna"><option value={1}>Izq.</option><option value={2}>Der.</option></select>
+          <button className="primary" onClick={addField}>＋ Campo</button>
+          <button className="ghost" onClick={addSection}>＋ Sección</button>
         </div>
       </div>
+
       <div className="preview">
         <div className="pv-head">Vista previa · formulario del solicitante</div>
         <div className="pv-body">
-          <div className="pv-sec-t">Detalles de la solicitud</div>
-          {preview.length === 0 ? <div className="empty">Ningún campo visible para el solicitante.</div>
-            : <div className="pv-grid">{preview.map((f) => <div key={f.id} className={'pv-field' + (f.type === 'textarea' ? ' full' : '')}><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}</div>}
+          {sections.map((sec) => { const vis = defs.filter((f) => secOf(f) === sec && f.requesterVisible !== false); if (vis.length === 0) return null; return <div key={sec} className="pv-sec">
+            <div className="pv-sec-t">{sec}</div>
+            <div className="pv2">
+              {([1, 2] as const).map((col) => <div key={col} className="pv2col">
+                {vis.filter((f) => !f.full && (f.col === 2 ? 2 : 1) === col).map((f) => <div key={f.id} className="pv-field"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}
+              </div>)}
+              {vis.filter((f) => f.full).map((f) => <div key={f.id} className="pv-field full"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}
+            </div>
+          </div>; })}
+          {defs.filter((f) => f.requesterVisible !== false).length === 0 && <div className="empty">Ningún campo visible para el solicitante.</div>}
         </div>
       </div>
     </div>

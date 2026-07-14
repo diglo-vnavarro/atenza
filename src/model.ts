@@ -243,6 +243,10 @@ export interface FieldDef {
   mandatory?: boolean;
   /** visible/editable para el solicitante (si no, solo lo ve el técnico). */
   requesterVisible?: boolean;
+  /** maquetación del formulario: sección, columna (1=izq, 2=der) y ancho completo. */
+  section?: string;
+  col?: 1 | 2;
+  full?: boolean;
 }
 
 export interface Sla {
