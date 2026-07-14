@@ -85,6 +85,9 @@ export interface UiMember {
   external: boolean;
   /** ids de grupos de soporte a los que pertenece (perfilado de asignación). */
   groupIds?: string[];
+  /** datos maestros del solicitante. */
+  site?: string;
+  department?: string;
 }
 export interface Capacity { used: number; cap: number; off?: string }
 export interface Group { id: string; name: string }
@@ -110,6 +113,9 @@ export interface TenantData {
   /** calendario laboral (para el SLA por horario) + festivos. */
   businessHours?: BusinessHours;
   holidays?: string[];
+  /** datos maestros: sedes y departamentos (nombres). */
+  sites?: string[];
+  departments?: string[];
   /** reglas de notificación (evento → canal por destinatario). */
   notifRules?: NotifRule[];
   /** avisos en pantalla (por destinatario); en la nube es una colección. */
@@ -228,6 +234,8 @@ const opsLc: Lifecycle = {
   ],
 };
 
+const IT_SITES = ['Madrid - Sede central', 'Barcelona', 'Valencia', 'Remoto'];
+const IT_DEPARTMENTS = ['Tecnología', 'Operaciones', 'Recuperaciones', 'REO', 'Riesgos', 'RRHH', 'Finanzas', 'Legal'];
 const IT_CATEGORIES = ['Aplicaciones', 'Arquitectura', 'Comunicaciones', 'Correo Electrónico', 'Datos', 'Dispositivos', 'General', 'Hardware', 'Internet', 'Microsoft Office', 'Móviles', 'Operaciones', 'Reclamaciones de Clientes', 'Redes', 'VDI'];
 const LEASYS_CATEGORIES = ['Portal', 'Facturación', 'Contratos', 'Firma electrónica', 'Avisos', 'General'];
 const IT_CAT_TREE: CatNode[] = [
@@ -267,14 +275,14 @@ export function makeSeed(now: number): DB {
       { uid: 'u-oscar', email: 'oigualada@digloservicer.com', name: 'Óscar Igualada', color: '#b45309', role: 'technician', status: 'active', external: false },
       { uid: 'u-sergio', email: 'sfrias@digloservicer.com', name: 'Sergio Frías', color: '#0369a1', role: 'technician', status: 'active', external: false },
       { uid: 'u-bea', email: 'bcabado@digloservicer.com', name: 'Beatriz Cabado', color: '#be185d', role: 'technician', status: 'active', external: false },
-      { uid: 'u-laura', email: 'laura.gomez@digloservicer.com', name: 'Laura Gómez', color: '#7c3aed', role: 'requester', status: 'active', external: false },
+      { uid: 'u-laura', email: 'laura.gomez@digloservicer.com', name: 'Laura Gómez', color: '#7c3aed', role: 'requester', status: 'active', external: false, site: 'Madrid - Sede central', department: 'Operaciones' },
     ],
     lifecycles: [rlc, srLc, iamLc, opsLc], templates: [
       { id: 'tpl-inc', type: 'incident', name: 'Incidencia', lifecycleId: 'lc-inc', slaId: null, fields: ['subject', 'description', 'category', 'priority', 'impact'] },
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -282,7 +290,7 @@ export function makeSeed(now: number): DB {
     },
     counter: 2042,
     tickets: [
-      { type: 'incident', subject: 'VPN caída en la oficina de Madrid', description: 'Varios usuarios no pueden conectar a la VPN desde esta mañana.', requesterId: 'u-laura', technicianId: null, groupId: 'g-red', category: 'Red', priority: 'Alta', impact: 'Afecta a departamento', urgency: 'Alta', mode: 'Llamada telefonica', templateId: 'tpl-inc', status: 'open', slaId: 'sla-high', statusHistory: [seg('open', 90, null, now)] },
+      { type: 'incident', subject: 'VPN caída en la oficina de Madrid', description: 'Varios usuarios no pueden conectar a la VPN desde esta mañana.', requesterId: 'u-laura', technicianId: null, groupId: 'g-red', category: 'Red', priority: 'Alta', impact: 'Afecta a departamento', urgency: 'Alta', mode: 'Llamada telefonica', site: 'Madrid - Sede central', templateId: 'tpl-inc', status: 'open', slaId: 'sla-high', statusHistory: [seg('open', 90, null, now)] },
       { type: 'incident', subject: 'Portátil no arranca tras actualización', description: 'Pantalla azul tras la actualización de Windows.', requesterId: 'u-laura', technicianId: 'u-elena', groupId: 'g-n1', category: 'Hardware', priority: 'Media', impact: 'Afecta a usuario', urgency: 'Normal', mode: 'Formulario Web', templateId: 'tpl-inc', status: 'p_user', slaId: 'sla-med', statusHistory: [seg('open', 300, 260, now), seg('working', 260, 180, now), seg('p_user', 180, null, now)] },
     ].map((t, i) => ({ ...t, id: 'INC-' + (2039 + i) } as Ticket & { id: string })),
   };
@@ -298,7 +306,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [

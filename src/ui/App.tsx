@@ -406,6 +406,8 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
         {t.impact && <div><div className="k">Impacto</div><span style={{ fontSize: 13 }}>{t.impact}</span></div>}
         {t.urgency && <div><div className="k">Urgencia</div><span style={{ fontSize: 13 }}>{t.urgency}</span></div>}
         {t.mode && <div><div className="k">Modo</div><span style={{ fontSize: 13 }}>{t.mode}</span></div>}
+        {(t.site || req?.site) && <div><div className="k">Sede</div><span style={{ fontSize: 13 }}>{t.site ?? req?.site}</span></div>}
+        {req?.department && <div><div className="k">Departamento</div><span style={{ fontSize: 13 }}>{req.department}</span></div>}
       </div>
       {ss && <div style={{ marginTop: 12 }}>
         <div className="k">SLA de resolución {paused && '· ⏸ en pausa'}</div>
@@ -510,6 +512,7 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
   const [impact, setImpact] = useState('');
   const [urgency, setUrgency] = useState('');
   const [mode, setMode] = useState('');
+  const [site, setSite] = useState('');
   const [description, setDescription] = useState('');
   const requesters = tenant.members.filter((m) => m.role === 'requester');
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
@@ -529,7 +532,7 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
     const g = tplGroup(t); if (!groups.has(g)) groups.set(g, []); groups.get(g)!.push(t);
   }
   const grpList = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const submit = () => { if (!subject.trim() || !tpl) return; create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, impact: impact || undefined, urgency: urgency || undefined, mode: mode || undefined, requesterId, templateId: tpl.id }); onClose(); };
+  const submit = () => { if (!subject.trim() || !tpl) return; create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, impact: impact || undefined, urgency: urgency || undefined, mode: mode || undefined, site: site || undefined, requesterId, templateId: tpl.id }); onClose(); };
 
   return (
     <div className="scrim" onClick={onClose}>
@@ -564,6 +567,7 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
             {pls && pls.impact.length > 0 && <label>Impacto<select value={impact} onChange={(e) => setImpact(e.target.value)}><option value="">— Seleccionar —</option>{pls.impact.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
             {pls && pls.urgency.length > 0 && <label>Urgencia<select value={urgency} onChange={(e) => setUrgency(e.target.value)}><option value="">— Seleccionar —</option>{pls.urgency.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
             {role !== 'requester' && pls && pls.mode.length > 0 && <label>Modo<select value={mode} onChange={(e) => setMode(e.target.value)}><option value="">— Seleccionar —</option>{pls.mode.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
+            {(tenant.sites ?? []).length > 0 && <label>Sede<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
             {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
               <button className="primary" onClick={submit} disabled={!subject.trim()}>Crear solicitud</button>
@@ -635,14 +639,14 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
-  ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', null], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', null], ['Moneda', null]]],
+  ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', null], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Sedes y departamentos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -732,6 +736,30 @@ function MatrixAdmin({ tenant }: { tenant: TenantData }) {
       </table>
     </div>
   </>;
+}
+
+// Datos maestros: sedes y departamentos (listas de nombres, con búsqueda).
+function StringListCard({ title, list, onChange, placeholder, search }: { title: string; list: string[]; onChange: (l: string[]) => void; placeholder: string; search?: boolean }) {
+  const [q, setQ] = useState(''); const [nv, setNv] = useState('');
+  const shown = search && q ? list.filter((x) => x.toLowerCase().includes(q.toLowerCase())) : list;
+  const add = () => { const v = nv.trim(); if (v && !list.includes(v)) { onChange([...list, v]); setNv(''); } };
+  return <div className="card"><h2>{title} <span className="badge">{list.length}</span></h2>
+    {search && <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar…" style={{ width: '100%', marginTop: 10 }} />}
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12, maxHeight: 260, overflowY: 'auto' }}>
+      {shown.slice(0, 200).map((x) => <span key={x} className="pill">{x}<button className="xbtn" style={{ marginLeft: 4 }} onClick={() => onChange(list.filter((y) => y !== x))}>✕</button></span>)}
+      {shown.length === 0 && <span className="empty" style={{ padding: 8 }}>Sin resultados.</span>}
+    </div>
+    {shown.length > 200 && <div className="empty" style={{ padding: 6 }}>… {shown.length} resultados (mostrando 200). Usa la búsqueda para acotar.</div>}
+    <div className="designer"><input style={{ flex: 1, minWidth: 140 }} value={nv} onChange={(e) => setNv(e.target.value)} placeholder={placeholder} onKeyDown={(e) => e.key === 'Enter' && add()} /><button className="primary" onClick={add}>＋</button></div>
+  </div>;
+}
+function MasterDataAdmin({ tenant }: { tenant: TenantData }) {
+  const setSites = useStore((s) => s.setSites);
+  const setDepartments = useStore((s) => s.setDepartments);
+  return <div className="work">
+    <StringListCard title="Sedes" list={tenant.sites ?? []} onChange={setSites} placeholder="Nueva sede…" />
+    <StringListCard title="Departamentos" list={tenant.departments ?? []} onChange={setDepartments} placeholder="Nuevo departamento…" search />
+  </div>;
 }
 
 // Calendario laboral (horas operativas + festivos) → alimenta el SLA por horario.
@@ -835,6 +863,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'valores' && <ValuesAdmin tenant={tenant} />}
     {sec === 'matriz' && <MatrixAdmin tenant={tenant} />}
     {sec === 'horario' && <CalendarAdmin tenant={tenant} />}
+    {sec === 'maestros' && <MasterDataAdmin tenant={tenant} />}
     {sec === 'notif' && <NotifAdmin tenant={tenant} />}
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}

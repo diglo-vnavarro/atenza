@@ -16,3 +16,4 @@ infra/terraform/terraform.tfvars
 infra/terraform/.terraform.lock.hcl
 importer/imported-tickets.json
 importer/imported-categories.json
+importer/imported-masterdata.json

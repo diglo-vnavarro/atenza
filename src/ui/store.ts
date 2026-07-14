@@ -12,7 +12,7 @@ export type Role = 'tenant_admin' | 'technician' | 'requester';
 
 interface NewTicket {
   subject: string; description: string; category: string; subcategory?: string; item?: string;
-  priority: string; impact?: string; urgency?: string; mode?: string; level?: string;
+  priority: string; impact?: string; urgency?: string; mode?: string; level?: string; site?: string;
   requesterId: string; technicianId?: string | null;
   templateId?: string;
 }
@@ -42,6 +42,8 @@ interface State {
   setPriorityMatrix: (matrix: PriorityMatrix) => void;
   setBusinessHours: (bh: BusinessHours) => void;
   setHolidays: (list: string[]) => void;
+  setSites: (list: string[]) => void;
+  setDepartments: (list: string[]) => void;
   setNotifRules: (rules: NotifRule[]) => void;
   markNotifRead: (id: string) => void;
   markAllNotifsRead: () => void;
@@ -206,7 +208,7 @@ export const useStore = create<State>()(
             id, type: tpl?.type ?? 'incident', subject: nt.subject, description: nt.description,
             requesterId: nt.requesterId, technicianId: nt.technicianId ?? null, category: nt.category,
             subcategory: nt.subcategory, item: nt.item,
-            priority: nt.priority, impact: nt.impact, urgency: nt.urgency, mode: nt.mode, level: nt.level,
+            priority: nt.priority, impact: nt.impact, urgency: nt.urgency, mode: nt.mode, level: nt.level, site: nt.site,
             templateId: tpl?.id ?? 'tpl-inc', status: init,
             slaId: SLA_BY_PRIORITY[nt.priority] ?? null, statusHistory: [{ state: init, from: now, to: null }],
           };
@@ -269,6 +271,14 @@ export const useStore = create<State>()(
         setHolidays: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, holidays: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { holidays: list }).catch(errlog); }
+        },
+        setSites: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, sites: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { sites: list }).catch(errlog); }
+        },
+        setDepartments: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, departments: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { departments: list }).catch(errlog); }
         },
         setNotifRules: (rules) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, notifRules: rules })) }));
@@ -471,6 +481,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v7', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v8', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );
