@@ -389,6 +389,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const addWorklog = useStore((s) => s.addWorklog);
   const requestApproval = useStore((s) => s.requestApproval);
   const decideApproval = useStore((s) => s.decideApproval);
+  const autoAssign = useStore((s) => s.autoAssign);
   const uploadAttachment = useStore((s) => s.uploadAttachment);
   const removeAttachment = useStore((s) => s.removeAttachment);
   const meUid = useStore((s) => s.currentUserId);
@@ -484,7 +485,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
           </select>
           {closeErr && <div className="closeerr">⚠ {closeErr}</div>}
         </>}
-        <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span>{scoped.length > 0 && group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}</div>
+        <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span>{scoped.length > 0 && group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}<button className="linkbtn" style={{ marginLeft: 'auto' }} onClick={() => autoAssign(t.id)} title="Asigna al técnico menos cargado del grupo">⚡ Auto-asignar</button></div>
         {techs.map((m) => {
           const c = tenant.capacity[m.uid] ?? { used: 0, cap: 40 };
           const [s, label] = capState(c); const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0;

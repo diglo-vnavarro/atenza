@@ -15,10 +15,11 @@ export const RULE_OPS: [RuleOp, string][] = [
 ];
 export interface RuleCondition { field: RuleField; op: RuleOp; value?: string }
 
-export type RuleActionType = 'setPriority' | 'setGroup' | 'setStatus' | 'assignTo';
+export type RuleActionType = 'setPriority' | 'setGroup' | 'setStatus' | 'assignTo' | 'assignByLoad';
 export const RULE_ACTIONS: [RuleActionType, string][] = [
   ['setPriority', 'Fijar prioridad'], ['setGroup', 'Enrutar a grupo'],
   ['setStatus', 'Fijar estado'], ['assignTo', 'Asignar técnico'],
+  ['assignByLoad', 'Auto-asignar por carga'],
 ];
 export interface RuleAction { type: RuleActionType; value: string }
 
@@ -53,12 +54,19 @@ export function ruleMatches(r: BusinessRule, t: Ticket): boolean {
   return r.match === 'any' ? r.conditions.some((c) => condMatches(c, t)) : r.conditions.every((c) => condMatches(c, t));
 }
 
-export interface RuleOutcome { patch: Partial<Ticket>; applied: string[] }
+export interface RuleOutcome {
+  patch: Partial<Ticket>;
+  applied: string[];
+  /** solicitud de auto-asignación por carga (la resuelve el store, que tiene la
+   *  capacidad y los miembros). groupId '' / undefined = usar el grupo del ticket. */
+  autoAssign?: { groupId?: string };
+}
 
 /** Aplica en orden las reglas habilitadas que casan; devuelve el patch de campos. */
 export function applyBusinessRules(rules: BusinessRule[] | undefined, t: Ticket): RuleOutcome {
   const patch: Record<string, unknown> = {};
   const applied: string[] = [];
+  let autoAssign: { groupId?: string } | undefined;
   for (const r of rules ?? []) {
     if (!r.enabled) continue;
     if (!ruleMatches(r, { ...t, ...patch } as Ticket)) continue; // encadena sobre lo ya parcheado
@@ -67,8 +75,9 @@ export function applyBusinessRules(rules: BusinessRule[] | undefined, t: Ticket)
       else if (a.type === 'setGroup') patch.groupId = a.value;
       else if (a.type === 'setStatus') patch.status = a.value;
       else if (a.type === 'assignTo') patch.technicianId = a.value;
+      else if (a.type === 'assignByLoad') autoAssign = { groupId: a.value || undefined };
     }
     applied.push(r.name);
   }
-  return { patch: patch as Partial<Ticket>, applied };
+  return { patch: patch as Partial<Ticket>, applied, autoAssign };
 }

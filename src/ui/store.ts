@@ -6,6 +6,7 @@ import type { ClosureRules } from '../closure.js';
 import { isClosingStatus, closureBlockers } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import { applyBusinessRules } from '../rules.js';
+import { pickByLoad } from '../assign.js';
 import { canTransition, initialState } from '../lifecycle.js';
 import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
@@ -67,6 +68,7 @@ interface State {
   setClosureRules: (rules: ClosureRules) => void;
   setReplyTemplates: (list: ReplyTemplate[]) => void;
   setBusinessRules: (list: BusinessRule[]) => void;
+  autoAssign: (ticketId: string) => string | null;
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -114,6 +116,13 @@ export function lifecycleOfTicket(t: TenantData, tk: StoredTicket): Lifecycle | 
 }
 
 const seed = makeSeed(Date.now());
+// Técnicos candidatos para asignar: del grupo indicado si lo hay (y tiene
+// miembros), si no todos los técnicos/admin del tenant.
+function techsOfGroup(t: TenantData, groupId?: string | null): string[] {
+  const staff = t.members.filter((m) => m.role === 'technician' || m.role === 'tenant_admin');
+  if (groupId) { const inGroup = staff.filter((m) => (m.groupIds ?? []).includes(groupId)); if (inGroup.length) return inGroup.map((m) => m.uid); }
+  return staff.map((m) => m.uid);
+}
 const mapTenant = (db: DB, id: string, fn: (t: TenantData) => TenantData): DB => ({ ...db, tenants: db.tenants.map((t) => (t.id === id ? fn(t) : t)) });
 const genId = (t: TenantData): string => (t.id === 'leasys' ? 'SR-' : 'INC-') + String(t.counter).padStart(4, '0');
 function editLc(t: TenantData, idx: number, fn: (lc: Lifecycle) => Lifecycle): TenantData {
@@ -243,6 +252,13 @@ export const useStore = create<State>()(
           // Reglas de negocio: aplican patch (prioridad/grupo/estado/técnico) al crear.
           const ro = applyBusinessRules(t.businessRules, draft as StoredTicket);
           const merged = { ...draft, ...ro.patch };
+          // Auto-asignación por carga (OrganiZate) si una regla lo pidió y no hay técnico ya fijado.
+          let autoAssigned = false;
+          if (ro.autoAssign && !merged.technicianId) {
+            const cand = techsOfGroup(t, ro.autoAssign.groupId ?? merged.groupId);
+            const pick = pickByLoad(cand, t.capacity);
+            if (pick) { merged.technicianId = pick; autoAssigned = true; }
+          }
           const finalStatus = merged.status ?? init;
           const ticket: StoredTicket = {
             ...merged, status: finalStatus,
@@ -252,7 +268,7 @@ export const useStore = create<State>()(
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
           if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
           emitNotifs(t, 'created', ticket);
-          if (ro.patch.technicianId) emitNotifs(t, 'assigned', ticket); // una regla asignó técnico
+          if (ro.patch.technicianId || autoAssigned) emitNotifs(t, 'assigned', ticket); // regla asignó / auto por carga
         },
 
         assign: (ticketId, techUid) => {
@@ -466,6 +482,13 @@ export const useStore = create<State>()(
         setBusinessRules: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, businessRules: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { businessRules: list }).catch(errlog); }
+        },
+        // Auto-asigna al técnico MENOS cargado (OrganiZate) del grupo del ticket.
+        autoAssign: (ticketId) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return null;
+          const pick = pickByLoad(techsOfGroup(t, tk.groupId), t.capacity);
+          if (pick) get().assign(ticketId, pick);
+          return pick;
         },
 
         addState: (label, category, stage) => {
