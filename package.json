@@ -12,6 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "import": "tsx importer/run.ts",
+    "sync": "tsx scripts/sync-tickets.ts",
+    "sync:dry": "tsx scripts/sync-tickets.ts --dry-run",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\""
   },
   "dependencies": {
