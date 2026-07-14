@@ -387,35 +387,45 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
       </div>
     </div>
 
-    {list.length === 0 ? <div className="card"><div className="empty">{scope === 'requester' ? 'No has creado ninguna solicitud todavía.' : scope === 'assigned' ? 'No tienes solicitudes asignadas.' : 'No hay solicitudes en esta vista.'}</div></div>
-      : vw === 'list' ? <div className="listwrap tblwrap">
-        <table className="mgmt">
-          <thead><tr><th>ID</th><th>Asunto</th><th>Solicitante</th><th>Técnico</th><th>Grupo</th><th>Prioridad</th><th>Estado</th><th>Vence</th></tr></thead>
-          <tbody>{list.map((t) => {
-            const tech = tenant.members.find((m) => m.uid === t.technicianId);
-            const req = tenant.members.find((m) => m.uid === t.requesterId);
-            const [due, sev] = dueLabel(t.resolveDueAt);
-            return <tr key={t.id} className={'mrow' + (t.id === selectedId ? ' sel' : '')} onClick={() => select(t.id)}>
-              <td className="id">{t.id}</td>
-              <td className="subj">{t.subject}</td>
-              <td className="soft">{req?.name ?? '—'}</td>
-              <td>{tech ? <span className="who"><Avatar m={tech} /> <span className="soft">{tech.name}</span></span> : <span className="soft">Sin asignar</span>}</td>
-              <td className="soft">{tenant.groups.find((g) => g.id === t.groupId)?.name ?? '—'}</td>
-              <td>{badge(priorityView(tenant, t.priority).label, priorityView(tenant, t.priority).color)}</td>
-              <td>{(() => { const sv = statusView(tenant, t); return <span className="stbadge" style={{ color: sv.color, background: `color-mix(in srgb, ${sv.color} 14%, transparent)` }}>{sv.label}</span>; })()}</td>
-              <td className={sev === 'crit' ? 'sev-crit' : sev === 'warn' ? 'sev-warn' : 'soft'} style={{ fontSize: 12, fontWeight: 600 }}>{due}</td>
-            </tr>;
-          })}</tbody>
-        </table>
+    {vw === 'list' ? <div className="wsplit">
+      <div className="listwrap tblwrap wsplit-list">
+        {list.length === 0 ? <div className="empty" style={{ padding: 30 }}>{scope === 'requester' ? 'No has creado ninguna solicitud todavía.' : scope === 'assigned' ? 'No tienes solicitudes asignadas.' : 'No hay solicitudes en esta vista.'}</div>
+          : <table className="mgmt">
+            <thead><tr><th>ID</th><th>Asunto</th><th>Solicitante</th><th>Técnico</th><th>Grupo</th><th>Prioridad</th><th>Estado</th><th>Vence</th></tr></thead>
+            <tbody>{list.map((t) => {
+              const tech = tenant.members.find((m) => m.uid === t.technicianId);
+              const req = tenant.members.find((m) => m.uid === t.requesterId);
+              const [due, sev] = dueLabel(t.resolveDueAt);
+              return <tr key={t.id} className={'mrow' + (t.id === selectedId ? ' sel' : '')} onClick={() => select(t.id)}>
+                <td className="id">{t.id}</td>
+                <td className="subj">{t.subject}</td>
+                <td className="soft">{req?.name ?? '—'}</td>
+                <td>{tech ? <span className="who"><Avatar m={tech} /> <span className="soft">{tech.name}</span></span> : <span className="soft">Sin asignar</span>}</td>
+                <td className="soft">{tenant.groups.find((g) => g.id === t.groupId)?.name ?? '—'}</td>
+                <td>{badge(priorityView(tenant, t.priority).label, priorityView(tenant, t.priority).color)}</td>
+                <td>{(() => { const sv = statusView(tenant, t); return <span className="stbadge" style={{ color: sv.color, background: `color-mix(in srgb, ${sv.color} 14%, transparent)` }}>{sv.label}</span>; })()}</td>
+                <td className={sev === 'crit' ? 'sev-crit' : sev === 'warn' ? 'sev-warn' : 'soft'} style={{ fontSize: 12, fontWeight: 600 }}>{due}</td>
+              </tr>;
+            })}</tbody>
+          </table>}
       </div>
-      : <Kanban tenant={tenant} list={list} stLabel={stLabel} onSelect={(id) => select(id)} selectedId={selectedId} />}
-
-    {selected && <div className="scrim" onClick={() => select(null)}>
-      <aside className="drawer detail" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Solicitud ' + selected.id}>
-        <div className="drawer-h"><h2>{selected.id} · {selected.type === 'incident' ? 'Incidencia' : 'Solicitud'}</h2><button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button></div>
-        <div className="drawer-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} caps={caps} readOnly={readOnly} meName={meName} meUid={user.uid} /></div>
+      <aside className="detailpane">
+        {selected ? <>
+          <div className="drawer-h"><h2>{selected.id} · {selected.type === 'incident' ? 'Incidencia' : 'Solicitud'}</h2><button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button></div>
+          <div className="drawer-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} caps={caps} readOnly={readOnly} meName={meName} meUid={user.uid} /></div>
+        </> : <div className="det-empty"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v16" /></svg><span>Selecciona una solicitud para ver el detalle.</span></div>}
       </aside>
-    </div>}
+    </div>
+    : <>
+      {list.length === 0 ? <div className="card"><div className="empty">No hay solicitudes en esta vista.</div></div>
+        : <Kanban tenant={tenant} list={list} stLabel={stLabel} onSelect={(id) => select(id)} selectedId={selectedId} />}
+      {selected && <div className="scrim" onClick={() => select(null)}>
+        <aside className="drawer detail" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Solicitud ' + selected.id}>
+          <div className="drawer-h"><h2>{selected.id} · {selected.type === 'incident' ? 'Incidencia' : 'Solicitud'}</h2><button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button></div>
+          <div className="drawer-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} caps={caps} readOnly={readOnly} meName={meName} meUid={user.uid} /></div>
+        </aside>
+      </div>}
+    </>}
   </>;
 }
 
