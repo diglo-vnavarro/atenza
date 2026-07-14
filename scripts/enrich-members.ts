@@ -62,6 +62,22 @@ async function fetchPeople(resource: string): Promise<SdpUser[]> {
   return out;
 }
 
+// Grupos de usuarios de SDP: son DINÁMICOS (criterios), no rosters. Materializamos
+// la membresía de forma aproximada (OR entre criterios): un usuario pertenece si su
+// id está en un criterio field=id, o su departamento está en un criterio field=department.
+interface SdpCriterion { field?: string; values?: (string | { id?: string })[] }
+interface SdpUserGroup { id?: string; name?: string; criteria?: SdpCriterion[] }
+async function fetchList<T>(resource: string, key = resource): Promise<T[]> {
+  const out: T[] = []; let start = 1;
+  for (let page = 0; page < 60; page++) {
+    const j = await api(`${resource}?input_data=${q({ list_info: { row_count: 100, start_index: start } })}`);
+    const arr = (j[key] as T[]) ?? []; out.push(...arr);
+    const li = j.list_info as { has_more_rows?: boolean } | undefined;
+    if (!li?.has_more_rows || !arr.length) break; start += 100;
+  }
+  return out;
+}
+
 initializeApp({ projectId: process.env.GOOGLE_CLOUD_PROJECT ?? 'diglo-desk-pd' });
 const db = getFirestore();
 
@@ -69,15 +85,33 @@ async function main() {
   await refresh();
   console.log(`${DRY ? '=== DRY-RUN === ' : ''}Enriquecer miembros de ${TENANT} desde SDP.`);
   const people = [...await fetchPeople('technicians'), ...await fetchPeople('requesters')];
+
+  // grupos de usuarios (criterios) + mapa id de departamento -> nombre
+  const groups = await fetchList<SdpUserGroup>('user_groups');
+  const depts = await fetchList<{ id?: string; name?: string }>('departments');
+  const deptName = new Map(depts.map((d) => [String(d.id), d.name]));
+  const gDefs = groups.map((g) => {
+    const ids = new Set<string>(); const deptNames = new Set<string>();
+    for (const c of g.criteria ?? []) {
+      for (const v of c.values ?? []) {
+        if (c.field === 'id' && typeof v === 'string') ids.add(v);
+        else if (c.field === 'department' && typeof v === 'object' && v.id) { const n = deptName.get(String(v.id)); if (n) deptNames.add(n); }
+      }
+    }
+    return { name: g.name ?? '', ids, deptNames };
+  }).filter((g) => g.name && (g.ids.size || g.deptNames.size));
+  const groupsOf = (uid: string, dep?: string): string[] =>
+    gDefs.filter((g) => g.ids.has(uid) || (dep ? g.deptNames.has(dep) : false)).map((g) => g.name);
+
   // mapa uid SDP -> {site, department, userGroups}
   const byId = new Map<string, { site?: string; department?: string; userGroups?: string[] }>();
   for (const p of people) {
     if (!p.id) continue;
-    const site = p.site?.name; const department = p.department?.name;
-    const userGroups = (p.user_groups ?? []).map((g) => g.name).filter((n): n is string => !!n);
-    byId.set(String(p.id), { site, department, userGroups: userGroups.length ? userGroups : undefined });
+    const uid = String(p.id); const site = p.site?.name; const department = p.department?.name;
+    const ug = groupsOf(uid, department);
+    byId.set(uid, { site, department, userGroups: ug.length ? ug : undefined });
   }
-  console.log(`SDP: ${people.length} personas · con sede: ${[...byId.values()].filter((x) => x.site).length} · con departamento: ${[...byId.values()].filter((x) => x.department).length}`);
+  console.log(`SDP: ${people.length} personas · ${groups.length} grupos de usuario · con sede: ${[...byId.values()].filter((x) => x.site).length} · con departamento: ${[...byId.values()].filter((x) => x.department).length} · con grupos de usuario: ${[...byId.values()].filter((x) => x.userGroups).length}`);
 
   const ms = await db.collection(`tenants/${TENANT}/members`).get();
   let patched = 0, matched = 0;

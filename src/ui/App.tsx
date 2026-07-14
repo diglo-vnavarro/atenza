@@ -315,12 +315,23 @@ function Workspace({ tenant, role, user, filter, setFilter, scope }:
   const selectedId = useStore((s) => s.selectedTicketId);
   const select = useStore((s) => s.select);
   const [vw, setVw] = useState<'list' | 'kanban'>('list');
+  const [q, setQ] = useState('');
   const all = tenant.tickets;
   let list = all;
   if (scope === 'requester') list = all.filter((t) => t.requesterId === user.uid);
   else if (scope === 'assigned') list = all.filter((t) => t.technicianId === user.uid);
   else if (filter === 'unassigned') list = all.filter((t) => !t.technicianId);
   else if (filter === 'mine') list = all.filter((t) => t.technicianId === user.uid);
+  // buscador por id / asunto / solicitante / técnico
+  const ql = q.trim().toLowerCase();
+  if (ql) list = list.filter((t) => {
+    const req = tenant.members.find((m) => m.uid === t.requesterId)?.name ?? '';
+    const tech = tenant.members.find((m) => m.uid === t.technicianId)?.name ?? '';
+    return `${t.id} ${t.subject} ${req} ${tech}`.toLowerCase().includes(ql);
+  });
+  // orden por defecto: descendente por id (= orden de creación, más reciente primero)
+  const idNum = (id: string) => parseInt(id.replace(/\D/g, ''), 10) || 0;
+  list = [...list].sort((a, b) => idNum(b.id) - idNum(a.id));
   const selected = tenant.tickets.find((t) => t.id === selectedId) ?? null;
   const counts = { all: all.length, unassigned: all.filter((t) => !t.technicianId).length, mine: all.filter((t) => t.technicianId === user.uid).length };
   const tabs: [typeof filter, string][] = [['all', 'Todas'], ['unassigned', 'Sin asignar'], ['mine', 'Mías']];
@@ -335,6 +346,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope }:
       <h1>{title}</h1>
       <span className="sub">{tenant.name} · {list.length}{scope === 'queue' ? ` de ${all.length}` : ''}</span>
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+        <label className="searchbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar por solicitante, asunto, id…" /></label>
         <div className="seg">
           <button className={vw === 'list' ? 'on' : ''} onClick={() => setVw('list')}>Lista</button>
           <button className={vw === 'kanban' ? 'on' : ''} onClick={() => setVw('kanban')}>Kanban</button>
@@ -1405,6 +1417,8 @@ function SlaAdmin({ tenant }: { tenant: TenantData }) {
   const removeGroup = useStore((s) => s.removeGroup);
   const [sn, setSn] = useState(''); const [sr, setSr] = useState(60); const [sx, setSx] = useState(480);
   const [gn, setGn] = useState('');
+  const [openG, setOpenG] = useState<string | null>(null);
+  const groupTechs = (gid: string) => tenant.members.filter((m) => (m.groupIds ?? []).includes(gid));
   return <div className="work">
     <div className="card"><h2>SLA <span className="badge">{tenant.slas.length}</span></h2>
       <div className="facts" style={{ gridTemplateColumns: '1fr 90px 90px auto', alignItems: 'center', rowGap: 8 }}>
@@ -1426,10 +1440,19 @@ function SlaAdmin({ tenant }: { tenant: TenantData }) {
     </div>
     <div className="card"><h2>Grupos de soporte <span className="badge">{tenant.groups.length}</span></h2>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-        {tenant.groups.map((g) => <div key={g.id} className="lcstate">
-          <span style={{ flex: 1, fontSize: 13 }}>{g.name}</span>
-          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeGroup(g.id)}>🗑</button>
-        </div>)}
+        {tenant.groups.map((g) => { const techs = groupTechs(g.id); const open = openG === g.id; return <div key={g.id}>
+          <div className="lcstate">
+            <button className="ghost" style={{ flex: 1, textAlign: 'left', fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }} onClick={() => setOpenG(open ? null : g.id)} title="Ver técnicos">
+              <span style={{ color: 'var(--ink-faint)', width: 10 }}>{open ? '▾' : '▸'}</span>{g.name}
+              <span className="pill" style={{ marginLeft: 'auto' }}>{techs.length} {techs.length === 1 ? 'técnico' : 'técnicos'}</span>
+            </button>
+            <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeGroup(g.id)}>🗑</button>
+          </div>
+          {open && <div style={{ padding: '4px 0 8px 26px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {techs.length === 0 ? <span className="empty" style={{ fontSize: 12 }}>Sin técnicos asignados.</span>
+              : techs.map((m) => <span key={m.uid} className="who" style={{ fontSize: 12 }}><Avatar m={m} /> <span className="soft">{m.name}</span></span>)}
+          </div>}
+        </div>; })}
       </div>
       <div className="designer">
         <input style={{ flex: 1, minWidth: 120 }} value={gn} onChange={(e) => setGn(e.target.value)} placeholder="Nuevo grupo…" />
