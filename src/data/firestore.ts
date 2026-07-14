@@ -33,7 +33,7 @@ async function loadFs() {
 async function fs() { return (_fs ??= await loadFs()); }
 
 // ---- config del tenant que vive en el doc raíz ----
-interface TenantDoc { name: string; key: string; active: boolean; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; picklists?: Picklists; priorityMatrix?: PriorityMatrix; businessHours?: BusinessHours; holidays?: string[]; sites?: string[]; departments?: string[]; userGroups?: string[]; roles?: RoleDef[]; notifRules?: NotifRule[]; closureRules?: ClosureRules; replyTemplates?: ReplyTemplate[]; businessRules?: BusinessRule[]; webhooks?: Webhook[]; kbArticles?: KbArticle[]; announcements?: Announcement[]; capacity: Record<string, Capacity>; counter: number }
+interface TenantDoc { name: string; key: string; active: boolean; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; picklists?: Picklists; priorityMatrix?: PriorityMatrix; businessHours?: BusinessHours; holidays?: string[]; sites?: string[]; departments?: string[]; userGroups?: string[]; roles?: RoleDef[]; notifRules?: NotifRule[]; closureRules?: ClosureRules; replyTemplates?: ReplyTemplate[]; businessRules?: BusinessRule[]; webhooks?: Webhook[]; kbArticles?: KbArticle[]; announcements?: Announcement[]; inboundEnabled?: boolean; capacity: Record<string, Capacity>; counter: number }
 
 /** Rol del usuario en un tenant (para decidir el filtro de tickets al suscribir). */
 export async function getMemberRole(tid: string, uid: string): Promise<string | null> {
@@ -48,7 +48,7 @@ export async function seedTenantToFirestore(t: TenantData): Promise<void> {
   const { m, db } = await fs();
   const batch = m.writeBatch(db);
   const tRef = m.doc(db, 'tenants', t.id);
-  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, categories: t.categories, categoryTree: t.categoryTree ?? [], statuses: t.statuses ?? [], picklists: t.picklists, priorityMatrix: t.priorityMatrix, businessHours: t.businessHours, holidays: t.holidays ?? [], sites: t.sites ?? [], departments: t.departments ?? [], userGroups: t.userGroups ?? [], roles: t.roles ?? [], notifRules: t.notifRules ?? [], closureRules: t.closureRules, replyTemplates: t.replyTemplates ?? [], businessRules: t.businessRules ?? [], webhooks: t.webhooks ?? [], kbArticles: t.kbArticles ?? [], announcements: t.announcements ?? [], capacity: t.capacity, counter: t.counter };
+  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, categories: t.categories, categoryTree: t.categoryTree ?? [], statuses: t.statuses ?? [], picklists: t.picklists, priorityMatrix: t.priorityMatrix, businessHours: t.businessHours, holidays: t.holidays ?? [], sites: t.sites ?? [], departments: t.departments ?? [], userGroups: t.userGroups ?? [], roles: t.roles ?? [], notifRules: t.notifRules ?? [], closureRules: t.closureRules, replyTemplates: t.replyTemplates ?? [], businessRules: t.businessRules ?? [], webhooks: t.webhooks ?? [], kbArticles: t.kbArticles ?? [], announcements: t.announcements ?? [], inboundEnabled: t.inboundEnabled ?? false, capacity: t.capacity, counter: t.counter };
   batch.set(tRef, tdoc);
   for (const mem of t.members) batch.set(m.doc(db, `tenants/${t.id}/members`, mem.uid), mem);
   for (const tk of t.tickets) batch.set(m.doc(db, `tenants/${t.id}/tickets`, tk.id), tk);
@@ -96,7 +96,7 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
 
   subs.push(m.onSnapshot(m.doc(db, 'tenants', tid), (d) => {
     const t = d.data() as TenantDoc | undefined;
-    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.categories = t.categories ?? []; acc.categoryTree = t.categoryTree ?? []; acc.statuses = t.statuses ?? []; acc.picklists = t.picklists; acc.priorityMatrix = t.priorityMatrix; acc.businessHours = t.businessHours; acc.holidays = t.holidays ?? []; acc.sites = t.sites ?? []; acc.departments = t.departments ?? []; acc.userGroups = t.userGroups ?? []; acc.roles = t.roles ?? []; acc.notifRules = t.notifRules ?? []; acc.closureRules = t.closureRules; acc.replyTemplates = t.replyTemplates ?? []; acc.businessRules = t.businessRules ?? []; acc.webhooks = t.webhooks ?? []; acc.kbArticles = t.kbArticles ?? []; acc.announcements = t.announcements ?? []; acc.capacity = t.capacity ?? {}; acc.counter = t.counter ?? 1000; }
+    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.categories = t.categories ?? []; acc.categoryTree = t.categoryTree ?? []; acc.statuses = t.statuses ?? []; acc.picklists = t.picklists; acc.priorityMatrix = t.priorityMatrix; acc.businessHours = t.businessHours; acc.holidays = t.holidays ?? []; acc.sites = t.sites ?? []; acc.departments = t.departments ?? []; acc.userGroups = t.userGroups ?? []; acc.roles = t.roles ?? []; acc.notifRules = t.notifRules ?? []; acc.closureRules = t.closureRules; acc.replyTemplates = t.replyTemplates ?? []; acc.businessRules = t.businessRules ?? []; acc.webhooks = t.webhooks ?? []; acc.kbArticles = t.kbArticles ?? []; acc.announcements = t.announcements ?? []; acc.inboundEnabled = t.inboundEnabled ?? false; acc.capacity = t.capacity ?? {}; acc.counter = t.counter ?? 1000; }
     emit();
   }));
   subs.push(m.onSnapshot(col('members'), (s) => { acc.members = s.docs.map((d) => d.data() as UiMember); emit(); }));

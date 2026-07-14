@@ -7,6 +7,7 @@ import { isClosingStatus, closureBlockers } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import { applyBusinessRules } from '../rules.js';
 import { pickByLoad } from '../assign.js';
+import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
 import { webhooksFor } from '../webhooks.js';
 import { canTransition, initialState } from '../lifecycle.js';
@@ -78,6 +79,8 @@ interface State {
   submitSurvey: (ticketId: string, rating: number, comment: string) => void;
   saveAnnouncement: (a: import('../announce.js').Announcement) => void;
   removeAnnouncement: (id: string) => void;
+  setInboundEnabled: (on: boolean) => void;
+  createFromEmail: (from: string, subject: string, body: string) => { action: 'create' | 'comment' | 'ignored'; ticketId?: string; subject?: string };
   addState: (label: string, category: SlaCategory, stage: Stage) => void;
   removeState: (key: string) => void;
   addTransition: (from: string, to: string) => void;
@@ -543,6 +546,29 @@ export const useStore = create<State>()(
         removeAnnouncement: (id) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, announcements: (t.announcements ?? []).filter((x) => x.id !== id) })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { announcements: t.announcements ?? [] }).catch(errlog); }
+        },
+        // Interruptor maestro de recepción de correo (por instancia). OFF = inerte:
+        // el buzón real sigue en SDP; nada entra por correo aunque exista el pipeline.
+        setInboundEnabled: (on) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, inboundEnabled: on })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { inboundEnabled: on }).catch(errlog); }
+        },
+        // Ingesta de un correo: respuesta a un ticket (→ comentario) o nuevo ticket.
+        // La usa el simulador y (en el corte) la Cloud Function del buzón.
+        createFromEmail: (from, subject, body) => {
+          const p = parseInbound({ from, subject, body });
+          const t = activeT(get()); if (!t) return { action: 'ignored' };
+          const sender = t.members.find((m) => m.email.toLowerCase() === p.fromEmail);
+          if (p.replyToId) {
+            const tk = t.tickets.find((x) => x.id === p.replyToId);
+            if (tk) { get().addComment(tk.id, p.body || '(sin texto)', sender?.name ?? p.fromEmail, false); logAudit(t, 'inbound.comment', `${tk.id} ← ${p.fromEmail}`, tk.id); return { action: 'comment', ticketId: tk.id, subject: p.subject }; }
+          }
+          const requesterId = sender?.uid ?? t.members.find((m) => m.role === 'requester')?.uid ?? get().currentUserId;
+          const tpl = t.templates.find((x) => x.type === 'incident') ?? t.templates[0];
+          get().createTicket({ templateId: tpl?.id, subject: p.subject, description: p.body, category: '', priority: 'Media', mode: 'E-Mail', requesterId });
+          const newId = activeT(get())?.tickets[0]?.id;
+          logAudit(t, 'inbound.create', `${newId}: ${p.subject} ← ${p.fromEmail}`, newId);
+          return { action: 'create', ticketId: newId, subject: p.subject };
         },
         // Auto-asigna al técnico MENOS cargado (OrganiZate) del grupo del ticket.
         autoAssign: (ticketId) => {

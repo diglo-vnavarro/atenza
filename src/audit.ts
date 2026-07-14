@@ -22,6 +22,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'approval.decide': 'Aprobación decidida',
   'member.enable': 'Habilitación en Atenza',
   'kb.publish': 'Solución publicada',
+  'inbound.create': 'Ticket creado por correo',
+  'inbound.comment': 'Respuesta por correo',
   'config.change': 'Cambio de configuración',
 };
 

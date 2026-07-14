@@ -16,6 +16,7 @@ import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
+import { parseInbound } from '../inbound.js';
 import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
@@ -838,10 +839,10 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
-  ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
+  ['Configuración del correo', '✉️', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1160,6 +1161,48 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'webhooks' && <WebhooksAdmin tenant={tenant} />}
     {sec === 'anuncios' && <AnnouncementsAdmin tenant={tenant} />}
     {sec === 'auditoria' && <AuditAdmin tenant={tenant} />}
+    {sec === 'entrante' && <InboundAdmin tenant={tenant} />}
+  </div>;
+}
+
+function InboundAdmin({ tenant }: { tenant: TenantData }) {
+  const setInboundEnabled = useStore((s) => s.setInboundEnabled);
+  const createFromEmail = useStore((s) => s.createFromEmail);
+  const [from, setFrom] = useState('laura.gomez@digloservicer.com');
+  const [subject, setSubject] = useState('No puedo acceder al portal');
+  const [body, setBody] = useState('Buenas, desde esta mañana no consigo entrar al portal interno. Gracias.');
+  const [result, setResult] = useState<string | null>(null);
+  const on = !!tenant.inboundEnabled;
+  const preview = parseInbound({ from, subject, body });
+  const process = () => {
+    const r = createFromEmail(from, subject, body);
+    setResult(r.action === 'create' ? `✓ Ticket ${r.ticketId} creado.` : r.action === 'comment' ? `✓ Comentario añadido a ${r.ticketId}.` : 'No se procesó.');
+  };
+  return <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className={'inbound-banner ' + (on ? 'on' : 'off')}>
+      <div style={{ flex: 1 }}><b>Recepción de correo: {on ? 'ACTIVADA' : 'INERTE (apagada)'}</b>
+        <div style={{ fontSize: 13, color: 'var(--ink-soft)', marginTop: 2 }}>{on
+          ? 'Esta instancia crea tickets desde el buzón. Úsalo solo tras redirigir el correo en el corte.'
+          : 'El buzón real sigue en SDP; no entra nada por correo. El pipeline existe pero está apagado (corte por instancia).'}</div></div>
+      <label className="switch"><input type="checkbox" checked={on} onChange={(e) => setInboundEnabled(e.target.checked)} /><span className="track" /></label>
+    </div>
+
+    <div>
+      <div className="k" style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>Simulador (no necesita buzón real)</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <input value={from} onChange={(e) => setFrom(e.target.value)} placeholder="De (email)" />
+        <input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Asunto" />
+        <textarea rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Cuerpo del correo" />
+      </div>
+      <div className="inbound-preview">
+        {preview.replyToId
+          ? <>Se detecta <b>respuesta</b> al ticket <span className="tchip">{preview.replyToId}</span> → se añadirá como comentario.</>
+          : <>Se creará un <b>ticket nuevo</b>: «{preview.subject}» (solicitante por email <span className="mono">{preview.fromEmail}</span>).</>}
+      </div>
+      <button className="primary" style={{ marginTop: 8 }} onClick={process}>Procesar correo de prueba</button>
+      {result && <div style={{ marginTop: 8, fontSize: 13, color: 'var(--ok)' }}>{result}</div>}
+    </div>
+    <div style={{ fontSize: 12, color: 'var(--ink-faint)' }}>Para el corte real: desplegar la Cloud Function del buzón (SendGrid Inbound Parse / IMAP) que llama a esta misma lógica y activar el interruptor. Hasta entonces, inerte.</div>
   </div>;
 }
 

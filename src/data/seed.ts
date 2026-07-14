@@ -200,6 +200,8 @@ export interface TenantData {
   announcements?: Announcement[];
   /** registro de auditoría (append-only; en la nube es subcolección). */
   audit?: AuditEntry[];
+  /** recepción de correo entrante activada (por instancia). false/undefined = inerte. */
+  inboundEnabled?: boolean;
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
