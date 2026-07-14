@@ -513,6 +513,10 @@ function NewTicket({ tenant, role, user, onClose }: { tenant: TenantData; role: 
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
+  // Matriz de prioridades: al elegir impacto + urgencia, calcula la prioridad
+  // (el técnico puede cambiarla luego a mano).
+  useEffect(() => { if (impact && urgency) { const p = tenant.priorityMatrix?.[impact]?.[urgency]; if (p) setPriority(p); } }, [impact, urgency, tenant.priorityMatrix]);
+
   // Perfilado de catálogo: el solicitante solo ve tipologías permitidas
   // (visibles para solicitante). Técnico/admin ven todas.
   const canSee = (t: Template) => role !== 'requester' || t.showToRequester !== false;
@@ -631,12 +635,12 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', null], ['Horas operativas', null], ['Grupos de días festivos', null], ['Departamentos', null], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', null], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
-  ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
+  ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -698,6 +702,32 @@ function ValuesAdmin({ tenant }: { tenant: TenantData }) {
         <input style={{ flex: 1, minWidth: 140 }} value={nn} onChange={(e) => setNn(e.target.value)} placeholder="Nuevo valor…" onKeyDown={(e) => { if (e.key === 'Enter' && nn.trim() && !list.some((x) => x.name === nn.trim())) { commit([...list, hasColor ? { name: nn.trim(), color: '#4f46e5' } : { name: nn.trim() }]); setNn(''); } }} />
         <button className="primary" onClick={() => { if (nn.trim() && !list.some((x) => x.name === nn.trim())) { commit([...list, hasColor ? { name: nn.trim(), color: '#4f46e5' } : { name: nn.trim() }]); setNn(''); } }}>＋ Valor</button>
       </div>
+    </div>
+  </>;
+}
+
+// Matriz de prioridades: rejilla Impacto (filas) × Urgencia (columnas) → Prioridad.
+function MatrixAdmin({ tenant }: { tenant: TenantData }) {
+  const setMatrix = useStore((s) => s.setPriorityMatrix);
+  const matrix = tenant.priorityMatrix ?? {};
+  const imp = tenant.picklists?.impact ?? [];
+  const urg = tenant.picklists?.urgency ?? [];
+  const pri = tenant.picklists?.priority ?? [];
+  const priColor = (name: string) => pri.find((p) => p.name === name)?.color ?? 'var(--ink)';
+  const setCell = (i: string, u: string, v: string) => setMatrix({ ...matrix, [i]: { ...(matrix[i] ?? {}), [u]: v } });
+  return <>
+    <div className="banner" style={{ marginBottom: 14 }}>Cada combinación de <b>Impacto</b> × <b>Urgencia</b> determina la <b>Prioridad</b>. En el alta se calcula sola al elegir impacto y urgencia (el técnico puede cambiarla).</div>
+    <div className="card" style={{ overflowX: 'auto' }}>
+      <table className="mgmt"><thead><tr><th>Impacto \ Urgencia</th>{urg.map((u) => <th key={u.name}>{u.name}</th>)}</tr></thead>
+        <tbody>{imp.map((i) => <tr key={i.name}>
+          <td style={{ fontWeight: 600 }}>{i.name}</td>
+          {urg.map((u) => { const v = matrix[i.name]?.[u.name] ?? ''; return <td key={u.name}>
+            <select className="cell-in" style={{ fontWeight: 700, color: v ? priColor(v) : 'var(--ink-faint)' }} value={v} onChange={(e) => setCell(i.name, u.name, e.target.value)}>
+              <option value="">—</option>{pri.map((p) => <option key={p.name} value={p.name} style={{ color: 'var(--ink)' }}>{p.name}</option>)}
+            </select>
+          </td>; })}
+        </tr>)}</tbody>
+      </table>
     </div>
   </>;
 }
@@ -769,6 +799,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
     {sec === 'estado' && <StatusAdmin tenant={tenant} />}
     {sec === 'valores' && <ValuesAdmin tenant={tenant} />}
+    {sec === 'matriz' && <MatrixAdmin tenant={tenant} />}
     {sec === 'notif' && <NotifAdmin tenant={tenant} />}
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}

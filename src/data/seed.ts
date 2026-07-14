@@ -36,6 +36,19 @@ export const SDP_PICKLISTS: Picklists = {
   ],
 };
 
+// Matriz de prioridades: Impacto × Urgencia → Prioridad. Por defecto se calcula
+// por "banda" (a mayor impacto+urgencia, mayor prioridad); el admin la edita.
+export type PriorityMatrix = Record<string, Record<string, string>>;
+function buildPriorityMatrix(): PriorityMatrix {
+  const imp = ['Afecta a usuario', 'Afecta a un grupo', 'Afecta a departamento', 'Afecta a negocio'];
+  const urg = ['Bajo', 'Normal', 'Alta', 'Urgente'];
+  const band = ['Baja', 'Baja', 'Media', 'Importante', 'Alta', 'Critica', 'Critica'];
+  const m: PriorityMatrix = {};
+  imp.forEach((iN, ii) => { m[iN] = {}; urg.forEach((uN, ui) => { m[iN]![uN] = band[ii + ui]!; }); });
+  return m;
+}
+export const DEFAULT_PRIORITY_MATRIX = buildPriorityMatrix();
+
 // Catálogo de los 15 estados reales de SDP (nombre · temporizador · color).
 export const SDP_STATUSES: StatusDef[] = [
   { name: 'Abierta', timer: 'in_progress', color: '#4bb11d', description: 'Solicitud abierta' },
@@ -82,6 +95,8 @@ export interface TenantData {
   statuses?: StatusDef[];
   /** catálogos de valores (prioridad, impacto, urgencia, nivel, modo, tipos). */
   picklists?: Picklists;
+  /** matriz Impacto × Urgencia → Prioridad. */
+  priorityMatrix?: PriorityMatrix;
   /** reglas de notificación (evento → canal por destinatario). */
   notifRules?: NotifRule[];
   /** avisos en pantalla (por destinatario); en la nube es una colección. */
@@ -246,7 +261,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -270,7 +285,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [
