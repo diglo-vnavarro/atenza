@@ -54,6 +54,8 @@ function statusView(tenant: TenantData, t: StoredTicket): { label: string; timer
 }
 /** Resolutor de temporizador por catálogo para el motor de SLA. */
 const timerOfTenant = (tenant: TenantData) => (name: string) => (tenant.statuses ?? []).find((x) => x.name === name)?.timer;
+/** Calendario laboral del tenant para el SLA por horario (o undefined = 24×7). */
+const calOf = (tenant: TenantData) => tenant.businessHours ? { ...tenant.businessHours, holidays: tenant.holidays ?? [] } : undefined;
 
 // Prioridad desde el catálogo (con color). Fallback a valores legacy high/med/low.
 const LEGACY_PRI: Record<string, string> = { high: 'Alta', medium: 'Media', low: 'Baja' };
@@ -369,7 +371,7 @@ function TicketDetail({ tenant, t, canAct, meName }: { tenant: TenantData; t: St
   const lc = lifecycleOfTicket(tenant, t);
   const sv = statusView(tenant, t);
   const sla = tenant.slas.find((s) => s.id === t.slaId);
-  const ss = sla ? slaStatus(lc, t.statusHistory ?? [], sla.resolveMins, Date.now(), timerOfTenant(tenant)) : null;
+  const ss = sla ? slaStatus(lc, t.statusHistory ?? [], sla.resolveMins, Date.now(), timerOfTenant(tenant), calOf(tenant)) : null;
   const req = tenant.members.find((m) => m.uid === t.requesterId);
   const tech = tenant.members.find((m) => m.uid === t.technicianId);
   const nexts = canAct ? outgoing(lc, t.status) : [];
@@ -633,14 +635,14 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
-  ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', null], ['Horas operativas', null], ['Grupos de días festivos', null], ['Departamentos', null], ['Moneda', null]]],
+  ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', null], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', null], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', null], ['Usuarios', 'miembros'], ['Grupos de usuarios', null], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Prioridad · Impacto · Urgencia', 'valores'], ['Matriz de prioridades', 'matriz'], ['Nivel · Modo', 'valores'], ['Tipo de solicitud · Tipo de tarea', 'valores'], ['Campos adicionales', 'plantillas']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', null], ['Reglas del formulario', null]]],
   ['Automatización', '⚙️', [['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Asignación automática', null], ['Reglas de cierre', null], ['Flujos de trabajo', null]]],
   ['Configuración del correo', '✉️', [['Servidor de correo', null], ['Bandeja de correo', null], ['Plantillas de aviso', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -732,6 +734,38 @@ function MatrixAdmin({ tenant }: { tenant: TenantData }) {
   </>;
 }
 
+// Calendario laboral (horas operativas + festivos) → alimenta el SLA por horario.
+const DOW: [number, string][] = [[1, 'Lun'], [2, 'Mar'], [3, 'Mié'], [4, 'Jue'], [5, 'Vie'], [6, 'Sáb'], [0, 'Dom']];
+function CalendarAdmin({ tenant }: { tenant: TenantData }) {
+  const setBH = useStore((s) => s.setBusinessHours);
+  const setHol = useStore((s) => s.setHolidays);
+  const bh = tenant.businessHours ?? { days: [1, 2, 3, 4, 5], start: '09:00', end: '18:00' };
+  const holidays = tenant.holidays ?? [];
+  const [nh, setNh] = useState('');
+  const toggleDay = (d: number) => setBH({ ...bh, days: bh.days.includes(d) ? bh.days.filter((x) => x !== d) : [...bh.days, d].sort() });
+  return <div className="work">
+    <div className="card"><h2>Horario laboral</h2>
+      <div className="banner" style={{ marginTop: 10 }}>El SLA solo consume dentro de esta franja y los días marcados; fuera de horario y en festivos, el reloj se para.</div>
+      <div className="k" style={{ marginTop: 14 }}>Días laborables</div>
+      <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>{DOW.map(([d, l]) => <button key={d} className={'daybtn' + (bh.days.includes(d) ? ' on' : '')} onClick={() => toggleDay(d)}>{l}</button>)}</div>
+      <div style={{ display: 'flex', gap: 16, marginTop: 14 }}>
+        <label style={{ fontSize: 12, color: 'var(--ink-soft)', display: 'flex', flexDirection: 'column', gap: 5 }}>Desde<input type="time" value={bh.start} onChange={(e) => setBH({ ...bh, start: e.target.value })} /></label>
+        <label style={{ fontSize: 12, color: 'var(--ink-soft)', display: 'flex', flexDirection: 'column', gap: 5 }}>Hasta<input type="time" value={bh.end} onChange={(e) => setBH({ ...bh, end: e.target.value })} /></label>
+      </div>
+    </div>
+    <div className="card"><h2>Festivos <span className="badge">{holidays.length}</span></h2>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+        {holidays.slice().sort().map((h) => <span key={h} className="pill">{h}<button className="xbtn" style={{ marginLeft: 4 }} onClick={() => setHol(holidays.filter((x) => x !== h))}>✕</button></span>)}
+        {holidays.length === 0 && <span className="empty" style={{ padding: 8 }}>Sin festivos.</span>}
+      </div>
+      <div className="designer">
+        <input type="date" value={nh} onChange={(e) => setNh(e.target.value)} />
+        <button className="primary" onClick={() => { if (nh && !holidays.includes(nh)) { setHol([...holidays, nh]); setNh(''); } }}>＋ Festivo</button>
+      </div>
+    </div>
+  </div>;
+}
+
 // Editor de árbol Categoría › Subcategoría › Artículo (3 columnas, como SDP).
 function CategoryAdmin({ tenant }: { tenant: TenantData }) {
   const setTree = useStore((s) => s.setCategoryTree);
@@ -800,6 +834,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'estado' && <StatusAdmin tenant={tenant} />}
     {sec === 'valores' && <ValuesAdmin tenant={tenant} />}
     {sec === 'matriz' && <MatrixAdmin tenant={tenant} />}
+    {sec === 'horario' && <CalendarAdmin tenant={tenant} />}
     {sec === 'notif' && <NotifAdmin tenant={tenant} />}
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}

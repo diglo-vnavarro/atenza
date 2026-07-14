@@ -36,6 +36,16 @@ export const SDP_PICKLISTS: Picklists = {
   ],
 };
 
+// Calendario laboral: días de la semana trabajados (0=Dom … 6=Sáb) + franja
+// horaria + festivos (fechas ISO YYYY-MM-DD). El SLA solo consume dentro de esta
+// franja los días laborables (ver sla.ts).
+export interface BusinessHours { days: number[]; start: string; end: string }
+export const DEFAULT_BUSINESS_HOURS: BusinessHours = { days: [1, 2, 3, 4, 5], start: '09:00', end: '18:00' };
+export const DEFAULT_HOLIDAYS: string[] = [
+  '2026-01-01', '2026-01-06', '2026-04-03', '2026-05-01', '2026-08-15',
+  '2026-10-12', '2026-11-01', '2026-12-06', '2026-12-08', '2026-12-25',
+];
+
 // Matriz de prioridades: Impacto × Urgencia → Prioridad. Por defecto se calcula
 // por "banda" (a mayor impacto+urgencia, mayor prioridad); el admin la edita.
 export type PriorityMatrix = Record<string, Record<string, string>>;
@@ -97,6 +107,9 @@ export interface TenantData {
   picklists?: Picklists;
   /** matriz Impacto × Urgencia → Prioridad. */
   priorityMatrix?: PriorityMatrix;
+  /** calendario laboral (para el SLA por horario) + festivos. */
+  businessHours?: BusinessHours;
+  holidays?: string[];
   /** reglas de notificación (evento → canal por destinatario). */
   notifRules?: NotifRule[];
   /** avisos en pantalla (por destinatario); en la nube es una colección. */
@@ -261,7 +274,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
@@ -285,7 +298,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, notifRules: DEFAULT_NOTIF_RULES, notifications: [],
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [

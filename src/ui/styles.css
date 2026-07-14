@@ -381,6 +381,11 @@ input,textarea{font-family:var(--sans); font-size:13px; color:var(--ink); backgr
 .cbtn.on{border-color:transparent; background:var(--accent-soft); color:var(--accent);}
 .cbtn.mail.on{background:var(--ok-bg); color:var(--ok);}
 
+/* ---- v2 (1c): calendario laboral ---- */
+.daybtn{border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); font-size:12.5px; font-weight:600; padding:7px 13px; border-radius:8px; min-width:46px;}
+.daybtn:hover{border-color:var(--accent);}
+.daybtn.on{background:var(--accent); color:var(--accent-ink); border-color:var(--accent);}
+
 /* ---- React Flow (editor de ciclos) ---- */
 .rf-wrap .react-flow{background:var(--raise);}
 .rf-state{display:flex; align-items:center; gap:9px; width:184px; min-height:56px; padding:10px 14px; border:2px solid; border-radius:13px; position:relative; font-family:var(--sans);}

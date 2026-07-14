@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification } from '../model.js';
 import type { User } from '../access.js';
 import { canTransition, initialState } from '../lifecycle.js';
-import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix } from '../data/seed.js';
+import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
 
@@ -40,6 +40,8 @@ interface State {
   setStatuses: (list: StatusDef[]) => void;
   setPicklist: (key: keyof Picklists, list: PickVal[]) => void;
   setPriorityMatrix: (matrix: PriorityMatrix) => void;
+  setBusinessHours: (bh: BusinessHours) => void;
+  setHolidays: (list: string[]) => void;
   setNotifRules: (rules: NotifRule[]) => void;
   markNotifRead: (id: string) => void;
   markAllNotifsRead: () => void;
@@ -260,6 +262,14 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, priorityMatrix: matrix })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { priorityMatrix: matrix }).catch(errlog); }
         },
+        setBusinessHours: (bh) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, businessHours: bh })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { businessHours: bh }).catch(errlog); }
+        },
+        setHolidays: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, holidays: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { holidays: list }).catch(errlog); }
+        },
         setNotifRules: (rules) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, notifRules: rules })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { notifRules: rules }).catch(errlog); }
@@ -461,6 +471,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v6', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v7', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );
