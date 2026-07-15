@@ -471,7 +471,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
 
     {/* Detalle en MODAL amplio centrado (sustituye al drawer/panel estrecho). */}
     {selected && <div className="scrim tmodal-scrim" onClick={() => select(null)}>
-      <div className="tmodal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Solicitud ' + selected.id}>
+      <div className="tmodal fixed" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Solicitud ' + selected.id}>
         <div className="tmodal-h">
           <span className={'tchip-type ' + (selected.type === 'incident' ? 'inc' : 'pet')}>{selected.type === 'incident' ? '🛠️ Incidencia' : '📥 Petición'}</span>
           <b className="tmodal-title"><span className="id">{selected.id}</span> · {selected.subject}</b>
@@ -939,13 +939,13 @@ function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantDa
   const fullFieldsOf = (sec: string) => visDefs.filter((f) => secOf(f) === sec && f.full);
 
   return (
-    <div className="scrim" onClick={onClose}>
-      <aside className="drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nueva solicitud">
-        <div className="drawer-h">
-          <h2>{tpl ? 'Nueva solicitud' : 'Generar una solicitud'}</h2>
+    <div className="scrim tmodal-scrim" onClick={onClose}>
+      <div className="tmodal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nueva solicitud">
+        <div className="tmodal-h">
+          <b className="tmodal-title">{tpl ? '＋ Nueva solicitud' : 'Generar una solicitud'}</b>
           <button className="dx" onClick={onClose} aria-label="Cerrar">×</button>
         </div>
-        <div className="drawer-b">
+        <div className="tmodal-b">
           {!tpl ? <>
             <label className="searchbox drawer-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plantilla de solicitud" /></label>
             {grpList.map(([g, tps], i) => { const isOpen = open[g] ?? (i === 0 || !!q); return <div key={g} className={'catgrp' + (isOpen ? ' open' : '')}>
@@ -992,7 +992,7 @@ function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantDa
             </div>
           </div>}
         </div>
-      </aside>
+      </div>
     </div>
   );
 }
@@ -1067,10 +1067,10 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   };
 
   return (
-    <div className="scrim" onClick={onClose}>
-      <aside className="drawer wide" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nueva solicitud">
-        <div className="drawer-h"><h2>Nueva solicitud</h2><button className="dx" onClick={onClose} aria-label="Cerrar">×</button></div>
-        <div className="drawer-b"><div className="form nf-form">
+    <div className="scrim tmodal-scrim" onClick={onClose}>
+      <div className="tmodal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nueva solicitud">
+        <div className="tmodal-h"><b className="tmodal-title">＋ Nueva solicitud</b><button className="dx" onClick={onClose} aria-label="Cerrar">×</button></div>
+        <div className="tmodal-b"><div className="form nf-form">
           <div className="nf-sec">
             <label>Tipo de solicitud
               <div className="seg" style={{ marginTop: 4 }}>
@@ -1128,7 +1128,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
             <button className="ghost" onClick={onClose}>Cancelar</button>
           </div>
         </div></div>
-      </aside>
+      </div>
     </div>
   );
 }
