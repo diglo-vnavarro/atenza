@@ -91,13 +91,16 @@ async function main() {
       if (!task.assigneeUid) { skippedNoAssignee++; continue; }
       const assigneeId = orgUidOf(task.assigneeUid);
       if (!assigneeId) { skippedNoMap++; continue; }
-      const start = t.statusHistory?.[0]?.from ? iso(t.statusHistory[0].from!) : todayIso();
+      // La carga es trabajo ACTUAL: empieza hoy y termina en el vencimiento (o hoy).
+      // No usamos la creación del ticket (puede ser de hace meses → carga diluida).
+      const today = todayIso();
+      const end = task.dueAt ? iso(task.dueAt) : today;
       desired.push({
         id: `atz-${t.id}-${task.id}`,
         title: `[${t.id}] ${task.text}`,
         projectId: null,
-        startDate: start,
-        endDate: task.dueAt ? iso(task.dueAt) : todayIso(),
+        startDate: end < today ? end : today,
+        endDate: end < today ? today : end,
         estimatedHours: task.estimatedHours != null ? task.estimatedHours : DEFAULT_HOURS,
         priority: mapPriority(t.priority),
         status: (task.done || closed) ? 'done' : 'in_progress',

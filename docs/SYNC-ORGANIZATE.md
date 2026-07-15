@@ -34,11 +34,39 @@ GOOGLE_APPLICATION_CREDENTIALS=<adc> TENANT=diglo-it npm run sync:organizate
 Variables: `ATENZA_PROJECT` (diglo-desk-pd), `ORGANIZATE_PROJECT` (diglo-organizate-pd),
 `ORGANIZATE_ORG_ID` (diglo), `TENANT` (diglo-it), `DEFAULT_TASK_HOURS` (1), `SYNC_GROUPS`.
 
-## Desatendido (pendiente de infra)
+## Desatendido (Cloud Run Job + Scheduler)
 
-Cloud Run Job + Cloud Scheduler (mismo patrón que la sync de SDP), con una service
-account con `roles/datastore.user` en **diglo-organizate-pd** (acceso cruzado) además
-de lectura en diglo-desk-pd. Terraform pendiente de aplicar por el propietario.
+Infra en `infra/terraform/sync_organizate_job.tf` (Cloud Run Job `sync-organizate`
++ Cloud Scheduler `atenza-sync-organizate`, cada 30 min). Reutiliza el Artifact
+Registry `atenza` y la imagen del job de SDP (mismo contenedor, distinto comando).
+
+Service account `atenza-organizate-sync` con `roles/datastore.user` en **ambos**
+proyectos: `diglo-desk-pd` (lee Atenza) y `diglo-organizate-pd` (escribe OrganiZate,
+acceso cruzado — el binding lo aplica el propietario de ese proyecto).
+
+Pasos del propietario (una vez):
+1. `terraform apply` (crea SAs, IAM en ambos proyectos, scheduler).
+2. Desplegar el job con el comando del puente:
+   ```
+   gcloud run jobs deploy sync-organizate --region <REGION> \
+     --image <REGION>-docker.pkg.dev/<PROJECT>/atenza/sync:latest \
+     --command npm --args run,sync:organizate \
+     --service-account atenza-organizate-sync@<PROJECT>.iam.gserviceaccount.com \
+     --set-env-vars TENANT=diglo-it,ATENZA_PROJECT=<PROJECT>,ORGANIZATE_PROJECT=diglo-organizate-pd,ORGANIZATE_ORG_ID=diglo,DEFAULT_TASK_HOURS=1 \
+     --max-retries 1 --task-timeout 300s
+   ```
+
+## Concurrencia (importante)
+
+OrganiZate reescribe TODO su estado (blob único) en cada guardado del cliente. El
+puente escribe con transacción (guardia por `rev`), pero un cliente con estado
+**en memoria previo** puede, al guardar, revertir los campos de una tarea-puente
+recién actualizada (no la borra: conserva el item, pero con su versión). El **job
+periódico converge** (reaplica en la siguiente pasada). Verificado en la prueba
+E2E: la escritura aplica correcta al instante; una pestaña activa la revirtió
+segundos después. Recomendación a futuro: mover las tareas de OrganiZate a una
+**subcolección** (`orgs/{id}/tasks/...`, ya previsto en su provider) para escrituras
+granulares sin carrera; entonces el puente escribiría solo su doc por tarea.
 
 ## Notas / límites
 
