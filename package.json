@@ -23,6 +23,8 @@
     "import:layouts:dry": "tsx scripts/import-layouts.ts --dry-run",
     "sync:organizate": "tsx scripts/sync-organizate.ts",
     "sync:organizate:dry": "tsx scripts/sync-organizate.ts --dry-run",
+    "apply:catservicio": "tsx scripts/apply-service-categories.ts",
+    "apply:catservicio:dry": "tsx scripts/apply-service-categories.ts --dry-run",
     "test:rules": "firebase emulators:exec --only firestore \"vitest run --config vitest.rules.config.ts\""
   },
   "dependencies": {
