@@ -65,7 +65,7 @@ async function main() {
     let col: 1 | 2 = 1;
     for (const t of src) for (const f of t.fieldDefs ?? []) {
       if (SYS.has(norm(f.label))) continue; const k = norm(f.label); if (seen.has(k)) continue; seen.add(k);
-      out.push({ id: f.id, label: f.label, type: f.type, mandatory: f.mandatory, requesterVisible: true, section: 'Campos de la categoría', col, ...(f.options ? { options: f.options } : {}) });
+      out.push({ id: f.id, label: f.label, type: f.type, requesterVisible: true, section: 'Campos de la categoría', col, ...(f.mandatory ? { mandatory: true } : {}), ...(f.options ? { options: f.options } : {}) });
       col = col === 1 ? 2 : 1;
     }
     return out;
