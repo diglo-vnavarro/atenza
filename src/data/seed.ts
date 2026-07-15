@@ -427,7 +427,7 @@ const opsLc: Lifecycle = {
 };
 
 const IT_USER_GROUPS = ['Todos los empleados', 'Operaciones', 'Recuperaciones', 'REO', 'Dirección', 'Externos'];
-const IT_SITES = ['Madrid - Sede central', 'Barcelona', 'Valencia', 'Remoto'];
+const IT_SITES = ['Base Site', 'Madrid - Sede central', 'Barcelona', 'Valencia', 'Remoto'];
 const IT_DEPARTMENTS = ['Tecnología', 'Operaciones', 'Recuperaciones', 'REO', 'Riesgos', 'RRHH', 'Finanzas', 'Legal'];
 const IT_CATEGORIES = ['Aplicaciones', 'Arquitectura', 'Comunicaciones', 'Correo Electrónico', 'Datos', 'Dispositivos', 'General', 'Hardware', 'Internet', 'Microsoft Office', 'Móviles', 'Operaciones', 'Reclamaciones de Clientes', 'Redes', 'VDI'];
 const LEASYS_CATEGORIES = ['Portal', 'Facturación', 'Contratos', 'Firma electrónica', 'Avisos', 'General'];
@@ -527,7 +527,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-lea', type: 'service_request', name: 'Petición de cliente', lifecycleId: 'lc-lea', slaId: null, fields: ['subject', 'description', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-lea', name: 'Atención Leasys' }],
-    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], userGroups: ['Clientes Leasys', 'Gestores'], roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: [], webhooks: [], kbArticles: [], announcements: [], customFields: [],
+    categories: LEASYS_CATEGORIES, categoryTree: LEASYS_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: ['Base Site', 'Sede Leasys', 'Remoto'], departments: ['Portal', 'Facturación', 'Contratos'], userGroups: ['Clientes Leasys', 'Gestores'], roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: [], webhooks: [], kbArticles: [], announcements: [], customFields: [],
     capacity: { 'u-javier': { used: 24, cap: 40 }, 'u-marta': { used: 36, cap: 40 } },
     counter: 75,
     tickets: [

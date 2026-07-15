@@ -22,6 +22,7 @@ export type Role = 'tenant_admin' | 'technician' | 'requester';
 interface NewTicket {
   subject: string; description: string; category: string; subcategory?: string; item?: string;
   priority: string; impact?: string; urgency?: string; mode?: string; level?: string; site?: string;
+  notifyEmails?: string;
   requesterId: string; technicianId?: string | null;
   templateId?: string;
   udf?: Record<string, string>;
@@ -297,6 +298,7 @@ export const useStore = create<State>()(
             requesterId: nt.requesterId, technicianId: nt.technicianId ?? null, category: nt.category,
             subcategory: nt.subcategory, item: nt.item,
             priority: nt.priority, impact: nt.impact, urgency: nt.urgency, mode: nt.mode, level: nt.level, site: nt.site,
+            ...(nt.notifyEmails && nt.notifyEmails.trim() ? { notifyEmails: nt.notifyEmails.trim() } : {}),
             templateId: cat ? 'unified' : (tpl?.id ?? 'tpl-inc'), status: init,
             ...(cat ? { serviceCategoryId: cat.id, serviceCategory: cat.name } : {}),
             // Grupo de soporte de la categoría (una regla de negocio puede sobrescribirlo).
@@ -834,6 +836,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v32', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v33', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

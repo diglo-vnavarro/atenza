@@ -57,6 +57,8 @@ export interface Ticket {
   level?: string;
   mode?: string;
   site?: string;
+  /** correos a notificar (además del solicitante/técnico); como en SDP «Emails to notify». */
+  notifyEmails?: string;
   /** plantilla/tipología concreta (define ciclo de vida y SLA aplicables). */
   templateId: string;
   /** Modo simplificado: categoría de servicio (eje) y su nombre para mostrar. */

@@ -52,6 +52,17 @@ function catIconEl(c: { icon?: string; iconImage?: string } | undefined, size = 
   }
   return c.icon ? <span style={{ fontSize: size - 2 }}>{c.icon}</span> : null;
 }
+// Rótulo de campo: etiqueta + asterisk de obligatorio EN LA MISMA LÍNEA (un único
+// item flex del label, para que no caiga a una fila aparte). El widget va debajo.
+function fcap(label: import('react').ReactNode, required?: boolean): import('react').ReactNode {
+  return <span className="nf-cap">{label}{required && <span className="req" title="Obligatorio">*</span>}</span>;
+}
+// Sede por defecto de una nueva solicitud: «Base Site» si existe (default de SDP), si
+// no la primera sede configurada, si no cadena vacía.
+function defaultSite(tenant: TenantData): string {
+  const sites = tenant.sites ?? [];
+  return sites.find((s) => s.toLowerCase() === 'base site') ?? sites[0] ?? '';
+}
 // Sanea HTML del editor enriquecido para mostrarlo sin riesgo (allowlist de etiquetas,
 // sin scripts ni atributos on*/style peligrosos). Las imágenes de servlet de SDP se marcan.
 function sanitizeHtml(html: string): string {
@@ -548,7 +559,8 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
   const group = tenant.groups.find((g) => g.id === t.groupId);
   const allTechs = tenant.members.filter((m) => m.role === 'technician' || m.role === 'tenant_admin');
   const scoped = group ? allTechs.filter((m) => (m.groupIds ?? []).includes(group.id)) : [];
-  const techs = (scoped.length ? scoped : allTechs)
+  // Con grupo asignado, el combo muestra SOLO sus técnicos; sin grupo, todos.
+  const techs = (group ? scoped : allTechs)
     .sort((a, b) => (tenant.capacity[a.uid]?.off ? 1 : 0) - (tenant.capacity[b.uid]?.off ? 1 : 0)
       || ((tenant.capacity[a.uid]?.used ?? 0) / (tenant.capacity[a.uid]?.cap ?? 1)) - ((tenant.capacity[b.uid]?.used ?? 0) / (tenant.capacity[b.uid]?.cap ?? 1)));
   const pct = ss ? Math.min(100, Math.round((ss.consumedMins / ss.targetMins) * 100)) : 0;
@@ -582,6 +594,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
         {t.mode && <div><div className="k">Modo</div><span style={{ fontSize: 13 }}>{t.mode}</span></div>}
         {(t.site || req?.site) && <div><div className="k">Sede</div><span style={{ fontSize: 13 }}>{t.site ?? req?.site}</span></div>}
         {req?.department && <div><div className="k">Departamento</div><span style={{ fontSize: 13 }}>{req.department}</span></div>}
+        {t.notifyEmails && <div><div className="k">Correos a notificar</div><span style={{ fontSize: 13 }}>{t.notifyEmails}</span></div>}
       </div>
       {ss && <div style={{ marginTop: 12 }}>
         <div className="k">SLA de resolución {paused && '· ⏸ en pausa'}</div>
@@ -653,7 +666,8 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
           {closeErr && <div className="closeerr">⚠ {closeErr}</div>}
         </>}
         {canAssign && <>
-        <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span>{scoped.length > 0 && group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}<button className="linkbtn" style={{ marginLeft: 'auto' }} onClick={() => autoAssign(t.id)} title="Asigna al técnico menos cargado del grupo">⚡ Auto-asignar</button></div>
+        <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span>{group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}<button className="linkbtn" style={{ marginLeft: 'auto' }} onClick={() => autoAssign(t.id)} title="Asigna al técnico menos cargado del grupo">⚡ Auto-asignar</button></div>
+        {group && scoped.length === 0 && <div className="empty" style={{ fontSize: 12 }}>El grupo «{group.name}» no tiene técnicos. Añádelos en Administración → Grupos de soporte.</div>}
         {techs.map((m) => {
           const c = tenant.capacity[m.uid] ?? { used: 0, cap: 40 };
           const [s, label] = capState(c); const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0;
@@ -1016,7 +1030,9 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(pls?.priority.some((p) => p.name === 'Media') ? 'Media' : pls?.priority[0]?.name ?? 'Media');
-  const [site, setSite] = useState('');
+  // Sede: por defecto SIEMPRE «Base Site» (como en SDP); si no existe, la primera sede.
+  const [site, setSite] = useState(() => defaultSite(tenant));
+  const [notifyEmails, setNotifyEmails] = useState('');
   const requesters = tenant.members.filter((m) => m.role === 'requester');
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
   const [udf, setUdf] = useState<Record<string, string>>({});
@@ -1056,7 +1072,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const canSubmit = !!subject.trim() && !!cat && !missingCat && !readOnly;
   const submit = async () => {
     if (!canSubmit || !cat) return;
-    const id = create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, site: site || undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf });
+    const id = create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, site: site || undefined, notifyEmails: notifyEmails || undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf });
     if (id) for (const f of files) { try { await uploadAttachment(id, f, meName); } catch { /* ignora fallo de subida individual */ } }
     onClose();
   };
@@ -1100,26 +1116,26 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
           </div>
           <div className="nf-sec">
             <div className="nf-sec-h">Datos de la solicitud</div>
-            <label>Asunto<span className="req">*</span><input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
+            <label>{fcap('Asunto', true)}<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
             <div className="nf-cols">
               <div className="nf-col">
-                <label>Prioridad<span className="req">*</span><select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
-                <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-                {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
+                <label>{fcap('Prioridad', true)}<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
+                <label>{fcap('Categoría')}<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+                {subNode && subNode.items.length > 0 && <label>{fcap('Artículo')}<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
               </div>
               <div className="nf-col">
-                {(tenant.sites ?? []).length > 0 && <label>Sede<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
-                {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((sn) => <option key={sn.name} value={sn.name}>{sn.name}</option>)}</select></label>}
+                {(tenant.sites ?? []).length > 0 && <label>{fcap('Sede')}<select value={site} onChange={(e) => setSite(e.target.value)}>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
+                {catNode && catNode.subs.length > 0 && <label>{fcap('Subcategoría')}<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((sn) => <option key={sn.name} value={sn.name}>{sn.name}</option>)}</select></label>}
               </div>
             </div>
-            {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
-            <label>Descripción<RichText value={description} onChange={setDescription} placeholder="Describe la solicitud con detalle…" disabled={readOnly} /></label>
+            {role !== 'requester' && <label>{fcap('Solicitante')}<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
+            <label>{fcap('Descripción')}<RichText value={description} onChange={setDescription} placeholder="Describe la solicitud con detalle…" disabled={readOnly} /></label>
           </div>
           {visCatFields.length > 0 && <div className="nf-sec">
             <div className="nf-sec-h">Campos de la categoría · {cat?.name}</div>
             <div className="nf-cols">
-              <div className="nf-col">{visCatFields.filter((f) => (f.col ?? 1) === 1).map((f) => <label key={f.id}>{f.label}{isMand(f) && <span className="req">*</span>}{widget(f)}</label>)}</div>
-              <div className="nf-col">{visCatFields.filter((f) => f.col === 2).map((f) => <label key={f.id}>{f.label}{isMand(f) && <span className="req">*</span>}{widget(f)}</label>)}</div>
+              <div className="nf-col">{visCatFields.filter((f) => (f.col ?? 1) === 1).map((f) => <label key={f.id}>{fcap(f.label, isMand(f))}{widget(f)}</label>)}</div>
+              <div className="nf-col">{visCatFields.filter((f) => f.col === 2).map((f) => <label key={f.id}>{fcap(f.label, isMand(f))}{widget(f)}</label>)}</div>
             </div>
           </div>}
           <div className="nf-sec">
@@ -1130,6 +1146,10 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
               </label>
             </div>
             {files.length > 0 && <div className="dz-list">{files.map((f, i) => <span key={i} className="dz-file">📎 {f.name} <span className="soft">({fmtSize(f.size)})</span><button className="xbtn" onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))} aria-label="Quitar">✕</button></span>)}</div>}
+          </div>
+          <div className="nf-sec">
+            <div className="nf-sec-h">Correos a notificar</div>
+            <label>{fcap('Añadir destinatarios (además del solicitante)')}<input type="text" value={notifyEmails} onChange={(e) => setNotifyEmails(e.target.value)} placeholder="correo1@dominio.com, correo2@dominio.com…" /></label>
           </div>
           {readOnly && <div className="empty" style={{ fontSize: 12 }}>👁 Modo lectura: no puedes crear la solicitud.</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
