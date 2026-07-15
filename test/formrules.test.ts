@@ -26,6 +26,18 @@ describe('ruleApplies', () => {
     expect(ruleApplies(r, ctx({ templateId: 'tpl-1', values: { vip: 'true' } }))).toBe(false);
     expect(ruleApplies(r, ctx({ templateId: 'tpl-2', values: { vip: 'true' } }))).toBe(true);
   });
+  it('respeta el ámbito de CATEGORÍA de servicio (modo simplificado)', () => {
+    const r = base({ templateIds: [], serviceCategoryIds: ['sc-bi'] });
+    expect(ruleApplies(r, ctx({ serviceCategoryId: 'sc-bi', values: { vip: 'true' } }))).toBe(true);
+    expect(ruleApplies(r, ctx({ serviceCategoryId: 'sc-alta', values: { vip: 'true' } }))).toBe(false);
+    expect(ruleApplies(r, ctx({ values: { vip: 'true' } }))).toBe(false); // sin categoría
+  });
+  it('serviceCategoryIds tiene prioridad sobre templateIds', () => {
+    const r = base({ templateIds: ['tpl-1'], serviceCategoryIds: ['sc-bi'] });
+    // aunque el templateId case, si no casa la categoría, no aplica
+    expect(ruleApplies(r, ctx({ templateId: 'tpl-1', serviceCategoryId: 'sc-x', values: { vip: 'true' } }))).toBe(false);
+    expect(ruleApplies(r, ctx({ templateId: 'tpl-1', serviceCategoryId: 'sc-bi', values: { vip: 'true' } }))).toBe(true);
+  });
   it('respeta el ámbito de vista (solicitante/técnico)', () => {
     const soloReq = base({ scope: 'requester' });
     expect(ruleApplies(soloReq, ctx({ role: 'requester', values: { vip: 'true' } }))).toBe(true);

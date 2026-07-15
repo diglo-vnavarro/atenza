@@ -970,20 +970,28 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const lcId = cat ? cat[tipo]?.lifecycleId ?? null : null;
   const lcName = lcId ? tenant.lifecycles.find((l) => l.id === lcId)?.name ?? lcId : null;
   const catFields = cat?.fields ?? [];
-  const missingCat = catFields.some((f) => f.mandatory && !(udf[f.id] ?? '').trim());
+  // Reglas del formulario POR CATEGORÍA: se evalúan en vivo sobre los valores de los
+  // campos de la categoría (muestran/ocultan/obligan/deshabilitan).
+  const frValues: Record<string, string> = {}; for (const f of catFields) frValues[f.id] = udf[f.id] ?? '';
+  const effects: FieldEffects = cat ? evaluateFormRules(tenant.formRules, { templateId: 'unified', serviceCategoryId: cat.id, role, values: frValues }) : {};
+  const isHidden = (f: FieldDef) => effects[f.id]?.hidden === true;
+  const isMand = (f: FieldDef) => effects[f.id]?.mandatory ?? !!f.mandatory;
+  const isDis = (f: FieldDef) => effects[f.id]?.disabled === true;
+  const visCatFields = catFields.filter((f) => !isHidden(f));
+  const missingCat = visCatFields.some((f) => isMand(f) && !(udf[f.id] ?? '').trim());
   const canSubmit = !!subject.trim() && !!cat && !missingCat && !readOnly;
   const submit = () => { if (!canSubmit || !cat) return; create({ subject, description, category: '', priority, site: site || undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf }); onClose(); };
 
   const widget = (f: FieldDef) => {
-    const v = udf[f.id] ?? '';
+    const v = udf[f.id] ?? ''; const dis = isDis(f);
     switch (f.type) {
-      case 'textarea': return <textarea value={v} rows={3} onChange={(e) => setU(f.id, e.target.value)} />;
-      case 'bool': return <label className="nf-bool"><input type="checkbox" checked={v === 'true'} onChange={(e) => setU(f.id, e.target.checked ? 'true' : 'false')} /> Sí</label>;
-      case 'date': return <input type="date" value={v} onChange={(e) => setU(f.id, e.target.value)} />;
-      case 'number': return <input type="number" value={v} onChange={(e) => setU(f.id, e.target.value)} />;
-      case 'person': return <select value={v} onChange={(e) => setU(f.id, e.target.value)}><option value="">— Seleccionar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select>;
-      case 'select': return (f.options ?? []).length ? <select value={v} onChange={(e) => setU(f.id, e.target.value)}><option value="">— Seleccionar —</option>{f.options!.map((o) => <option key={o} value={o}>{o}</option>)}</select> : <input value={v} onChange={(e) => setU(f.id, e.target.value)} />;
-      default: return <input value={v} onChange={(e) => setU(f.id, e.target.value)} />;
+      case 'textarea': return <textarea value={v} rows={3} disabled={dis} onChange={(e) => setU(f.id, e.target.value)} />;
+      case 'bool': return <label className="nf-bool"><input type="checkbox" checked={v === 'true'} disabled={dis} onChange={(e) => setU(f.id, e.target.checked ? 'true' : 'false')} /> Sí</label>;
+      case 'date': return <input type="date" value={v} disabled={dis} onChange={(e) => setU(f.id, e.target.value)} />;
+      case 'number': return <input type="number" value={v} disabled={dis} onChange={(e) => setU(f.id, e.target.value)} />;
+      case 'person': return <select value={v} disabled={dis} onChange={(e) => setU(f.id, e.target.value)}><option value="">— Seleccionar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select>;
+      case 'select': return (f.options ?? []).length ? <select value={v} disabled={dis} onChange={(e) => setU(f.id, e.target.value)}><option value="">— Seleccionar —</option>{f.options!.map((o) => <option key={o} value={o}>{o}</option>)}</select> : <input value={v} disabled={dis} onChange={(e) => setU(f.id, e.target.value)} />;
+      default: return <input value={v} disabled={dis} onChange={(e) => setU(f.id, e.target.value)} />;
     }
   };
 
@@ -1015,11 +1023,11 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
             {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
             <label>Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>
           </div>
-          {catFields.length > 0 && <div className="nf-sec">
+          {visCatFields.length > 0 && <div className="nf-sec">
             <div className="nf-sec-h">Campos de la categoría · {cat?.name}</div>
             <div className="nf-cols">
-              <div className="nf-col">{catFields.filter((f) => (f.col ?? 1) === 1).map((f) => <label key={f.id}>{f.label}{f.mandatory && <span className="req">*</span>}{widget(f)}</label>)}</div>
-              <div className="nf-col">{catFields.filter((f) => f.col === 2).map((f) => <label key={f.id}>{f.label}{f.mandatory && <span className="req">*</span>}{widget(f)}</label>)}</div>
+              <div className="nf-col">{visCatFields.filter((f) => (f.col ?? 1) === 1).map((f) => <label key={f.id}>{f.label}{isMand(f) && <span className="req">*</span>}{widget(f)}</label>)}</div>
+              <div className="nf-col">{visCatFields.filter((f) => f.col === 2).map((f) => <label key={f.id}>{f.label}{isMand(f) && <span className="req">*</span>}{widget(f)}</label>)}</div>
             </div>
           </div>}
           {readOnly && <div className="empty" style={{ fontSize: 12 }}>👁 Modo lectura: no puedes crear la solicitud.</div>}
@@ -1789,31 +1797,45 @@ function FormRulesAdmin({ tenant }: { tenant: TenantData }) {
   const rules = tenant.formRules ?? [];
   const save = (list: FormRule[]) => setFormRules(list);
   const upd = (id: string, patch: Partial<FormRule>) => save(rules.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  const add = () => save([...rules, { id: 'fr-' + Date.now(), name: 'Nueva regla', enabled: false, templateIds: [], scope: 'both', match: 'all', conditions: [], actions: [] }]);
+  const simplified = tenant.operationMode === 'simplified';
+  const add = () => save([...rules, { id: 'fr-' + Date.now(), name: 'Nueva regla', enabled: false, templateIds: [], serviceCategoryIds: [], scope: 'both', match: 'all', conditions: [], actions: [] }]);
   const del = (id: string) => save(rules.filter((r) => r.id !== id));
-  // campos disponibles = unión de los campos de las plantillas elegidas (o todas)
+  // campos disponibles = unión de los campos de las plantillas (clásico) o de las
+  // categorías (simplificado) elegidas; vacío = todas.
   const fieldsFor = (templateIds: string[]): [string, string][] => {
     const tpls = templateIds.length ? tenant.templates.filter((t) => templateIds.includes(t.id)) : tenant.templates;
     const map = new Map<string, string>();
     for (const t of tpls) for (const f of defsOf(t)) if (!map.has(f.id)) map.set(f.id, f.label);
     return [...map.entries()];
   };
+  const fieldsForCats = (catIds: string[]): [string, string][] => {
+    const scs = (tenant.serviceCategories ?? []).filter((c) => !catIds.length || catIds.includes(c.id));
+    const map = new Map<string, string>();
+    for (const c of scs) for (const f of c.fields ?? []) if (!map.has(f.id)) map.set(f.id, f.label);
+    return [...map.entries()];
+  };
   const toggleTpl = (r: FormRule, id: string) => upd(r.id, { templateIds: r.templateIds.includes(id) ? r.templateIds.filter((x) => x !== id) : [...r.templateIds, id] });
+  const toggleCat = (r: FormRule, id: string) => { const cur = r.serviceCategoryIds ?? []; upd(r.id, { serviceCategoryIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] }); };
   return <div className="card" style={{ padding: 16 }}>
-    <p className="cfg-lead">Mientras se rellena el formulario, si se cumplen las condiciones se aplican las acciones sobre los campos (ocultar, hacer obligatorio, deshabilitar…). Se evalúan en vivo al cargar y al cambiar cualquier campo. Ámbito por plantilla(s) y por vista (técnico / solicitante).</p>
+    <p className="cfg-lead">Mientras se rellena el formulario, si se cumplen las condiciones se aplican las acciones sobre los campos (ocultar, hacer obligatorio, deshabilitar…). Se evalúan en vivo al cambiar cualquier campo. Ámbito por {simplified ? <b>categoría de servicio</b> : <b>plantilla(s)</b>} y por vista.</p>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {rules.length === 0 && <div className="empty">Sin reglas del formulario.</div>}
-      {rules.map((r) => { const fields = fieldsFor(r.templateIds); return <div key={r.id} className="rule-card">
+      {rules.map((r) => { const fields = simplified ? fieldsForCats(r.serviceCategoryIds ?? []) : fieldsFor(r.templateIds); return <div key={r.id} className="rule-card">
         <div className="rule-h">
           <label className="switch"><input type="checkbox" checked={r.enabled} onChange={(e) => upd(r.id, { enabled: e.target.checked })} /><span className="track" /></label>
           <input style={{ flex: 1, fontWeight: 600 }} value={r.name} onChange={(e) => upd(r.id, { name: e.target.value })} />
           <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => del(r.id)} aria-label="Eliminar">✕</button>
         </div>
         <div className="rule-body">
-          <div className="rule-row"><span className="rule-lbl">Plantillas</span>
-            <div className="fr-tpls">{tenant.templates.map((t) => <button key={t.id} className={'chipsel' + (r.templateIds.includes(t.id) ? ' on' : '')} onClick={() => toggleTpl(r, t.id)}>{t.name}</button>)}
-              {r.templateIds.length === 0 && <span className="soft" style={{ fontSize: 12, alignSelf: 'center' }}>todas</span>}</div>
-          </div>
+          {simplified
+            ? <div className="rule-row"><span className="rule-lbl">Categorías</span>
+                <div className="fr-tpls">{(tenant.serviceCategories ?? []).map((sc) => <button key={sc.id} className={'chipsel' + ((r.serviceCategoryIds ?? []).includes(sc.id) ? ' on' : '')} onClick={() => toggleCat(r, sc.id)}>{sc.icon ? sc.icon + ' ' : ''}{sc.name}</button>)}
+                  {(r.serviceCategoryIds ?? []).length === 0 && <span className="soft" style={{ fontSize: 12, alignSelf: 'center' }}>todas</span>}</div>
+              </div>
+            : <div className="rule-row"><span className="rule-lbl">Plantillas</span>
+                <div className="fr-tpls">{tenant.templates.map((t) => <button key={t.id} className={'chipsel' + (r.templateIds.includes(t.id) ? ' on' : '')} onClick={() => toggleTpl(r, t.id)}>{t.name}</button>)}
+                  {r.templateIds.length === 0 && <span className="soft" style={{ fontSize: 12, alignSelf: 'center' }}>todas</span>}</div>
+              </div>}
           <div className="rule-row"><span className="rule-lbl">Vista</span>
             <select value={r.scope} onChange={(e) => upd(r.id, { scope: e.target.value as FormScope })}><option value="both">Técnico y solicitante</option><option value="technician">Solo técnico</option><option value="requester">Solo solicitante</option></select>
           </div>

@@ -26,8 +26,11 @@ export interface FormRule {
   id: string;
   name: string;
   enabled: boolean;
-  /** plantillas a las que aplica; vacío = todas las del tenant. */
+  /** plantillas a las que aplica (modo clásico); vacío = todas las del tenant. */
   templateIds: string[];
+  /** categorías de servicio a las que aplica (modo simplificado); vacío = todas.
+   *  Si está definido y no vacío, la regla es "por categoría" y se ignora templateIds. */
+  serviceCategoryIds?: string[];
   /** vista donde aplica (como SDP: técnico / solicitante / ambas). */
   scope: FormScope;
   /** todas (all) o alguna (any) de las condiciones. */
@@ -42,6 +45,8 @@ export type FieldEffects = Record<string, FieldEffect>;
 
 export interface FormRuleContext {
   templateId: string;
+  /** categoría de servicio activa (modo simplificado), para reglas por categoría. */
+  serviceCategoryId?: string;
   /** 'requester' = vista de solicitante; cualquier otro = vista de técnico/admin. */
   role: string;
   /** valores actuales del formulario, indexados por id de FieldDef. */
@@ -64,7 +69,11 @@ function condMatches(c: FormRuleCondition, values: Record<string, string>): bool
 /** ¿Aplica esta regla en este contexto (plantilla + vista + condiciones)? */
 export function ruleApplies(r: FormRule, ctx: FormRuleContext): boolean {
   if (!r.enabled) return false;
-  if (r.templateIds.length && !r.templateIds.includes(ctx.templateId)) return false;
+  // Ámbito: si la regla apunta a categorías (simplificado), casa por categoría;
+  // si no, por plantilla (clásico). Vacío en ambos = aplica a todo su ámbito.
+  if (r.serviceCategoryIds && r.serviceCategoryIds.length) {
+    if (!ctx.serviceCategoryId || !r.serviceCategoryIds.includes(ctx.serviceCategoryId)) return false;
+  } else if (r.templateIds.length && !r.templateIds.includes(ctx.templateId)) return false;
   const isReq = ctx.role === 'requester';
   if (r.scope === 'technician' && isReq) return false;
   if (r.scope === 'requester' && !isReq) return false;

@@ -44,8 +44,12 @@ export const DEFAULT_BUSINESS_RULES: BusinessRule[] = [
 // Reglas del formulario por defecto (demo sobre la plantilla de incidencia):
 // si el usuario es VIP, el Nº de activo pasa a obligatorio.
 export const DEFAULT_FORM_RULES: FormRule[] = [
+  // Clásico: por plantilla.
   { id: 'fr-vip', name: 'Nº de activo obligatorio para usuarios VIP', enabled: true, templateIds: ['tpl-inc'], scope: 'both', match: 'all',
     conditions: [{ fieldId: 'fd-vip', op: 'eq', value: 'true' }], actions: [{ type: 'mandatory', fieldId: 'fd-asset' }] },
+  // Simplificado: por categoría de servicio (demo sobre «BI / Datos»).
+  { id: 'fr-bi', name: 'Periodicidad obligatoria si se indica informe', enabled: true, templateIds: [], serviceCategoryIds: ['sc-bi'], scope: 'both', match: 'all',
+    conditions: [{ fieldId: 'cf-inf', op: 'notempty' }], actions: [{ type: 'mandatory', fieldId: 'cf-per' }] },
 ];
 
 // Respuestas predefinidas por defecto (el admin las edita).
