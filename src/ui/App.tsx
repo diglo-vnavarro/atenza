@@ -420,14 +420,42 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
   const select = useStore((s) => s.select);
   const [vw, setVw] = useState<'list' | 'kanban'>('list');
   const [q, setQ] = useState('');
-  // Excluye archivados de las vistas ACTIVAS (en la nube la suscripción ya lo hace;
-  // en local mantiene la coherencia: al cerrar/resolver, el ticket pasa a Archivo).
-  const all = tenant.tickets.filter((t) => !t.archived);
-  let list = all;
-  if (scope === 'requester') list = all.filter((t) => t.requesterId === user.uid);
-  else if (scope === 'assigned') list = all.filter((t) => t.technicianId === user.uid);
-  else if (filter === 'unassigned') list = all.filter((t) => !t.technicianId);
-  else if (filter === 'mine') list = all.filter((t) => t.technicianId === user.uid);
+  // Vistas personales (Asignadas a mí / Mis solicitudes): filtro Pendientes (por
+  // defecto) · Todas · Archivadas. Los archivados NO están en la suscripción en vivo
+  // → se traen bajo demanda (acotados a la persona, conjunto pequeño).
+  const isPersonal = scope === 'assigned' || scope === 'requester';
+  const [arcMode, setArcMode] = useState<'pending' | 'all' | 'archived'>('pending');
+  const [arcRows, setArcRows] = useState<StoredTicket[]>([]);
+  const [arcLoaded, setArcLoaded] = useState(false);
+  const [arcLoading, setArcLoading] = useState(false);
+  // Al cambiar de ámbito (Asignadas ↔ Mis solicitudes) resetea el archivo cargado.
+  useEffect(() => { setArcMode('pending'); setArcRows([]); setArcLoaded(false); }, [scope, user.uid]);
+  useEffect(() => {
+    if (!isPersonal || arcMode === 'pending' || arcLoaded || arcLoading) return;
+    setArcLoading(true);
+    (async () => {
+      try {
+        if (firebaseEnabled) {
+          const out: StoredTicket[] = []; let after: ArchiveCursor = undefined; const opts = scope === 'requester' ? { requesterUid: user.uid } : { where: { field: 'technicianId' as const, value: user.uid } };
+          for (let p = 0; p < 30; p++) { const { tickets, last } = await queryArchive(tenant.id, { ...opts, pageSize: 200, after }); out.push(...tickets); after = last; if (tickets.length < 200) break; }
+          setArcRows(out);
+        } else {
+          setArcRows(tenant.tickets.filter((t) => t.archived && (scope === 'requester' ? t.requesterId === user.uid : t.technicianId === user.uid)));
+        }
+        setArcLoaded(true);
+      } finally { setArcLoading(false); }
+    })();
+  }, [isPersonal, arcMode, arcLoaded, arcLoading, scope, user.uid, tenant.id, tenant.tickets]);
+
+  const nonArch = tenant.tickets.filter((t) => !t.archived);
+  let base: StoredTicket[];
+  if (scope === 'requester') { const pend = nonArch.filter((t) => t.requesterId === user.uid); base = arcMode === 'archived' ? arcRows : arcMode === 'all' ? [...pend, ...arcRows] : pend; }
+  else if (scope === 'assigned') { const pend = nonArch.filter((t) => t.technicianId === user.uid); base = arcMode === 'archived' ? arcRows : arcMode === 'all' ? [...pend, ...arcRows] : pend; }
+  else if (filter === 'unassigned') base = nonArch.filter((t) => !t.technicianId);
+  else if (filter === 'mine') base = nonArch.filter((t) => t.technicianId === user.uid);
+  else base = nonArch;
+  const all = nonArch;
+  let list = base;
   // buscador por id / asunto / solicitante / técnico
   const ql = q.trim().toLowerCase();
   if (ql) list = list.filter((t) => {
@@ -438,7 +466,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
   // orden por defecto: descendente por id (= orden de creación, más reciente primero)
   const idNum = (id: string) => parseInt(id.replace(/\D/g, ''), 10) || 0;
   list = [...list].sort((a, b) => idNum(b.id) - idNum(a.id));
-  const selected = tenant.tickets.find((t) => t.id === selectedId) ?? null;
+  const selected = tenant.tickets.find((t) => t.id === selectedId) ?? arcRows.find((t) => t.id === selectedId) ?? null;
   const counts = { all: all.length, unassigned: all.filter((t) => !t.technicianId).length, mine: all.filter((t) => t.technicianId === user.uid).length };
   const tabs: [typeof filter, string][] = [['all', 'Todas'], ['unassigned', 'Sin asignar'], ['mine', 'Mías']];
   const title = scope === 'requester' ? 'Mis solicitudes' : scope === 'assigned' ? 'Asignadas a mí' : 'Solicitudes';
@@ -459,6 +487,10 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
         </div>
         {scope === 'queue' && <div className="tabs" style={{ marginBottom: 0 }}>
           {tabs.map(([k, l]) => <button key={k} className={filter === k ? 'on' : ''} onClick={() => setFilter(k)}>{l} <span className="tabn">{counts[k]}</span></button>)}
+        </div>}
+        {isPersonal && <div className="tabs" style={{ marginBottom: 0 }}>
+          {([['pending', 'Pendientes'], ['all', 'Todas'], ['archived', 'Archivadas']] as [typeof arcMode, string][]).map(([k, l]) =>
+            <button key={k} className={arcMode === k ? 'on' : ''} onClick={() => setArcMode(k)}>{l}{k !== 'pending' && arcLoading && arcMode === k ? ' …' : ''}</button>)}
         </div>}
       </div>
     </div>
@@ -496,7 +528,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
           <b className="tmodal-title"><span className="id">{selected.id}</span> · {selected.subject}</b>
           <button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button>
         </div>
-        <div className="tmodal-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} caps={caps} readOnly={readOnly} meName={meName} meUid={user.uid} /></div>
+        <div className="tmodal-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct && !selected.archived} caps={caps} readOnly={readOnly || !!selected.archived} meName={meName} meUid={user.uid} /></div>
       </div>
     </div>}
   </>;
