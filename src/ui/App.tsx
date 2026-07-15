@@ -14,6 +14,8 @@ import { madridHolidayDates } from '../holidays.js';
 import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
 import { FORM_OPS, FORM_ACTIONS, evaluateFormRules, type FormRule, type FormActionType, type FormScope, type FieldEffects } from '../formrules.js';
 import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate, ApprovalLevelDef, ChecklistItemDef } from '../model.js';
+import { isArchivedStatus } from '../model.js';
+import { queryArchive, getTicketById, type ArchiveCursor } from '../data/firestore.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
@@ -197,7 +199,7 @@ export function App() {
   useEffect(() => { void useAuth.getState().init(); }, []);
   useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
   const [, setTheme] = useState<'light' | 'dark' | null>(null);
-  const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin'>('home');
+  const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo'>('home');
   const [dismissedAnn, setDismissedAnn] = useState<string[]>([]);
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
@@ -242,7 +244,7 @@ export function App() {
   const isReq = role === 'requester';
   const caps = capsOf(tenant, effectiveUserId, !!user.platformAdmin);
   const canManageConfig = caps.includes('manageConfig');
-  const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' = isReq && view !== 'kb' ? 'requests' : view;
+  const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo' = isReq && view !== 'kb' && view !== 'archivo' ? 'requests' : view;
   const openCount = tenant.tickets.length;
   const myAssignedCount = tenant.tickets.filter((t) => t.technicianId === effectiveUserId).length;
   const myReqCount = tenant.tickets.filter((t) => t.requesterId === effectiveUserId).length;
@@ -296,6 +298,9 @@ export function App() {
             <button title="Base de conocimiento" className={'modlink' + (activeView === 'kb' ? ' on' : '')} onClick={() => setView('kb')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 5a2 2 0 012-2h12v18H6a2 2 0 01-2-2z" /><path d="M8 7h8M8 11h6" /></svg>
               <span className="ml-l">Base de conocimiento</span></button>
+            <button title="Archivo" className={'modlink' + (activeView === 'archivo' ? ' on' : '')} onClick={() => setView('archivo')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 4h18v4H3z" /><path d="M5 8v12h14V8M9 12h6" /></svg>
+              <span className="ml-l">Archivo</span></button>
           </div>
           <div className="side-bottom">
             {canManageConfig && <button title="Administración" className={'modlink' + (activeView === 'admin' ? ' on' : '')} onClick={() => setView('admin')}>
@@ -317,6 +322,7 @@ export function App() {
           {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />}
           {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" caps={caps} readOnly={readOnly} />}
           {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester' && !readOnly} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
+          {activeView === 'archivo' && <Archive tenant={tenant} role={role} user={user} caps={caps} meName={tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo'} meUid={user.uid} cloud={firebaseEnabled} />}
           {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
         </main>
       </div>
@@ -331,7 +337,7 @@ export function App() {
 // Panel de inicio: KPIs + widgets calculados a partir de los datos reales del tenant.
 function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<typeof buildUser>; go: (v: 'tickets' | 'assigned', f?: 'all' | 'unassigned' | 'mine') => void }) {
   const now = Date.now();
-  const tickets = tenant.tickets;
+  const tickets = tenant.tickets.filter((t) => !t.archived); // KPIs sobre lo ACTIVO
   const isOverdue = (t: StoredTicket) => !!t.resolveDueAt && t.resolveDueAt < now;
   const unassigned = tickets.filter((t) => !t.technicianId).length;
   const overdue = tickets.filter(isOverdue).length;
@@ -414,7 +420,9 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
   const select = useStore((s) => s.select);
   const [vw, setVw] = useState<'list' | 'kanban'>('list');
   const [q, setQ] = useState('');
-  const all = tenant.tickets;
+  // Excluye archivados de las vistas ACTIVAS (en la nube la suscripción ya lo hace;
+  // en local mantiene la coherencia: al cerrar/resolver, el ticket pasa a Archivo).
+  const all = tenant.tickets.filter((t) => !t.archived);
   let list = all;
   if (scope === 'requester') list = all.filter((t) => t.requesterId === user.uid);
   else if (scope === 'assigned') list = all.filter((t) => t.technicianId === user.uid);
@@ -507,6 +515,95 @@ function Kanban({ tenant, list, stLabel, onSelect, selectedId }:
       <div className="kcard-foot">{tech ? <Avatar m={tech} /> : <span className="av" style={{ background: 'var(--ink-faint)' }}>?</span>}<span className={sev === 'crit' ? 'sev-crit' : sev === 'warn' ? 'sev-warn' : 'soft'} style={{ fontSize: 11, marginLeft: 'auto', fontWeight: 600 }}>{due}</span></div>
     </button>; })}</div>
   </div>)}</div>;
+}
+
+// ARCHIVO: tickets en estado terminal (Cerrada/Cancelada/Resuelta). NO se suscriben
+// en vivo (serían ~23k); se consultan bajo demanda, paginados. Solo lectura. El
+// solicitante ve solo los suyos. En modo local (demo) filtra los tickets locales.
+function Archive({ tenant, role, caps, meName, meUid, cloud }: { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; caps: string[]; meName: string; meUid: string; cloud: boolean }) {
+  const isReq = role === 'requester';
+  const PAGE = 50;
+  const [rows, setRows] = useState<StoredTicket[]>([]);
+  const [cursor, setCursor] = useState<ArchiveCursor>(null);
+  const [done, setDone] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [q, setQ] = useState('');
+  const [idq, setIdq] = useState('');
+  const [sel, setSel] = useState<StoredTicket | null>(null);
+  const [err, setErr] = useState('');
+  const nameOf = (uid?: string | null) => tenant.members.find((m) => m.uid === uid)?.name ?? '—';
+
+  const loadPage = useCallback(async (reset: boolean) => {
+    setLoading(true); setErr('');
+    try {
+      if (cloud) {
+        const { tickets, last } = await queryArchive(tenant.id, { requesterUid: isReq ? meUid : null, pageSize: PAGE, after: reset ? undefined : cursor });
+        setRows((r) => (reset ? tickets : [...r, ...tickets]));
+        setCursor(last); setDone(tickets.length < PAGE);
+      } else {
+        const all = tenant.tickets.filter((t) => (t.archived ?? isArchivedStatus(t.status)) && (!isReq || t.requesterId === meUid))
+          .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+        setRows(all); setDone(true);
+      }
+    } catch (e) { setErr('No se pudo cargar el archivo: ' + (e as Error).message); }
+    finally { setLoading(false); }
+  }, [cloud, tenant.id, tenant.tickets, isReq, meUid, cursor]);
+
+  useEffect(() => { setRows([]); setCursor(null); setDone(false); void loadPage(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tenant.id]);
+
+  const ql = q.trim().toLowerCase();
+  const filtered = ql ? rows.filter((t) => `${t.id} ${t.subject} ${nameOf(t.requesterId)} ${nameOf(t.technicianId)} ${t.status}`.toLowerCase().includes(ql)) : rows;
+
+  const openById = async () => {
+    const raw = idq.trim(); if (!raw) return;
+    const id = raw.startsWith('#') ? raw : '#' + raw;
+    setErr('');
+    if (cloud) { const t = await getTicketById(tenant.id, id).catch(() => null); if (t && (!isReq || t.requesterId === meUid)) setSel(t); else setErr(`No se encontró ${id}.`); }
+    else { const t = tenant.tickets.find((x) => x.id === id); if (t) setSel(t); else setErr(`No se encontró ${id}.`); }
+  };
+
+  return <>
+    <div className="hd">
+      <h1>Archivo</h1>
+      <span className="sub">Cerrados/resueltos/cancelados · solo lectura{isReq ? ' · tus solicitudes' : ''}</span>
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input value={idq} onChange={(e) => setIdq(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void openById(); }} placeholder="Abrir por nº (p. ej. 27738)" style={{ width: 190 }} />
+        <button className="ghost" onClick={() => void openById()}>Abrir</button>
+        <label className="searchbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filtrar los cargados…" /></label>
+      </div>
+    </div>
+    {err && <div className="closeerr" style={{ margin: '8px 0' }}>⚠ {err}</div>}
+    <div className="card" style={{ overflow: 'hidden' }}>
+      <table className="mgmt">
+        <thead><tr><th>ID</th><th>Asunto</th><th>Solicitante</th><th>Técnico</th><th>Categoría</th><th>Estado</th><th>Creado</th></tr></thead>
+        <tbody>{filtered.map((t) => <tr key={t.id} className="mrow" onClick={() => setSel(t)}>
+          <td><span className="id">{t.id}</span></td>
+          <td>{t.subject}</td>
+          <td>{nameOf(t.requesterId)}</td>
+          <td>{t.technicianId ? nameOf(t.technicianId) : '—'}</td>
+          <td>{t.serviceCategory ?? t.category ?? '—'}</td>
+          <td><span className="pill">{t.status}</span></td>
+          <td style={{ whiteSpace: 'nowrap' }}>{t.createdAt ? fmtDate(t.createdAt) : '—'}</td>
+        </tr>)}</tbody>
+      </table>
+      {filtered.length === 0 && !loading && <div className="empty" style={{ padding: 24 }}>Sin resultados en el archivo.</div>}
+    </div>
+    <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
+      <span className="soft" style={{ fontSize: 12 }}>{rows.length} cargados{ql ? ` · ${filtered.length} filtrados` : ''}</span>
+      {cloud && !done && <button className="ghost" onClick={() => void loadPage(false)} disabled={loading}>{loading ? 'Cargando…' : 'Cargar más'}</button>}
+    </div>
+    {sel && <div className="scrim tmodal-scrim" onClick={() => setSel(null)}>
+      <div className="tmodal fixed" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Archivo ' + sel.id}>
+        <div className="tmodal-h">
+          <span className={'tchip-type ' + (sel.type === 'incident' ? 'inc' : 'pet')}>{sel.type === 'incident' ? '🛠️ Incidencia' : '📥 Petición'}</span>
+          <b className="tmodal-title"><span className="id">{sel.id}</span> · {sel.subject}</b>
+          <span className="pill" style={{ marginLeft: 8 }}>archivado</span>
+          <button className="dx" onClick={() => setSel(null)} aria-label="Cerrar">×</button>
+        </div>
+        <div className="tmodal-b"><TicketDetail tenant={tenant} t={sel} canAct={false} caps={caps} readOnly meName={meName} meUid={meUid} /></div>
+      </div>
+    </div>}
+  </>;
 }
 
 function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { tenant: TenantData; t: StoredTicket; canAct: boolean; caps: string[]; readOnly: boolean; meName: string; meUid: string }) {

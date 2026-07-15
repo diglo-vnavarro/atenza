@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification, ReplyTemplate, Attachment } from '../model.js';
+import { isArchivedStatus } from '../model.js';
 import type { User } from '../access.js';
 import type { ClosureRules } from '../closure.js';
 import { isClosingStatus, closureBlockers } from '../closure.js';
@@ -340,6 +341,8 @@ export const useStore = create<State>()(
           if (tplApprovals.length && (t.statuses ?? []).some((x) => x.name === APPR)) finalStatus = APPR;
           const ticket: StoredTicket = {
             ...merged, status: finalStatus,
+            // archived explícito (la suscripción en vivo filtra archived==false) + createdAt.
+            archived: isArchivedStatus(finalStatus), createdAt: now,
             // SLA por TIPO: la Incidencia lleva SLA de resolución por prioridad; la
             // Petición no lleva reloj de resolución (SDP: SLA por tipo). Configurable a futuro.
             slaId: type === 'incident' ? (SLA_BY_PRIORITY[merged.priority ?? ''] ?? null) : null,
@@ -380,10 +383,10 @@ export const useStore = create<State>()(
           if (!canTransition(lc, tk.status, to)) return;
           const tplT = t.templates.find((x) => x.id === tk.templateId);
           if (isClosingStatus(t.statuses, to) && closureBlockers(t.closureRules, tk, { checklistGate: tplT?.checklistGate, checklist: tk.checklist }).length) return; // salvaguarda de reglas de cierre
-          const now = Date.now();
+          const now = Date.now(); const arch = isArchivedStatus(to);
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
-          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
-          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist }).catch(errlog);
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist, archived: arch } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist, archived: arch }).catch(errlog);
           emitNotifs(t, 'status', { ...tk, status: to, statusHistory: hist });
           logAudit(t, to === 'Resuelta' ? 'ticket.resolve' : 'ticket.status', `${tk.id} → ${to}`, tk.id);
         },
@@ -392,10 +395,10 @@ export const useStore = create<State>()(
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk || tk.status === to) return;
           const tplS = t.templates.find((x) => x.id === tk.templateId);
           if (isClosingStatus(t.statuses, to) && closureBlockers(t.closureRules, tk, { checklistGate: tplS?.checklistGate, checklist: tk.checklist }).length) return; // salvaguarda de reglas de cierre
-          const now = Date.now();
+          const now = Date.now(); const arch = isArchivedStatus(to);
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
-          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
-          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist }).catch(errlog);
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist, archived: arch } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist, archived: arch }).catch(errlog);
           emitNotifs(t, to === 'Resuelta' ? 'resolved' : 'status', { ...tk, status: to, statusHistory: hist });
           logAudit(t, to === 'Resuelta' ? 'ticket.resolve' : 'ticket.status', `${tk.id} → ${to}`, tk.id);
         },

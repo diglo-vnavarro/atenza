@@ -74,9 +74,13 @@ function statusKey(templateId: string, statusName: string): string {
 }
 const ms = (t: { value?: string } | null | undefined) => (t?.value ? Number(t.value) : undefined);
 
-interface SdpReqLite { id: string; display_id?: string; subject?: string; is_service_request?: boolean;
+interface SdpReqLite { id: string; display_id?: string; subject?: string; is_service_request?: boolean; description?: unknown;
   template?: { id?: string }; status?: { name?: string }; created_time?: { value?: string }; due_by_time?: { value?: string };
+  priority?: { name?: string } | null; category?: { name?: string } | null; subcategory?: { name?: string } | null; item?: { name?: string } | null;
   requester?: SdpPerson | null; technician?: SdpPerson | null; group?: { id?: string; name?: string } | null }
+// Campos que pedimos EN BLOQUE en el listado (evita una llamada de detalle por
+// ticket: inviable con ~23k). El endpoint de lista los devuelve todos.
+const LIST_FIELDS = ['subject', 'description', 'status', 'priority', 'category', 'subcategory', 'item', 'requester', 'technician', 'group', 'created_time', 'due_by_time', 'is_service_request', 'template', 'display_id'];
 interface SdpPerson { id?: string; name?: string; email_id?: string; is_technician?: boolean }
 
 const PALETTE = ['#4f46e5', '#0f766e', '#b45309', '#0369a1', '#be185d', '#7c3aed', '#15803d', '#0891b2'];
@@ -130,16 +134,19 @@ async function loadGroupsAndTechs(): Promise<void> {
 
 async function listOpenIds(): Promise<SdpReqLite[]> {
   const out: SdpReqLite[] = []; let start = 1; const rows = 100;
-  for (let page = 0; page < 60; page++) {
-    const input = encodeURIComponent(JSON.stringify({
-      list_info: { row_count: rows, start_index: start, get_total_count: true, search_criteria: [{ field: 'status.name', condition: 'is not', values: EXCLUDE }] },
-    }));
+  // SCOPE=all → sin filtro (todo el histórico); si no, excluye Cancelada/Cerrada/Resuelta.
+  const li0: Record<string, unknown> = { row_count: rows, get_total_count: true, fields_required: LIST_FIELDS };
+  if (EXCLUDE.length) li0.search_criteria = [{ field: 'status.name', condition: 'is not', values: EXCLUDE }];
+  for (let page = 0; page < 600; page++) { // 600×100 = 60k de margen
+    const input = encodeURIComponent(JSON.stringify({ list_info: { ...li0, start_index: start } }));
     const j = await api(`requests?input_data=${input}`);
     const arr = (j.requests as SdpReqLite[]) ?? [];
     out.push(...arr);
-    const li = j.list_info as { has_more_rows?: boolean } | undefined;
+    const li = j.list_info as { has_more_rows?: boolean; total_count?: number } | undefined;
+    if (page === 0 && li?.total_count) console.log(`  total en SDP: ${li.total_count}`);
     if (!li?.has_more_rows || arr.length === 0) break;
     start += rows;
+    if (out.length % 1000 < rows) { console.log(`  listados ${out.length}…`); await sleep(200); }
   }
   return out;
 }
@@ -149,40 +156,36 @@ async function main() {
   console.log('Cargando roster de técnicos y grupos de soporte…');
   await loadGroupsAndTechs();
   console.log(`  técnicos: ${[...members.values()].filter((m) => m.role === 'technician').length} · con grupo: ${memberGroups.size}`);
-  console.log('Listando tickets activos (excl. ' + EXCLUDE.join('/') + ')…');
+  console.log(`Listando tickets (${SCOPE === 'all' ? 'HISTÓRICO COMPLETO' : 'activos, excl. ' + EXCLUDE.join('/')})…`);
   const lite = await listOpenIds();
-  console.log(`  ${lite.length} tickets activos`);
+  console.log(`  ${lite.length} tickets`);
 
+  // Todos los campos vienen ya del listado en bloque (fields_required); NO se llama
+  // al detalle por ticket (sería inviable con ~23k y agotaría la cuota de la API).
   const tickets: StoredTicket[] = [];
-  let i = 0;
   for (const r of lite) {
-    let detail: Record<string, unknown> = {};
-    try { detail = (await api(`requests/${r.id}`)).request as Record<string, unknown>; } catch { /* usa datos de lista */ }
-    const templateId = String(r.template?.id ?? (detail.template as { id?: string } | undefined)?.id ?? 'tpl-inc');
-    const statusName = r.status?.name ?? (detail.status as { name?: string })?.name ?? 'Abierta';
-    const created = ms(r.created_time) ?? ms(detail.created_time as { value?: string }) ?? Date.now();
-    // el estado guarda el NOMBRE real de SDP (casa con el catálogo de estados).
-    const state = statusName;
-    const priObj = (detail.priority as { name?: string } | null) ?? null;
+    const templateId = String(r.template?.id ?? 'tpl-inc');
+    const state = r.status?.name ?? 'Abierta'; // NOMBRE real de SDP (casa con el catálogo de estados)
+    const created = ms(r.created_time) ?? Date.now();
+    const desc = typeof r.description === 'string' ? r.description : '';
     tickets.push({
       id: `#${r.display_id ?? r.id}`,
       type: r.is_service_request ? 'service_request' : 'incident',
-      subject: r.subject ?? (detail.subject as string) ?? '(sin asunto)',
-      description: (detail.description as string) ?? '',
-      requesterId: person(r.requester ?? (detail.requester as SdpPerson)) ?? '',
-      technicianId: person(r.technician ?? (detail.technician as SdpPerson)),
+      subject: r.subject ?? '(sin asunto)',
+      description: desc,
+      requesterId: person(r.requester) ?? '',
+      technicianId: person(r.technician),
       groupId: r.group?.id ? String(r.group.id) : null,
-      category: (detail.category as { name?: string } | null)?.name ?? '',
-      subcategory: (detail.subcategory as { name?: string } | null)?.name ?? undefined,
-      item: (detail.item as { name?: string } | null)?.name ?? undefined,
-      priority: mapPriority(priObj?.name),
+      category: r.category?.name ?? '',
+      subcategory: r.subcategory?.name ?? undefined,
+      item: r.item?.name ?? undefined,
+      priority: mapPriority(r.priority?.name),
       templateId,
       status: state,
       slaId: null,
       resolveDueAt: ms(r.due_by_time) ?? null,
       statusHistory: [{ state, from: created, to: null }],
     });
-    if (++i % 50 === 0) { console.log(`  ${i}/${lite.length}`); await sleep(300); }
   }
 
   for (const [uid, gs] of memberGroups) { const m = members.get(uid); if (m) m.groupIds = [...gs]; }

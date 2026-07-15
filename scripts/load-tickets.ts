@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { isArchivedStatus } from '../src/model.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const { tickets, members } = JSON.parse(readFileSync(join(here, '..', 'importer', 'imported-tickets.json'), 'utf8'));
@@ -24,12 +25,15 @@ const TENANT = process.env.TENANT ?? 'diglo-it';
 initializeApp({ projectId: process.env.GOOGLE_CLOUD_PROJECT ?? 'diglo-desk-pd' });
 const db = getFirestore();
 
+// MERGE: no pisa campos que ya tienen los tickets activos migrados por F4c
+// (serviceCategoryId, etc.); solo escribe los campos del payload.
 async function writeAll(col: string, items: { id?: string; uid?: string }[], idKey: 'id' | 'uid') {
   let n = 0;
   for (let i = 0; i < items.length; i += 300) {
     const batch = db.batch();
-    for (const it of items.slice(i, i + 300)) { batch.set(db.doc(`tenants/${TENANT}/${col}/${it[idKey]}`), it); n++; }
+    for (const it of items.slice(i, i + 300)) { batch.set(db.doc(`tenants/${TENANT}/${col}/${it[idKey]}`), it, { merge: true }); n++; }
     await batch.commit();
+    if (n % 3000 < 300) console.log(`  ${col}: ${n}…`);
   }
   console.log(`${col}: ${n}`);
 }
@@ -43,9 +47,19 @@ async function main() {
 
   // No recrear fichas de referencia para ids ya unificados (su ficha real existe).
   const refMembers = (members as { uid?: string }[]).filter((m) => !(m.uid && idmap.has(m.uid)));
-  const mappedTickets = (tickets as { technicianId?: string; requesterId?: string }[]).map((t) => ({
-    ...t, technicianId: tr(t.technicianId) ?? null, requesterId: tr(t.requesterId) ?? t.requesterId,
-  }));
+  // archived = estado terminal (Cerrada/Cancelada/Resuelta); createdAt para ordenar el
+  // archivo. TODOS llevan archived explícito (Firestore no casa el campo ausente).
+  // Los ACTIVOS ya los migró F4c (serviceCategoryId+type): para no pisar su `type`
+  // se omite del payload (el merge conserva el existente); los ARCHIVADOS son nuevos
+  // y se escriben completos.
+  const mappedTickets = (tickets as { type?: string; technicianId?: string; requesterId?: string; status?: string; statusHistory?: { from?: number }[] }[]).map((t) => {
+    const base = { ...t, technicianId: tr(t.technicianId) ?? null, requesterId: tr(t.requesterId) ?? t.requesterId, createdAt: t.statusHistory?.[0]?.from ?? Date.now() };
+    if (isArchivedStatus(t.status)) return { ...base, archived: true };
+    const { type, ...rest } = base; void type; // activo: preserva el type/categoría de F4c
+    return { ...rest, archived: false };
+  });
+  const arch = mappedTickets.filter((t) => t.archived).length;
+  console.log(`tickets: ${mappedTickets.length} (archivados ${arch}, activos ${mappedTickets.length - arch})`);
 
   await writeAll('members', refMembers, 'uid');
   await writeAll('tickets', mappedTickets as { id?: string }[], 'id');

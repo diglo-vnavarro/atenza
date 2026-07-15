@@ -19,6 +19,10 @@ export type MemberStatus = 'active' | 'invited' | 'disabled';
 
 export type TicketType = 'incident' | 'service_request';
 
+/** Estados TERMINALES que archivan el ticket (sale de la bandeja en vivo → Archivo). */
+export const ARCHIVE_STATUSES = ['Cerrada', 'Cancelada', 'Resuelta'];
+export const isArchivedStatus = (status: string | undefined): boolean => !!status && ARCHIVE_STATUSES.includes(status);
+
 /** Documento de pertenencia: tenants/{tenantId}/members/{uid} */
 export interface Member {
   uid: string;
@@ -63,6 +67,12 @@ export interface Ticket {
   impactDetails?: string;
   /** activos / elementos afectados (SDP «assets»); texto libre (sin CMDB completo). */
   assets?: string;
+  /** archivado = ticket en estado terminal (Cerrada/Cancelada/Resuelta). La bandeja
+   *  en vivo solo suscribe archived=false; los archivados se ven en la vista Archivo.
+   *  Imprescindible en TODOS los tickets vivos (Firestore no casa el campo ausente). */
+  archived?: boolean;
+  /** epoch ms de creación (para ordenar el archivo). Deriva de statusHistory[0].from. */
+  createdAt?: number;
   /** plantilla/tipología concreta (define ciclo de vida y SLA aplicables). */
   templateId: string;
   /** Modo simplificado: categoría de servicio (eje) y su nombre para mostrar. */

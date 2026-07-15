@@ -24,6 +24,7 @@ import type { KbArticle } from '../kb.js';
 import type { Announcement } from '../announce.js';
 import type { AuditEntry } from '../audit.js';
 import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode, Picklists, PriorityMatrix, BusinessHours, RoleDef, ServiceCategoryDef } from './seed.js';
+import type { QueryConstraint } from 'firebase/firestore';
 
 let _fs: Awaited<ReturnType<typeof loadFs>> | null = null;
 async function loadFs() {
@@ -106,10 +107,12 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
   subs.push(m.onSnapshot(col('slas'), (s) => { acc.slas = s.docs.map((d) => d.data() as Sla); emit(); }));
   subs.push(m.onSnapshot(col('groups'), (s) => { acc.groups = s.docs.map((d) => d.data() as Group); emit(); }));
 
-  // tickets: técnico/admin => todos; solicitante => solo los suyos (consulta acotada)
+  // tickets EN VIVO: solo NO archivados (los ~23k terminales van a la vista Archivo,
+  // no se suscriben, para que la bandeja sea rápida). Técnico/admin => todos los
+  // activos; solicitante => solo los suyos activos.
   const tq = requesterFilterUid
-    ? m.query(col('tickets'), m.where('requesterId', '==', requesterFilterUid))
-    : col('tickets');
+    ? m.query(col('tickets'), m.where('requesterId', '==', requesterFilterUid), m.where('archived', '==', false))
+    : m.query(col('tickets'), m.where('archived', '==', false));
   subs.push(m.onSnapshot(tq, (s) => { acc.tickets = s.docs.map((d) => ({ ...(d.data() as StoredTicket), id: d.id })); emit(); }));
 
   // avisos en pantalla para el usuario actual (los más recientes primero)
@@ -123,6 +126,31 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
   subs.push(m.onSnapshot(aq, (s) => { acc.audit = s.docs.map((d) => d.data() as AuditEntry); emit(); }));
 
   return () => subs.forEach((u) => u());
+}
+
+/** Cursor opaco de paginación del archivo (un DocumentSnapshot de Firestore). */
+export type ArchiveCursor = unknown;
+
+/** Consulta PAGINADA de tickets ARCHIVADOS (bajo demanda; no se suscriben en vivo).
+ *  Ordenados por fecha de creación descendente. El solicitante solo ve los suyos
+ *  (obligatorio: las reglas no le dejan leer tickets ajenos). */
+export async function queryArchive(tid: string, opts: { requesterUid?: string | null; pageSize?: number; after?: ArchiveCursor } = {}): Promise<{ tickets: StoredTicket[]; last: ArchiveCursor }> {
+  const { m, db } = await fs();
+  const col = m.collection(db, `tenants/${tid}/tickets`);
+  const clauses: QueryConstraint[] = [m.where('archived', '==', true)];
+  if (opts.requesterUid) clauses.push(m.where('requesterId', '==', opts.requesterUid));
+  clauses.push(m.orderBy('createdAt', 'desc'));
+  if (opts.after) clauses.push(m.startAfter(opts.after));
+  clauses.push(m.limit(opts.pageSize ?? 50));
+  const s = await m.getDocs(m.query(col, ...clauses));
+  return { tickets: s.docs.map((d) => ({ ...(d.data() as StoredTicket), id: d.id })), last: s.docs[s.docs.length - 1] ?? null };
+}
+
+/** Trae un ticket por id (para abrir uno del archivo o buscar por nº exacto). */
+export async function getTicketById(tid: string, id: string): Promise<StoredTicket | null> {
+  const { m, db } = await fs();
+  const d = await m.getDoc(m.doc(db, `tenants/${tid}/tickets/${id}`));
+  return d.exists() ? { ...(d.data() as StoredTicket), id: d.id } : null;
 }
 
 export async function writeAudit(tid: string, e: AuditEntry): Promise<void> {
