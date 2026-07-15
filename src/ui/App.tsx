@@ -11,6 +11,7 @@ import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
 import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
 import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
+import { FORM_OPS, FORM_ACTIONS, evaluateFormRules, type FormRule, type FormActionType, type FormScope, type FieldEffects } from '../formrules.js';
 import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent } from '../model.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
@@ -806,51 +807,64 @@ function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantDa
   const visDefs = defs.filter((f) => !(role === 'requester' && f.requesterVisible === false));
   const hasSubject = visDefs.some((f) => sysRoleOf(f.label) === 'subject');
   const setU = (id: string, v: string) => setUdf((u) => ({ ...u, [id]: v }));
-  // valida obligatorios visibles (asunto + campos adicionales marcados como obligatorios)
-  const missingReq = visDefs.some((f) => {
-    if (!f.mandatory) return false;
-    const r = sysRoleOf(f.label);
-    if (r === 'subject') return !subject.trim();
-    if (r === 'custom') return !(udf[f.id] ?? '').trim();
-    return false;
-  });
+
+  // valor actual de un campo (por id de FieldDef), para las reglas del formulario y la validación.
+  const valueOf = (f: FieldDef): string => {
+    switch (sysRoleOf(f.label)) {
+      case 'subject': return subject; case 'description': return description; case 'category': return category;
+      case 'priority': return priority; case 'impact': return impact; case 'urgency': return urgency;
+      case 'mode': return mode; case 'site': return site; case 'requester': return requesterId;
+      default: return udf[f.id] ?? '';
+    }
+  };
+  // Reglas del formulario: se evalúan en cada render (=> reaccionan al cambiar cualquier campo).
+  const frValues: Record<string, string> = {};
+  for (const f of defs) frValues[f.id] = valueOf(f);
+  const effects: FieldEffects = tpl ? evaluateFormRules(tenant.formRules, { templateId: tpl.id, role, values: frValues }) : {};
+  // campos que no se rellenan al crear o quedan ocultos por rol/regla
+  const roleHidden = (f: FieldDef) => { const r = sysRoleOf(f.label); if (r === 'skip' || r === 'subcategory' || r === 'item') return true; if ((r === 'mode' || r === 'requester') && role === 'requester') return true; return false; };
+  const isHidden = (f: FieldDef) => effects[f.id]?.hidden === true || roleHidden(f);
+  const isMandatory = (f: FieldDef) => effects[f.id]?.mandatory ?? !!f.mandatory;
+  const isDisabled = (f: FieldDef) => effects[f.id]?.disabled === true;
+
+  // valida obligatorios visibles (base + los que una regla marque obligatorios)
+  const missingReq = visDefs.some((f) => isMandatory(f) && !isHidden(f) && !valueOf(f).trim());
   const canSubmit = !!subject.trim() && !!tpl && !missingReq && !readOnly;
   const submit = () => { if (!canSubmit || !tpl) return; create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, impact: impact || undefined, urgency: urgency || undefined, mode: mode || undefined, site: site || undefined, requesterId, templateId: tpl.id, udf }); onClose(); };
 
-  const reqStar = (f: FieldDef) => f.mandatory ? <span className="req" title="Obligatorio">*</span> : null;
+  const reqStar = (f: FieldDef) => isMandatory(f) ? <span className="req" title="Obligatorio">*</span> : null;
   // clasificación (categoría → subcategoría → artículo) en cascada, un solo bloque
   const catControl = <Fragment key="__cat">
     <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
     {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>}
     {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
   </Fragment>;
-  const customControl = (f: FieldDef) => {
+  const customControl = (f: FieldDef, dis: boolean) => {
     const v = udf[f.id] ?? ''; const lbl = <>{f.label}{reqStar(f)}</>;
     switch (f.type) {
-      case 'textarea': return <label key={f.id}>{lbl}<textarea value={v} onChange={(e) => setU(f.id, e.target.value)} rows={3} /></label>;
-      case 'bool': return <label key={f.id} className="nf-bool"><input type="checkbox" checked={v === 'true'} onChange={(e) => setU(f.id, e.target.checked ? 'true' : 'false')} /> {f.label}{reqStar(f)}</label>;
-      case 'date': return <label key={f.id}>{lbl}<input type="date" value={v} onChange={(e) => setU(f.id, e.target.value)} /></label>;
-      case 'number': return <label key={f.id}>{lbl}<input type="number" value={v} onChange={(e) => setU(f.id, e.target.value)} /></label>;
-      case 'person': return <label key={f.id}>{lbl}<select value={v} onChange={(e) => setU(f.id, e.target.value)}><option value="">— Seleccionar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>;
+      case 'textarea': return <label key={f.id}>{lbl}<textarea value={v} onChange={(e) => setU(f.id, e.target.value)} rows={3} disabled={dis} /></label>;
+      case 'bool': return <label key={f.id} className="nf-bool"><input type="checkbox" checked={v === 'true'} onChange={(e) => setU(f.id, e.target.checked ? 'true' : 'false')} disabled={dis} /> {f.label}{reqStar(f)}</label>;
+      case 'date': return <label key={f.id}>{lbl}<input type="date" value={v} onChange={(e) => setU(f.id, e.target.value)} disabled={dis} /></label>;
+      case 'number': return <label key={f.id}>{lbl}<input type="number" value={v} onChange={(e) => setU(f.id, e.target.value)} disabled={dis} /></label>;
+      case 'person': return <label key={f.id}>{lbl}<select value={v} onChange={(e) => setU(f.id, e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>;
       case 'attachment': return <label key={f.id}>{lbl}<span className="soft" style={{ fontSize: 12 }}>Se adjunta tras crear la solicitud</span></label>;
-      default: return <label key={f.id}>{lbl}<input value={v} onChange={(e) => setU(f.id, e.target.value)} /></label>;
+      default: return <label key={f.id}>{lbl}<input value={v} onChange={(e) => setU(f.id, e.target.value)} disabled={dis} /></label>;
     }
   };
   const control = (f: FieldDef): import('react').ReactNode => {
-    if (role === 'requester' && f.requesterVisible === false) return null;
-    const r = sysRoleOf(f.label);
-    if (r === 'skip' || r === 'subcategory' || r === 'item') return null;
-    switch (r) {
-      case 'subject': return <label key={f.id} className="nf-span">{f.label}{reqStar(f)}<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>;
-      case 'description': return <label key={f.id} className="nf-span">{f.label}{reqStar(f)}<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>;
+    if (isHidden(f)) return null;
+    const dis = isDisabled(f);
+    switch (sysRoleOf(f.label)) {
+      case 'subject': return <label key={f.id} className="nf-span">{f.label}{reqStar(f)}<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" disabled={dis} autoFocus /></label>;
+      case 'description': return <label key={f.id} className="nf-span">{f.label}{reqStar(f)}<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} disabled={dis} /></label>;
       case 'category': return catControl;
-      case 'priority': return <label key={f.id}>{f.label}{reqStar(f)}<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>;
-      case 'impact': return <label key={f.id}>{f.label}{reqStar(f)}<select value={impact} onChange={(e) => setImpact(e.target.value)}><option value="">— Seleccionar —</option>{(pls?.impact ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
-      case 'urgency': return <label key={f.id}>{f.label}{reqStar(f)}<select value={urgency} onChange={(e) => setUrgency(e.target.value)}><option value="">— Seleccionar —</option>{(pls?.urgency ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
-      case 'mode': if (role === 'requester') return null; return <label key={f.id}>{f.label}{reqStar(f)}<select value={mode} onChange={(e) => setMode(e.target.value)}><option value="">— Seleccionar —</option>{(pls?.mode ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
-      case 'site': return <label key={f.id}>{f.label}{reqStar(f)}<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>;
-      case 'requester': if (role === 'requester') return null; return <label key={f.id}>{f.label}{reqStar(f)}<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>;
-      default: return customControl(f);
+      case 'priority': return <label key={f.id}>{f.label}{reqStar(f)}<select value={priority} onChange={(e) => setPriority(e.target.value)} disabled={dis}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>;
+      case 'impact': return <label key={f.id}>{f.label}{reqStar(f)}<select value={impact} onChange={(e) => setImpact(e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{(pls?.impact ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
+      case 'urgency': return <label key={f.id}>{f.label}{reqStar(f)}<select value={urgency} onChange={(e) => setUrgency(e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{(pls?.urgency ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
+      case 'mode': return <label key={f.id}>{f.label}{reqStar(f)}<select value={mode} onChange={(e) => setMode(e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{(pls?.mode ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
+      case 'site': return <label key={f.id}>{f.label}{reqStar(f)}<select value={site} onChange={(e) => setSite(e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>;
+      case 'requester': return <label key={f.id}>{f.label}{reqStar(f)}<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)} disabled={dis}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>;
+      default: return customControl(f, dis);
     }
   };
   const dynSections = visDefs.reduce<string[]>((a, f) => { const s = secOf(f); if (!a.includes(s)) a.push(s); return a; }, []);
@@ -978,13 +992,13 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
-  ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', 'servicios'], ['Reglas del formulario', null]]],
+  ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', 'servicios'], ['Reglas del formulario', 'formreglas']]],
   ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', '✉️', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1304,6 +1318,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'entrante' && <InboundAdmin tenant={tenant} />}
     {sec === 'campos' && <CustomFieldsAdmin tenant={tenant} />}
     {sec === 'servicios' && <ServiceCatalogAdmin tenant={tenant} nav={setSec} />}
+    {sec === 'formreglas' && <FormRulesAdmin tenant={tenant} />}
     {sec === 'sync' && <SyncAdmin tenant={tenant} />}
     </div>
   </div>;
@@ -1555,6 +1570,66 @@ function BusinessRulesAdmin({ tenant }: { tenant: TenantData }) {
           <button className="linkbtn" onClick={() => upd(r.id, { actions: [...r.actions, { type: 'setGroup', value: '' }] })}>＋ acción</button>
         </div>
       </div>)}
+    </div>
+    <button className="primary" style={{ marginTop: 12 }} onClick={add}>＋ Añadir regla</button>
+  </div>;
+}
+
+// Reglas del formulario: según los valores que se van rellenando, muestra/oculta,
+// obliga u opciona campos. Se aplican en vivo en «Nueva solicitud».
+function FormRulesAdmin({ tenant }: { tenant: TenantData }) {
+  const setFormRules = useStore((s) => s.setFormRules);
+  const rules = tenant.formRules ?? [];
+  const save = (list: FormRule[]) => setFormRules(list);
+  const upd = (id: string, patch: Partial<FormRule>) => save(rules.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const add = () => save([...rules, { id: 'fr-' + Date.now(), name: 'Nueva regla', enabled: false, templateIds: [], scope: 'both', match: 'all', conditions: [], actions: [] }]);
+  const del = (id: string) => save(rules.filter((r) => r.id !== id));
+  // campos disponibles = unión de los campos de las plantillas elegidas (o todas)
+  const fieldsFor = (templateIds: string[]): [string, string][] => {
+    const tpls = templateIds.length ? tenant.templates.filter((t) => templateIds.includes(t.id)) : tenant.templates;
+    const map = new Map<string, string>();
+    for (const t of tpls) for (const f of defsOf(t)) if (!map.has(f.id)) map.set(f.id, f.label);
+    return [...map.entries()];
+  };
+  const toggleTpl = (r: FormRule, id: string) => upd(r.id, { templateIds: r.templateIds.includes(id) ? r.templateIds.filter((x) => x !== id) : [...r.templateIds, id] });
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Mientras se rellena el formulario, si se cumplen las condiciones se aplican las acciones sobre los campos (ocultar, hacer obligatorio, deshabilitar…). Se evalúan en vivo al cargar y al cambiar cualquier campo. Ámbito por plantilla(s) y por vista (técnico / solicitante).</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {rules.length === 0 && <div className="empty">Sin reglas del formulario.</div>}
+      {rules.map((r) => { const fields = fieldsFor(r.templateIds); return <div key={r.id} className="rule-card">
+        <div className="rule-h">
+          <label className="switch"><input type="checkbox" checked={r.enabled} onChange={(e) => upd(r.id, { enabled: e.target.checked })} /><span className="track" /></label>
+          <input style={{ flex: 1, fontWeight: 600 }} value={r.name} onChange={(e) => upd(r.id, { name: e.target.value })} />
+          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => del(r.id)} aria-label="Eliminar">✕</button>
+        </div>
+        <div className="rule-body">
+          <div className="rule-row"><span className="rule-lbl">Plantillas</span>
+            <div className="fr-tpls">{tenant.templates.map((t) => <button key={t.id} className={'chipsel' + (r.templateIds.includes(t.id) ? ' on' : '')} onClick={() => toggleTpl(r, t.id)}>{t.name}</button>)}
+              {r.templateIds.length === 0 && <span className="soft" style={{ fontSize: 12, alignSelf: 'center' }}>todas</span>}</div>
+          </div>
+          <div className="rule-row"><span className="rule-lbl">Vista</span>
+            <select value={r.scope} onChange={(e) => upd(r.id, { scope: e.target.value as FormScope })}><option value="both">Técnico y solicitante</option><option value="technician">Solo técnico</option><option value="requester">Solo solicitante</option></select>
+          </div>
+          <div className="rule-row"><span className="rule-lbl">Si</span>
+            <select value={r.match} onChange={(e) => upd(r.id, { match: e.target.value as 'all' | 'any' })}><option value="all">se cumplen TODAS</option><option value="any">se cumple ALGUNA</option></select>
+          </div>
+          {r.conditions.map((c, i) => <div key={i} className="rule-row cond">
+            <select value={c.fieldId} onChange={(e) => { const cs = [...r.conditions]; cs[i] = { ...c, fieldId: e.target.value }; upd(r.id, { conditions: cs }); }}>{fields.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select>
+            <select value={c.op} onChange={(e) => { const cs = [...r.conditions]; cs[i] = { ...c, op: e.target.value as typeof c.op }; upd(r.id, { conditions: cs }); }}>{FORM_OPS.map(([o, l]) => <option key={o} value={o}>{l}</option>)}</select>
+            {c.op !== 'empty' && c.op !== 'notempty' && <input value={c.value ?? ''} placeholder="valor" onChange={(e) => { const cs = [...r.conditions]; cs[i] = { ...c, value: e.target.value }; upd(r.id, { conditions: cs }); }} />}
+            <button className="xbtn" onClick={() => upd(r.id, { conditions: r.conditions.filter((_, j) => j !== i) })} aria-label="Quitar condición">✕</button>
+          </div>)}
+          <button className="linkbtn" onClick={() => upd(r.id, { conditions: [...r.conditions, { fieldId: fields[0]?.[0] ?? '', op: 'eq', value: '' }] })}>＋ condición</button>
+
+          <div className="rule-row" style={{ marginTop: 8 }}><span className="rule-lbl">Entonces</span></div>
+          {r.actions.map((a, i) => <div key={i} className="rule-row cond">
+            <select value={a.type} onChange={(e) => { const as = [...r.actions]; as[i] = { ...a, type: e.target.value as FormActionType }; upd(r.id, { actions: as }); }}>{FORM_ACTIONS.map(([tp, l]) => <option key={tp} value={tp}>{l}</option>)}</select>
+            <select value={a.fieldId} onChange={(e) => { const as = [...r.actions]; as[i] = { ...a, fieldId: e.target.value }; upd(r.id, { actions: as }); }}><option value="">—</option>{fields.map(([id, l]) => <option key={id} value={id}>{l}</option>)}</select>
+            <button className="xbtn" onClick={() => upd(r.id, { actions: r.actions.filter((_, j) => j !== i) })} aria-label="Quitar acción">✕</button>
+          </div>)}
+          <button className="linkbtn" onClick={() => upd(r.id, { actions: [...r.actions, { type: 'hide', fieldId: fields[0]?.[0] ?? '' }] })}>＋ acción</button>
+        </div>
+      </div>; })}
     </div>
     <button className="primary" style={{ marginTop: 12 }} onClick={add}>＋ Añadir regla</button>
   </div>;

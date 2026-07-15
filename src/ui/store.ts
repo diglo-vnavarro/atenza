@@ -6,6 +6,7 @@ import type { ClosureRules } from '../closure.js';
 import { isClosingStatus, closureBlockers } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import { applyBusinessRules } from '../rules.js';
+import type { FormRule } from '../formrules.js';
 import { pickByLoad } from '../assign.js';
 import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
@@ -75,6 +76,7 @@ interface State {
   setClosureRules: (rules: ClosureRules) => void;
   setReplyTemplates: (list: ReplyTemplate[]) => void;
   setBusinessRules: (list: BusinessRule[]) => void;
+  setFormRules: (list: FormRule[]) => void;
   autoAssign: (ticketId: string) => string | null;
   setWebhooks: (list: Webhook[]) => void;
   setCustomFields: (list: FieldDef[]) => void;
@@ -520,6 +522,10 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, replyTemplates: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { replyTemplates: list }).catch(errlog); }
         },
+        setFormRules: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, formRules: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { formRules: list }).catch(errlog); }
+        },
         setBusinessRules: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, businessRules: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { businessRules: list }).catch(errlog); }
@@ -753,6 +759,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v21', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v22', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

@@ -12,6 +12,7 @@ export const DEFAULT_CUSTOM_FIELDS: FieldDef[] = [
 import type { ClosureRules } from '../closure.js';
 import { DEFAULT_CLOSURE_RULES } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
+import type { FormRule } from '../formrules.js';
 import type { Webhook } from '../webhooks.js';
 import type { KbArticle } from '../kb.js';
 import type { Announcement } from '../announce.js';
@@ -37,6 +38,13 @@ export const DEFAULT_KB_ARTICLES: KbArticle[] = [
 export const DEFAULT_BUSINESS_RULES: BusinessRule[] = [
   { id: 'br-redes', name: 'Incidencias de Redes → grupo Redes', enabled: true, match: 'all',
     conditions: [{ field: 'category', op: 'contains', value: 'Red' }], actions: [{ type: 'setGroup', value: 'g-red' }] },
+];
+
+// Reglas del formulario por defecto (demo sobre la plantilla de incidencia):
+// si el usuario es VIP, el Nº de activo pasa a obligatorio.
+export const DEFAULT_FORM_RULES: FormRule[] = [
+  { id: 'fr-vip', name: 'Nº de activo obligatorio para usuarios VIP', enabled: true, templateIds: ['tpl-inc'], scope: 'both', match: 'all',
+    conditions: [{ fieldId: 'fd-vip', op: 'eq', value: 'true' }], actions: [{ type: 'mandatory', fieldId: 'fd-asset' }] },
 ];
 
 // Respuestas predefinidas por defecto (el admin las edita).
@@ -200,6 +208,8 @@ export interface TenantData {
   replyTemplates?: ReplyTemplate[];
   /** reglas de negocio (condición → acción al crear el ticket). */
   businessRules?: BusinessRule[];
+  /** reglas del formulario (mostrar/ocultar/obligar campos según valores). */
+  formRules?: FormRule[];
   /** webhooks salientes (activadores hacia terceros). */
   webhooks?: Webhook[];
   /** base de conocimiento (Soluciones). */
@@ -389,7 +399,7 @@ export function makeSeed(now: number): DB {
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES, announcements: DEFAULT_ANNOUNCEMENTS, customFields: DEFAULT_CUSTOM_FIELDS,
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, formRules: DEFAULT_FORM_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES, announcements: DEFAULT_ANNOUNCEMENTS, customFields: DEFAULT_CUSTOM_FIELDS,
     serviceCategoryIcons: { 'Incidencias': '🛠️', 'Solicitudes de servicio': '📥' },
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
