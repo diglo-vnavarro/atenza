@@ -809,6 +809,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v27', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v28', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

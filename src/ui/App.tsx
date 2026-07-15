@@ -10,6 +10,7 @@ import { Login } from './Login.js';
 import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
 import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
+import { madridHolidayDates } from '../holidays.js';
 import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
 import { FORM_OPS, FORM_ACTIONS, evaluateFormRules, type FormRule, type FormActionType, type FormScope, type FieldEffects } from '../formrules.js';
 import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate, ApprovalLevelDef, ChecklistItemDef } from '../model.js';
@@ -1169,6 +1170,8 @@ function CalendarAdmin({ tenant }: { tenant: TenantData }) {
   const bh = tenant.businessHours ?? { days: [1, 2, 3, 4, 5], start: '09:00', end: '18:00' };
   const holidays = tenant.holidays ?? [];
   const [nh, setNh] = useState('');
+  const [ny, setNy] = useState(String(new Date().getFullYear()));
+  const loadMadrid = () => { const y = Number(ny); if (!y) return; const add = madridHolidayDates([y]).filter((d) => !holidays.includes(d)); if (add.length) setHol([...holidays, ...add].sort()); };
   const toggleDay = (d: number) => setBH({ ...bh, days: bh.days.includes(d) ? bh.days.filter((x) => x !== d) : [...bh.days, d].sort() });
   return <div className="work">
     <div className="card"><h2>Horario laboral</h2>
@@ -1188,7 +1191,12 @@ function CalendarAdmin({ tenant }: { tenant: TenantData }) {
       <div className="designer">
         <input type="date" value={nh} onChange={(e) => setNh(e.target.value)} />
         <button className="primary" onClick={() => { if (nh && !holidays.includes(nh)) { setHol([...holidays, nh]); setNh(''); } }}>＋ Festivo</button>
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input type="number" value={ny} onChange={(e) => setNy(e.target.value)} style={{ width: 78 }} title="Año" />
+          <button className="ghost" onClick={loadMadrid} title="Añade los festivos oficiales de Madrid (nacionales + Comunidad + capital) de ese año">🏛️ Cargar festivos de Madrid</button>
+        </span>
       </div>
+      <p className="soft" style={{ fontSize: 12, marginTop: 8 }}>Festivos de Madrid como referencia (nacionales + Comunidad de Madrid + Madrid capital), con Semana Santa calculada. El SLA no cuenta estos días.</p>
     </div>
   </div>;
 }

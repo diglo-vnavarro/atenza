@@ -13,6 +13,7 @@ import type { ClosureRules } from '../closure.js';
 import { DEFAULT_CLOSURE_RULES } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import type { FormRule } from '../formrules.js';
+import { madridHolidayDates } from '../holidays.js';
 import type { Webhook } from '../webhooks.js';
 import type { KbArticle } from '../kb.js';
 import type { Announcement } from '../announce.js';
@@ -120,10 +121,9 @@ export const SDP_PICKLISTS: Picklists = {
 // franja los días laborables (ver sla.ts).
 export interface BusinessHours { days: number[]; start: string; end: string }
 export const DEFAULT_BUSINESS_HOURS: BusinessHours = { days: [1, 2, 3, 4, 5], start: '09:00', end: '18:00' };
-export const DEFAULT_HOLIDAYS: string[] = [
-  '2026-01-01', '2026-01-06', '2026-04-03', '2026-05-01', '2026-08-15',
-  '2026-10-12', '2026-11-01', '2026-12-06', '2026-12-08', '2026-12-25',
-];
+// Festivos REALES de Madrid (nacionales + Comunidad + capital), calculados con la
+// lógica portada de OrganiZate (Pascua incluida) para el rango vigente.
+export const DEFAULT_HOLIDAYS: string[] = madridHolidayDates([2025, 2026, 2027]);
 
 // Matriz de prioridades: Impacto × Urgencia → Prioridad. Por defecto se calcula
 // por "banda" (a mayor impacto+urgencia, mayor prioridad); el admin la edita.
