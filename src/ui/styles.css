@@ -354,6 +354,11 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .al-card{border:1px solid var(--line); border-radius:8px; padding:10px 12px; display:flex; flex-direction:column; gap:8px;}
 .al-head{display:flex; align-items:center; gap:8px;}
 .al-approvers{display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding-left:30px;}
+.ck-list{display:flex; flex-direction:column; gap:2px; margin-top:6px;}
+.ck-item{display:flex; align-items:center; gap:9px; padding:6px 8px; border-radius:6px; font-size:13px; color:var(--ink); cursor:pointer;}
+.ck-item:hover{background:var(--sink);}
+.ck-item.on span{color:var(--ink-faint); text-decoration:line-through;}
+.ck-item input{width:auto; flex:none;}
 .tt-add{display:flex; gap:8px; align-items:center; border-top:1px dashed var(--line); padding-top:12px;}
 .tt-add input{flex:1;}
 @media (max-width:640px){ .tt-type{width:90px;} }

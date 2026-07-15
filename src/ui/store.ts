@@ -67,6 +67,7 @@ interface State {
   addTask: (ticketId: string, text: string, opts?: { assigneeUid?: string | null; dueAt?: number | null; type?: string }) => void;
   updateTask: (ticketId: string, taskId: string, patch: Partial<import('../model.js').TicketTask>) => void;
   toggleTask: (ticketId: string, taskId: string) => void;
+  toggleChecklistItem: (ticketId: string, itemId: string) => void;
   moveTask: (ticketId: string, taskId: string, dir: number) => void;
   addWorklog: (ticketId: string, mins: number, note: string, techName: string) => void;
   requestApproval: (ticketId: string, approverUids: string[], note: string) => void;
@@ -316,6 +317,8 @@ export const useStore = create<State>()(
             // Tareas predefinidas de la plantilla → checklist inicial del ticket.
             ...(tpl?.taskTemplates?.length ? { tasks: tpl.taskTemplates.map((tt, i) => ({ id: `tk-${id}-${i}`, text: tt.text, done: false, ...(tt.type ? { type: tt.type } : {}), ...(tt.estimatedHours != null ? { estimatedHours: tt.estimatedHours } : {}) })) } : {}),
             ...(tplApprovals.length ? { approvals: tplApprovals } : {}),
+            // Lista de comprobación predefinida de la plantilla.
+            ...(tpl?.checklist?.length ? { checklist: tpl.checklist.map((c) => ({ id: c.id, text: c.text, done: false })) } : {}),
           } as StoredTicket;
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
           if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
@@ -344,7 +347,8 @@ export const useStore = create<State>()(
           const tk = t.tickets.find((x) => x.id === ticketId); if (!tk) return;
           const lc = lifecycleOfTicket(t, tk);
           if (!canTransition(lc, tk.status, to)) return;
-          if (isClosingStatus(t.statuses, to) && closureBlockers(t.closureRules, tk).length) return; // salvaguarda de reglas de cierre
+          const tplT = t.templates.find((x) => x.id === tk.templateId);
+          if (isClosingStatus(t.statuses, to) && closureBlockers(t.closureRules, tk, { checklistGate: tplT?.checklistGate, checklist: tk.checklist }).length) return; // salvaguarda de reglas de cierre
           const now = Date.now();
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
@@ -355,7 +359,8 @@ export const useStore = create<State>()(
         // Cambio de estado directo al catálogo (sin exigir transición del ciclo).
         setStatus: (ticketId, to) => {
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk || tk.status === to) return;
-          if (isClosingStatus(t.statuses, to) && closureBlockers(t.closureRules, tk).length) return; // salvaguarda de reglas de cierre
+          const tplS = t.templates.find((x) => x.id === tk.templateId);
+          if (isClosingStatus(t.statuses, to) && closureBlockers(t.closureRules, tk, { checklistGate: tplS?.checklistGate, checklist: tk.checklist }).length) return; // salvaguarda de reglas de cierre
           const now = Date.now();
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist } : x)) })) }));
@@ -449,6 +454,13 @@ export const useStore = create<State>()(
           const tasks = (tk.tasks ?? []).map((k) => (k.id === taskId ? { ...k, done: !k.done } : k));
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
+        },
+        toggleChecklistItem: (ticketId, itemId) => {
+          const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
+          const me = s.currentUserId; const now = Date.now();
+          const checklist = (tk.checklist ?? []).map((c) => (c.id === itemId ? { ...c, done: !c.done, by: !c.done ? me : undefined, at: !c.done ? now : undefined } : c));
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, checklist } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { checklist }).catch(errlog);
         },
         moveTask: (ticketId, taskId, dir) => {
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
@@ -776,6 +788,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v25', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v26', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

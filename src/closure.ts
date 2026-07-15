@@ -26,10 +26,12 @@ export function isClosingStatus(statuses: StatusDef[] | undefined, name: string)
   return !!st && st.timer === 'completed' && name !== 'Cancelada';
 }
 
-/** Lista de requisitos SIN cumplir (vacía = se puede cerrar). */
+/** Lista de requisitos SIN cumplir (vacía = se puede cerrar). `opts` añade la
+ *  puerta de la lista de comprobación de la plantilla (si la exige). */
 export function closureBlockers(
   rules: ClosureRules | undefined,
   t: Pick<Ticket, 'resolution' | 'category' | 'comments' | 'worklog'>,
+  opts?: { checklistGate?: boolean; checklist?: { done: boolean }[] },
 ): string[] {
   const r = rules ?? {};
   const miss: string[] = [];
@@ -37,5 +39,6 @@ export function closureBlockers(
   if (r.requireCategory && !t.category) miss.push('categoría');
   if (r.requireComment && !(t.comments ?? []).some((c) => !c.internal)) miss.push('un comentario');
   if (r.requireWorklog && !(t.worklog ?? []).length) miss.push('tiempo registrado');
+  if (opts?.checklistGate && (opts.checklist ?? []).some((i) => !i.done)) miss.push('lista de comprobación completa');
   return miss;
 }

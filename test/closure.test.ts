@@ -44,4 +44,12 @@ describe('closureBlockers', () => {
   it('sin reglas, nada bloquea', () => {
     expect(closureBlockers(undefined, {})).toEqual([]);
   });
+  it('puerta de lista de comprobación: bloquea si hay ítems sin marcar', () => {
+    const ck = [{ done: true }, { done: false }];
+    expect(closureBlockers(undefined, {}, { checklistGate: true, checklist: ck })).toEqual(['lista de comprobación completa']);
+    expect(closureBlockers(undefined, {}, { checklistGate: true, checklist: [{ done: true }, { done: true }] })).toEqual([]);
+  });
+  it('sin puerta, una lista incompleta no bloquea', () => {
+    expect(closureBlockers(undefined, {}, { checklistGate: false, checklist: [{ done: false }] })).toEqual([]);
+  });
 });

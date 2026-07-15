@@ -12,7 +12,7 @@ import { slaStatus } from '../sla.js';
 import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
 import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
 import { FORM_OPS, FORM_ACTIONS, evaluateFormRules, type FormRule, type FormActionType, type FormScope, type FieldEffects } from '../formrules.js';
-import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate, ApprovalLevelDef } from '../model.js';
+import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate, ApprovalLevelDef, ChecklistItemDef } from '../model.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
@@ -455,6 +455,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
   const setResolution = useStore((s) => s.setResolution);
   const addTask = useStore((s) => s.addTask);
   const toggleTask = useStore((s) => s.toggleTask);
+  const toggleChecklistItem = useStore((s) => s.toggleChecklistItem);
   const moveTask = useStore((s) => s.moveTask);
   const updateTask = useStore((s) => s.updateTask);
   const addWorklog = useStore((s) => s.addWorklog);
@@ -547,6 +548,17 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
             <div className="k">{labelOf(id)}</div><span style={{ fontSize: 13 }}>{v === 'true' ? 'Sí' : v === 'false' ? 'No' : (nameOf(v) ?? v)}</span>
           </div>)}</div>
         </div> : null;
+      })()}
+      {(t.checklist ?? []).length > 0 && (() => {
+        const tpl = tenant.templates.find((x) => x.id === t.templateId);
+        const done = t.checklist!.filter((c) => c.done).length; const total = t.checklist!.length;
+        return <div style={{ marginTop: 12 }}>
+          <div className="k">Lista de comprobación <span className="pill">{done}/{total}</span>{tpl?.checklistGate && done < total && <span className="pill" style={{ background: 'var(--crit-bg)', color: 'var(--crit)', marginLeft: 4 }}>bloquea el cierre</span>}</div>
+          <div className="ck-list">{t.checklist!.map((c) => <label key={c.id} className={'ck-item' + (c.done ? ' on' : '')}>
+            <input type="checkbox" checked={c.done} disabled={readOnly} onChange={() => toggleChecklistItem(t.id, c.id)} />
+            <span>{c.text}</span>
+          </label>)}</div>
+        </div>;
       })()}
       {isClosingStatus(tenant.statuses, t.status) && (t.survey
         ? <div className="survey-box"><div className="k">Satisfacción (CSAT)</div>
@@ -2115,7 +2127,7 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const [ncol, setNcol] = useState<1 | 2>(1);
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
-  const [view, setView] = useState<'tech' | 'req' | 'tasks' | 'approvals'>('tech');
+  const [view, setView] = useState<'tech' | 'req' | 'tasks' | 'approvals' | 'checklist'>('tech');
   const [showPrev, setShowPrev] = useState(false);
   const [palTab, setPalTab] = useState<'avail' | 'new'>('avail');
   const [palQ, setPalQ] = useState('');
@@ -2200,6 +2212,15 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const toggleApprover = (lv: ApprovalLevelDef, uid: string) => updApprLevel(lv.id, { approverUids: lv.approverUids.includes(uid) ? lv.approverUids.filter((x) => x !== uid) : [...lv.approverUids, uid] });
   const approverPool = tenant.members.filter((m) => m.role !== 'requester');
 
+  // --- Lista de comprobación predefinida de la plantilla ---
+  const checkItems = tpl.checklist ?? [];
+  const [ncheck, setNcheck] = useState('');
+  const saveCheck = (list: ChecklistItemDef[]) => updateTemplate(tpl.id, { checklist: list });
+  const addCheck = () => { if (!ncheck.trim()) return; saveCheck([...checkItems, { id: 'ck-' + Date.now(), text: ncheck.trim() }]); setNcheck(''); };
+  const updCheck = (id: string, text: string) => saveCheck(checkItems.map((x) => (x.id === id ? { ...x, text } : x)));
+  const delCheck = (id: string) => saveCheck(checkItems.filter((x) => x.id !== id));
+  const moveCheck = (i: number, dir: number) => { const j = i + dir; if (j < 0 || j >= checkItems.length) return; const n = [...checkItems]; [n[i], n[j]] = [n[j]!, n[i]!]; saveCheck(n); };
+
   return <div className="card te">
     <div className="te-head">
       <input className="te-name" value={tpl.name} onChange={(e) => updateTemplate(tpl.id, { name: e.target.value })} />
@@ -2223,9 +2244,9 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
       <button className="dim" disabled>Información de recurso<span className="soon">pronto</span></button>
       <button className={view === 'approvals' && !showPrev ? 'on' : ''} onClick={() => { setView('approvals'); setShowPrev(false); }}>Aprobaciones{(tpl.approvalLevels?.length ?? 0) > 0 && <span className="pill" style={{ marginLeft: 6 }}>{tpl.approvalLevels!.length}</span>}</button>
       <button className={view === 'tasks' && !showPrev ? 'on' : ''} onClick={() => { setView('tasks'); setShowPrev(false); }}>Tareas{(tpl.taskTemplates?.length ?? 0) > 0 && <span className="pill" style={{ marginLeft: 6 }}>{tpl.taskTemplates!.length}</span>}</button>
-      <button className="dim" disabled>Listas de comprobación<span className="soon">pronto</span></button>
+      <button className={view === 'checklist' && !showPrev ? 'on' : ''} onClick={() => { setView('checklist'); setShowPrev(false); }}>Listas de comprobación{(tpl.checklist?.length ?? 0) > 0 && <span className="pill" style={{ marginLeft: 6 }}>{tpl.checklist!.length}</span>}</button>
       <button className="dim" disabled>Reglas del formulario<span className="soon">pronto</span></button>
-      {view !== 'tasks' && view !== 'approvals' && <button className="te-prev" onClick={() => setShowPrev(!showPrev)}>{showPrev ? '‹ Volver al editor' : '⤢ Vista preliminar'}</button>}
+      {view !== 'tasks' && view !== 'approvals' && view !== 'checklist' && <button className="te-prev" onClick={() => setShowPrev(!showPrev)}>{showPrev ? '‹ Volver al editor' : '⤢ Vista preliminar'}</button>}
     </div>
 
     {view === 'tasks' ? <div className="tt-editor">
@@ -2267,6 +2288,23 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
         {apprLevels.length === 0 && <div className="empty">Sin niveles de aprobación. Esta plantilla no requiere visto bueno.</div>}
       </div>
       <button className="primary" style={{ marginTop: 10 }} onClick={addApprLevel}>＋ Añadir nivel de aprobación</button>
+    </div> : view === 'checklist' ? <div className="tt-editor">
+      <p className="cfg-lead">Lista de comprobación que se instancia en el ticket al crearlo (verificación ligera, sin responsable ni horas). Distinta de las Tareas.</p>
+      <label className="te-vis" style={{ marginBottom: 8 }}><span>Bloquear el cierre hasta completar la lista</span><button className={'toggle' + (tpl.checklistGate ? ' on' : '')} onClick={() => updateTemplate(tpl.id, { checklistGate: !tpl.checklistGate })} aria-label="Bloquear cierre" /></label>
+      <div className="tt-list">
+        {checkItems.map((c, i) => <div key={c.id} className="tt-row">
+          <span className="tt-num">✓</span>
+          <input className="tt-text" value={c.text} onChange={(e) => updCheck(c.id, e.target.value)} placeholder="Punto a comprobar" />
+          <button className="xbtn" onClick={() => moveCheck(i, -1)} disabled={i === 0} aria-label="Subir">↑</button>
+          <button className="xbtn" onClick={() => moveCheck(i, 1)} disabled={i === checkItems.length - 1} aria-label="Bajar">↓</button>
+          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => delCheck(c.id)} aria-label="Eliminar">✕</button>
+        </div>)}
+        {checkItems.length === 0 && <div className="empty">Sin puntos de comprobación.</div>}
+      </div>
+      <div className="tt-add">
+        <input value={ncheck} onChange={(e) => setNcheck(e.target.value)} placeholder="Nuevo punto…" onKeyDown={(e) => { if (e.key === 'Enter') addCheck(); }} />
+        <button className="primary" onClick={addCheck} disabled={!ncheck.trim()}>＋ Añadir punto</button>
+      </div>
     </div> : <div className="fbx2">
       <div className="fbx-canvas">
         {showPrev

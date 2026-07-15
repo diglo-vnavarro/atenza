@@ -72,6 +72,8 @@ export interface Ticket {
   comments?: TicketComment[];
   /** subtareas / checklist (pestaña Tareas). */
   tasks?: TicketTask[];
+  /** lista de comprobación instanciada desde la plantilla (verificación ligera). */
+  checklist?: ChecklistItem[];
   /** registro de tiempo trabajado (pestaña Tiempo). */
   worklog?: WorkEntry[];
   /** solicitudes de aprobación (pestaña Aprobaciones). */
@@ -113,6 +115,10 @@ export interface TaskTemplate { id: string; text: string; type?: string; estimat
 /** Nivel de aprobación predefinido de una plantilla: se instancia como Approval(s)
  *  al crear el ticket. `rule` = basta con uno (any) o deben aprobar todos (all). */
 export interface ApprovalLevelDef { id: string; name: string; approverUids: string[]; rule: 'any' | 'all' }
+/** Ítem de lista de comprobación predefinido de una plantilla (verificación ligera). */
+export interface ChecklistItemDef { id: string; text: string }
+/** Ítem de lista de comprobación instanciado en un ticket. */
+export interface ChecklistItem { id: string; text: string; done: boolean; by?: string; at?: number }
 /** Registro de tiempo trabajado en un ticket (alimenta la capacidad del técnico). */
 export interface WorkEntry { id: string; techUid: string; techName: string; mins: number; at: number; note?: string }
 
@@ -206,6 +212,10 @@ export interface Template {
   taskTemplates?: TaskTemplate[];
   /** niveles de aprobación predefinidos: se instancian como aprobaciones al crear. */
   approvalLevels?: ApprovalLevelDef[];
+  /** lista de comprobación predefinida: se instancia en el ticket al crear. */
+  checklist?: ChecklistItemDef[];
+  /** si true, no se puede resolver/cerrar hasta completar la lista de comprobación. */
+  checklistGate?: boolean;
   /** agrupación del catálogo de creación (categoría de servicio de SDP). */
   group?: string;
   /** ¿visible para el solicitante en el catálogo de autoservicio? (false = solo staff). */

@@ -402,7 +402,11 @@ export function makeSeed(now: number): DB {
           { id: 'tt-diag', text: 'Diagnóstico inicial' },
           { id: 'tt-fix', text: 'Aplicar solución' },
           { id: 'tt-verify', text: 'Verificar con el usuario', type: 'Seguimiento' },
-        ] },
+        ],
+        checklist: [
+          { id: 'ck-doc', text: 'Solución documentada en el ticket' },
+          { id: 'ck-user', text: 'Usuario notificado de la resolución' },
+        ], checklistGate: true },
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'],
         approvalLevels: [{ id: 'al-resp', name: 'Visto bueno del responsable', approverUids: ['u-admin'], rule: 'any' }] },
     ], slas: itSlas,
