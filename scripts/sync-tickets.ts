@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { isArchivedStatus } from '../src/model.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const importer = join(here, '..', 'importer');
@@ -40,7 +41,9 @@ initializeApp({ projectId: process.env.GOOGLE_CLOUD_PROJECT ?? 'diglo-desk-pd' }
 const db = getFirestore();
 
 // Campos propiedad de Atenza que NUNCA se pisan al re-sincronizar desde SDP.
-const ATENZA_OWNED = ['worklog', 'tasks', 'approvals', 'attachments', 'comments', 'resolution'] as const;
+// Incluye lo de la migración al modo simplificado (serviceCategoryId/serviceCategory/
+// type) para NO deshacer F4c. `archived`/`createdAt` se recalculan aparte (abajo).
+const ATENZA_OWNED = ['worklog', 'tasks', 'approvals', 'attachments', 'comments', 'resolution', 'serviceCategoryId', 'serviceCategory', 'type'] as const;
 const remap = (uid: unknown) => (typeof uid === 'string' && idMap[uid]) ? idMap[uid] : uid;
 
 async function syncTickets() {
@@ -57,6 +60,9 @@ async function syncTickets() {
       if (tech !== t.technicianId || reqr !== t.requesterId) remapped++;
       const next: Record<string, unknown> = { ...t, requesterId: reqr, technicianId: tech, sdpId: t.id, syncedAt: Date.now() };
       for (const f of ATENZA_OWNED) if (prev[f] !== undefined) { next[f] = prev[f]; preserved++; } // preserva lo añadido en Atenza
+      // archived se DERIVA del estado (SDP es fuente de verdad); createdAt se conserva.
+      next.archived = isArchivedStatus(next.status as string);
+      next.createdAt = (prev.createdAt as number | undefined) ?? (t.statusHistory as { from?: number }[] | undefined)?.[0]?.from ?? Date.now();
       if (!DRY) batch.set(refs[j]!, next); // set completo pero con los campos Atenza reinyectados
       if (snap.exists) updated++; else created++;
     });
