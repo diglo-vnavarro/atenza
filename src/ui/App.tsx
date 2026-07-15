@@ -12,7 +12,7 @@ import { slaStatus } from '../sla.js';
 import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
 import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
 import { FORM_OPS, FORM_ACTIONS, evaluateFormRules, type FormRule, type FormActionType, type FormScope, type FieldEffects } from '../formrules.js';
-import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent } from '../model.js';
+import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate } from '../model.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
@@ -2087,11 +2087,12 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const commit = (next: FieldDef[]) => setTemplateFields(tpl.id, next);
   const [nf, setNf] = useState('');
   const [nft, setNft] = useState<FieldType>('text');
+  const [ntask, setNtask] = useState('');
   const [nsec, setNsec] = useState('');
   const [ncol, setNcol] = useState<1 | 2>(1);
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
-  const [view, setView] = useState<'tech' | 'req'>('tech');
+  const [view, setView] = useState<'tech' | 'req' | 'tasks'>('tech');
   const [showPrev, setShowPrev] = useState(false);
   const [palTab, setPalTab] = useState<'avail' | 'new'>('avail');
   const [palQ, setPalQ] = useState('');
@@ -2158,6 +2159,14 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
     </div>
   </div>;
 
+  // --- Tareas predefinidas de la plantilla ---
+  const taskTpls = tpl.taskTemplates ?? [];
+  const saveTasks = (list: TaskTemplate[]) => updateTemplate(tpl.id, { taskTemplates: list });
+  const addTaskTpl = () => { if (!ntask.trim()) return; saveTasks([...taskTpls, { id: 'tt-' + Date.now(), text: ntask.trim() }]); setNtask(''); };
+  const updTaskTpl = (id: string, patch: Partial<TaskTemplate>) => saveTasks(taskTpls.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const delTaskTpl = (id: string) => saveTasks(taskTpls.filter((x) => x.id !== id));
+  const moveTaskTpl = (i: number, dir: number) => { const j = i + dir; if (j < 0 || j >= taskTpls.length) return; const n = [...taskTpls]; [n[i], n[j]] = [n[j]!, n[i]!]; saveTasks(n); };
+
   return <div className="card te">
     <div className="te-head">
       <input className="te-name" value={tpl.name} onChange={(e) => updateTemplate(tpl.id, { name: e.target.value })} />
@@ -2176,17 +2185,34 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
     </div>}
 
     <div className="te-tabs">
-      <button className={view === 'tech' ? 'on' : ''} onClick={() => { setView('tech'); setShowPrev(false); }}>Vista del técnico</button>
-      <button className={view === 'req' ? 'on' : ''} onClick={() => { setView('req'); setShowPrev(false); }}>Vista del solicitante</button>
+      <button className={view === 'tech' && !showPrev ? 'on' : ''} onClick={() => { setView('tech'); setShowPrev(false); }}>Vista del técnico</button>
+      <button className={view === 'req' && !showPrev ? 'on' : ''} onClick={() => { setView('req'); setShowPrev(false); }}>Vista del solicitante</button>
       <button className="dim" disabled>Información de recurso<span className="soon">pronto</span></button>
       <button className="dim" disabled>Aprobaciones<span className="soon">pronto</span></button>
-      <button className="dim" disabled>Tareas<span className="soon">pronto</span></button>
+      <button className={view === 'tasks' && !showPrev ? 'on' : ''} onClick={() => { setView('tasks'); setShowPrev(false); }}>Tareas{(tpl.taskTemplates?.length ?? 0) > 0 && <span className="pill" style={{ marginLeft: 6 }}>{tpl.taskTemplates!.length}</span>}</button>
       <button className="dim" disabled>Listas de comprobación<span className="soon">pronto</span></button>
       <button className="dim" disabled>Reglas del formulario<span className="soon">pronto</span></button>
-      <button className="te-prev" onClick={() => setShowPrev(!showPrev)}>{showPrev ? '‹ Volver al editor' : '⤢ Vista preliminar'}</button>
+      {view !== 'tasks' && <button className="te-prev" onClick={() => setShowPrev(!showPrev)}>{showPrev ? '‹ Volver al editor' : '⤢ Vista preliminar'}</button>}
     </div>
 
-    <div className="fbx2">
+    {view === 'tasks' ? <div className="tt-editor">
+      <p className="cfg-lead">Tareas que se crean automáticamente como checklist del ticket al generarlo desde esta plantilla (como en SDP). Luego se completan/editan en la pestaña «Tareas» del ticket.</p>
+      <div className="tt-list">
+        {taskTpls.map((tt, i) => <div key={tt.id} className="tt-row">
+          <span className="tt-num">{i + 1}</span>
+          <input className="tt-text" value={tt.text} onChange={(e) => updTaskTpl(tt.id, { text: e.target.value })} placeholder="Descripción de la tarea" />
+          <input className="tt-type" value={tt.type ?? ''} onChange={(e) => updTaskTpl(tt.id, { type: e.target.value || undefined })} placeholder="Tipo (opcional)" />
+          <button className="xbtn" onClick={() => moveTaskTpl(i, -1)} disabled={i === 0} aria-label="Subir">↑</button>
+          <button className="xbtn" onClick={() => moveTaskTpl(i, 1)} disabled={i === taskTpls.length - 1} aria-label="Bajar">↓</button>
+          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => delTaskTpl(tt.id)} aria-label="Eliminar">✕</button>
+        </div>)}
+        {taskTpls.length === 0 && <div className="empty">Sin tareas predefinidas. Añade la primera abajo.</div>}
+      </div>
+      <div className="tt-add">
+        <input value={ntask} onChange={(e) => setNtask(e.target.value)} placeholder="Nueva tarea…" onKeyDown={(e) => { if (e.key === 'Enter') addTaskTpl(); }} />
+        <button className="primary" onClick={addTaskTpl} disabled={!ntask.trim()}>＋ Añadir tarea</button>
+      </div>
+    </div> : <div className="fbx2">
       <div className="fbx-canvas">
         {showPrev
           ? <div className="preview">
@@ -2260,6 +2286,6 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
           <div className="fcol-empty" style={{ fontSize: 11, textAlign: 'left' }}>O arrastra un tipo desde «Disponible» al canvas.</div>
         </div>}
       </aside>
-    </div>
+    </div>}
   </div>;
 }

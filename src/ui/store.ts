@@ -303,6 +303,8 @@ export const useStore = create<State>()(
             ...merged, status: finalStatus,
             slaId: SLA_BY_PRIORITY[merged.priority ?? ''] ?? null,
             statusHistory: [{ state: finalStatus, from: now, to: null }],
+            // Tareas predefinidas de la plantilla → checklist inicial del ticket.
+            ...(tpl?.taskTemplates?.length ? { tasks: tpl.taskTemplates.map((tt, i) => ({ id: `tk-${id}-${i}`, text: tt.text, done: false, ...(tt.type ? { type: tt.type } : {}) })) } : {}),
           } as StoredTicket;
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
           if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
@@ -759,6 +761,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v22', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v23', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

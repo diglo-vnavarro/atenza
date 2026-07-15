@@ -107,6 +107,9 @@ export interface ReplyTemplate { id: string; title: string; body: string }
 
 export interface TicketComment { author: string; authorName: string; at: number; text: string; internal?: boolean }
 export interface TicketTask { id: string; text: string; done: boolean; assigneeUid?: string | null; dueAt?: number | null; type?: string }
+/** Tarea predefinida de una plantilla: se instancia como TicketTask al crear el
+ *  ticket (checklist estándar de la tipología, como en SDP). */
+export interface TaskTemplate { id: string; text: string; type?: string }
 /** Registro de tiempo trabajado en un ticket (alimenta la capacidad del técnico). */
 export interface WorkEntry { id: string; techUid: string; techName: string; mins: number; at: number; note?: string }
 
@@ -194,6 +197,8 @@ export interface Template {
   fields: string[];
   /** definición completa de campos del formulario (constructor de formularios). */
   fieldDefs?: FieldDef[];
+  /** tareas predefinidas: se instancian como checklist del ticket al crearlo. */
+  taskTemplates?: TaskTemplate[];
   /** agrupación del catálogo de creación (categoría de servicio de SDP). */
   group?: string;
   /** ¿visible para el solicitante en el catálogo de autoservicio? (false = solo staff). */

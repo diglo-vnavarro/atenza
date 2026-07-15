@@ -395,6 +395,11 @@ export function makeSeed(now: number): DB {
           { id: 'fd-desc', label: 'Descripción', type: 'textarea', mandatory: true, requesterVisible: true, section: 'Detalles de la solicitud', full: true },
           { id: 'fd-asset', label: 'Nº de activo', type: 'text', requesterVisible: true, section: 'Información adicional', col: 1 },
           { id: 'fd-vip', label: 'Usuario VIP', type: 'bool', requesterVisible: false, section: 'Información adicional', full: true },
+        ],
+        taskTemplates: [
+          { id: 'tt-diag', text: 'Diagnóstico inicial' },
+          { id: 'tt-fix', text: 'Aplicar solución' },
+          { id: 'tt-verify', text: 'Verificar con el usuario', type: 'Seguimiento' },
         ] },
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'] },
     ], slas: itSlas,
