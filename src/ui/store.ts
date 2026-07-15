@@ -77,6 +77,7 @@ interface State {
   setReplyTemplates: (list: ReplyTemplate[]) => void;
   setBusinessRules: (list: BusinessRule[]) => void;
   setFormRules: (list: FormRule[]) => void;
+  setOrganizateGroups: (ids: string[]) => void;
   autoAssign: (ticketId: string) => string | null;
   setWebhooks: (list: Webhook[]) => void;
   setCustomFields: (list: FieldDef[]) => void;
@@ -304,7 +305,7 @@ export const useStore = create<State>()(
             slaId: SLA_BY_PRIORITY[merged.priority ?? ''] ?? null,
             statusHistory: [{ state: finalStatus, from: now, to: null }],
             // Tareas predefinidas de la plantilla → checklist inicial del ticket.
-            ...(tpl?.taskTemplates?.length ? { tasks: tpl.taskTemplates.map((tt, i) => ({ id: `tk-${id}-${i}`, text: tt.text, done: false, ...(tt.type ? { type: tt.type } : {}) })) } : {}),
+            ...(tpl?.taskTemplates?.length ? { tasks: tpl.taskTemplates.map((tt, i) => ({ id: `tk-${id}-${i}`, text: tt.text, done: false, ...(tt.type ? { type: tt.type } : {}), ...(tt.estimatedHours != null ? { estimatedHours: tt.estimatedHours } : {}) })) } : {}),
           } as StoredTicket;
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
           if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
@@ -527,6 +528,10 @@ export const useStore = create<State>()(
         setFormRules: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, formRules: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { formRules: list }).catch(errlog); }
+        },
+        setOrganizateGroups: (ids) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, organizateGroupIds: ids })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { organizateGroupIds: ids }).catch(errlog); }
         },
         setBusinessRules: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, businessRules: list })) }));
@@ -761,6 +766,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v23', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v24', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

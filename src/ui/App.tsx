@@ -996,9 +996,9 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', '✉️', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
-  ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Exportar / archivar', null]]],
+  ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1320,6 +1320,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'servicios' && <ServiceCatalogAdmin tenant={tenant} nav={setSec} />}
     {sec === 'formreglas' && <FormRulesAdmin tenant={tenant} />}
     {sec === 'sync' && <SyncAdmin tenant={tenant} />}
+    {sec === 'organizate' && <OrganizateAdmin tenant={tenant} />}
     </div>
   </div>;
 }
@@ -1378,6 +1379,28 @@ function SyncAdmin({ tenant }: { tenant: TenantData }) {
       <div><div className="k">Última sincronización</div><div style={{ fontSize: 15, fontWeight: 600 }}>{last ? fmtDate(last) : '—'}</div></div>
     </div>
     <div className="banner" style={{ marginTop: 14 }}>Programación: <b>cada 4 h</b> (Europe/Madrid). Ejecución manual y logs desde GCP (Cloud Scheduler «atenza-sync-sdp» / Cloud Run Job «sync-sdp»). Runbook: <span className="mono">docs/SYNC-JOB.md</span>. Desde la app es de solo lectura; disparar bajo demanda requiere permisos de GCP.</div>
+  </div>;
+}
+
+// Integración con OrganiZate: elige qué grupos de soporte sincronizan sus tareas
+// como carga en OrganiZate (crear/cerrar tarea allí). Selección escalonada por grupo.
+function OrganizateAdmin({ tenant }: { tenant: TenantData }) {
+  const setOrganizateGroups = useStore((s) => s.setOrganizateGroups);
+  const on = tenant.organizateGroupIds ?? [];
+  const toggle = (gid: string) => setOrganizateGroups(on.includes(gid) ? on.filter((x) => x !== gid) : [...on, gid]);
+  const ticketsOf = (gid: string) => tenant.tickets.filter((t) => t.groupId === gid).length;
+  const tasksOf = (gid: string) => tenant.tickets.filter((t) => t.groupId === gid).reduce((n, t) => n + (t.tasks?.length ?? 0), 0);
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Integra Atenza con <b>OrganiZate</b> para reflejar la carga real del técnico: cuando se asigna una tarea de un ticket de un grupo activado, se crea la tarea equivalente en OrganiZate (suma a su carga); al cerrarla, se marca como hecha (deja de contar). Activa la integración <b>por grupo de soporte</b>, de forma escalonada. La sincronización corre <b>server-side</b> (job periódico), preservando las tareas propias de OrganiZate.</p>
+    <div className="banner" style={{ marginBottom: 12 }}>Requiere <b>horas estimadas</b> en la tarea (se definen en la plantilla o en el ticket) para calcular la carga. Sin horas, se asume un valor por defecto.</div>
+    <table className="mgmt"><thead><tr><th style={{ width: 90 }}>Integrar</th><th>Grupo de soporte</th><th style={{ width: 110 }}>Tickets</th><th style={{ width: 110 }}>Tareas</th></tr></thead>
+      <tbody>{tenant.groups.map((g) => <tr key={g.id}>
+        <td><label className="switch"><input type="checkbox" checked={on.includes(g.id)} onChange={() => toggle(g.id)} /><span className="track" /></label></td>
+        <td style={{ fontWeight: 500 }}>{g.name}</td>
+        <td className="soft">{ticketsOf(g.id)}</td>
+        <td className="soft">{tasksOf(g.id)}</td>
+      </tr>)}</tbody></table>
+    <div style={{ fontSize: 12.5, color: 'var(--ink-soft)', marginTop: 12 }}><b>{on.length}</b> de {tenant.groups.length} grupos integrados.</div>
   </div>;
 }
 
@@ -2202,6 +2225,7 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
           <span className="tt-num">{i + 1}</span>
           <input className="tt-text" value={tt.text} onChange={(e) => updTaskTpl(tt.id, { text: e.target.value })} placeholder="Descripción de la tarea" />
           <input className="tt-type" value={tt.type ?? ''} onChange={(e) => updTaskTpl(tt.id, { type: e.target.value || undefined })} placeholder="Tipo (opcional)" />
+          <input className="tt-hours" type="number" min={0} step={0.5} value={tt.estimatedHours ?? ''} onChange={(e) => updTaskTpl(tt.id, { estimatedHours: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="h" title="Horas estimadas (para la carga en OrganiZate)" />
           <button className="xbtn" onClick={() => moveTaskTpl(i, -1)} disabled={i === 0} aria-label="Subir">↑</button>
           <button className="xbtn" onClick={() => moveTaskTpl(i, 1)} disabled={i === taskTpls.length - 1} aria-label="Bajar">↓</button>
           <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => delTaskTpl(tt.id)} aria-label="Eliminar">✕</button>

@@ -348,7 +348,8 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .tt-row{display:flex; align-items:center; gap:8px;}
 .tt-num{width:22px; height:22px; flex:none; display:flex; align-items:center; justify-content:center; border-radius:50%; background:var(--sink); color:var(--ink-faint); font-size:11px; font-weight:700; font-family:var(--mono);}
 .tt-text{flex:1; min-width:0;}
-.tt-type{width:150px; flex:none;}
+.tt-type{width:140px; flex:none;}
+.tt-hours{width:60px; flex:none; text-align:center;}
 .tt-add{display:flex; gap:8px; align-items:center; border-top:1px dashed var(--line); padding-top:12px;}
 .tt-add input{flex:1;}
 @media (max-width:640px){ .tt-type{width:90px;} }
