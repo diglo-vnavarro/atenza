@@ -53,21 +53,33 @@ async function main() {
   const groupName = new Map(groupsSnap.docs.map((d) => [d.id, (d.data() as { name?: string }).name ?? d.id]));
   console.log(`Atenza: ${tickets.length} tickets · ${emailByUid.size} miembros (${techEmails.size} técnicos).`);
 
-  // 2) OrganiZate: doc de estado → members (email→id) + tasks actuales
-  const ref = odb.doc(`orgs/${ORG_ID}/state/app`);
-  const snap = await ref.get();
-  if (!snap.exists) { console.error(`El doc orgs/${ORG_ID}/state/app no existe en ${ORG_PROJECT}.`); process.exit(1); }
-  const rev = (snap.data()?.rev as number | undefined) ?? 0;
-  // El payload es el envoltorio de zustand-persist: { state: AppState, version }.
-  const env = JSON.parse((snap.data()?.payload as string | undefined) ?? '{}') as { state?: Record<string, unknown>; version?: number };
-  const state = (env.state ?? env) as { members?: { id: string; email?: string }[]; tasks?: OrgTask[] };
+  // 2) OrganiZate: modelo SHARDED (un doc por tipo de dato: orgs/{ORG_ID}/state/{clave},
+  //    payload = JSON del array de ESE tipo). Leemos los shards `members` (identidad)
+  //    y `tasks`. Fallback al doc legacy `app` (modelo antiguo de doc único) si aún
+  //    no se hubiera migrado. El puente escribe SOLO el shard `tasks` (sin contender
+  //    con el resto del estado de OrganiZate).
+  const membersRef = odb.doc(`orgs/${ORG_ID}/state/members`);
+  const tasksRef = odb.doc(`orgs/${ORG_ID}/state/tasks`);
+  const [membersSnap, tasksSnap] = await Promise.all([membersRef.get(), tasksRef.get()]);
+  const sharded = tasksSnap.exists || membersSnap.exists;
+  let orgMembers: { id: string; email?: string }[] = [];
+  let orgTasks: OrgTask[] = [];
+  if (sharded) {
+    orgMembers = JSON.parse((membersSnap.data()?.payload as string | undefined) ?? '[]') as typeof orgMembers;
+    orgTasks = JSON.parse((tasksSnap.data()?.payload as string | undefined) ?? '[]') as OrgTask[];
+  } else {
+    const legacy = await odb.doc(`orgs/${ORG_ID}/state/app`).get();
+    if (!legacy.exists) { console.error(`OrganiZate ${ORG_PROJECT}: no hay shards ni doc legacy en orgs/${ORG_ID}/state.`); process.exit(1); }
+    const env = JSON.parse((legacy.data()?.payload as string | undefined) ?? '{}') as { state?: { members?: typeof orgMembers; tasks?: OrgTask[] } };
+    orgMembers = env.state?.members ?? []; orgTasks = env.state?.tasks ?? [];
+  }
   const orgIdByEmail = new Map<string, string>();
-  for (const m of state.members ?? []) if (m.email) orgIdByEmail.set(m.email.toLowerCase(), m.id);
+  for (const m of orgMembers) if (m.email) orgIdByEmail.set(m.email.toLowerCase(), m.id);
   const orgUidOf = (uid?: string | null): string | null => { if (!uid) return null; const e = emailByUid.get(uid); return e ? orgIdByEmail.get(e) ?? null : null; };
 
   // Diagnóstico de identidad (email técnico Atenza ↔ miembro OrganiZate)
   const matched = [...techEmails].filter((e) => orgIdByEmail.has(e));
-  console.log(`OrganiZate: ${state.members?.length ?? 0} miembros · ${(state.tasks ?? []).length} tareas.`);
+  console.log(`OrganiZate (${sharded ? 'sharded' : 'legacy'}): ${orgMembers.length} miembros · ${orgTasks.length} tareas.`);
   console.log(`Correspondencia de identidad: ${matched.length}/${techEmails.size} técnicos de Atenza casan con un miembro de OrganiZate (por email).`);
   if (matched.length < techEmails.size) { const miss = [...techEmails].filter((e) => !orgIdByEmail.has(e)); console.log(`  Sin casar (${miss.length}): ${miss.slice(0, 8).join(', ')}${miss.length > 8 ? '…' : ''}`); }
 
@@ -113,8 +125,8 @@ async function main() {
 
   // 4) Reconciliar: conservar tareas propias de OrganiZate; sustituir el conjunto
   //    de tareas-puente por `desired`.
-  const own = (state.tasks ?? []).filter((x) => !x.sourceAtenzaTaskId);
-  const prevBridge = (state.tasks ?? []).filter((x) => x.sourceAtenzaTaskId);
+  const own = orgTasks.filter((x) => !x.sourceAtenzaTaskId);
+  const prevBridge = orgTasks.filter((x) => x.sourceAtenzaTaskId);
   const prevById = new Map(prevBridge.map((x) => [x.id, x]));
   const desiredIds = new Set(desired.map((x) => x.id));
   let added = 0, updated = 0, unchanged = 0;
@@ -140,23 +152,44 @@ async function main() {
     return;
   }
 
-  // 5) Escribir con transacción (guardia por rev; reintentos ante conflicto)
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      await odb.runTransaction(async (tx) => {
-        const cur = await tx.get(ref);
-        const curRev = (cur.data()?.rev as number | undefined) ?? 0;
-        const curEnv = JSON.parse((cur.data()?.payload as string | undefined) ?? '{}') as { state?: { tasks?: OrgTask[] }; version?: number };
-        const curState = (curEnv.state ?? curEnv) as { tasks?: OrgTask[] };
-        const curOwn = (curState.tasks ?? []).filter((x) => !x.sourceAtenzaTaskId);
-        const mergedState = { ...curState, tasks: [...curOwn, ...desired] };
-        const mergedEnv = curEnv.state ? { ...curEnv, state: mergedState } : mergedState;
-        tx.set(ref, { payload: JSON.stringify(mergedEnv), rev: curRev + 1, updatedAt: new Date() }, { merge: true });
-      });
-      console.log(`Aplicado en OrganiZate (rev previo ${rev}).`);
-      return;
-    } catch (e) { console.warn(`Reintento ${attempt + 1}: ${(e as Error).message}`); }
+  // 5) Escribir. Modelo sharded → transacción SOLO sobre el shard `tasks` (re-lee
+  //    en la transacción y conserva las tareas propias actuales; toca solo las del
+  //    puente). La transacción de Firestore reintenta ante escritura concurrente.
+  if (sharded) {
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        await odb.runTransaction(async (tx) => {
+          const cur = await tx.get(tasksRef);
+          const curRev = (cur.data()?.rev as number | undefined) ?? 0;
+          const curTasks = JSON.parse((cur.data()?.payload as string | undefined) ?? '[]') as OrgTask[];
+          const curOwn = curTasks.filter((x) => !x.sourceAtenzaTaskId);
+          // merge:true conserva `version` y demás campos del shard.
+          tx.set(tasksRef, { payload: JSON.stringify([...curOwn, ...desired]), rev: curRev + 1, updatedAt: new Date() }, { merge: true });
+        });
+        console.log('Aplicado en OrganiZate (shard `tasks`).');
+        return;
+      } catch (e) { console.warn(`Reintento ${attempt + 1}: ${(e as Error).message}`); }
+    }
+    console.error('No se pudo escribir el shard `tasks` tras varios reintentos.'); process.exit(1);
+  } else {
+    // Fallback legacy: doc único `app` con envoltorio { state, version }.
+    const ref = odb.doc(`orgs/${ORG_ID}/state/app`);
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        await odb.runTransaction(async (tx) => {
+          const cur = await tx.get(ref);
+          const curRev = (cur.data()?.rev as number | undefined) ?? 0;
+          const curEnv = JSON.parse((cur.data()?.payload as string | undefined) ?? '{}') as { state?: { tasks?: OrgTask[] }; version?: number };
+          const curState = (curEnv.state ?? {}) as { tasks?: OrgTask[] };
+          const curOwn = (curState.tasks ?? []).filter((x) => !x.sourceAtenzaTaskId);
+          const mergedEnv = { ...curEnv, state: { ...curState, tasks: [...curOwn, ...desired] } };
+          tx.set(ref, { payload: JSON.stringify(mergedEnv), rev: curRev + 1, updatedAt: new Date() }, { merge: true });
+        });
+        console.log('Aplicado en OrganiZate (doc legacy `app`).');
+        return;
+      } catch (e) { console.warn(`Reintento ${attempt + 1}: ${(e as Error).message}`); }
+    }
+    console.error('No se pudo escribir el doc legacy tras varios reintentos.'); process.exit(1);
   }
-  console.error('No se pudo escribir tras varios reintentos (conflictos de rev).'); process.exit(1);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

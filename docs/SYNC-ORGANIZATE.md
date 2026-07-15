@@ -11,10 +11,14 @@ crear al asignar, cerrar al cerrar (deja de contar).
   De momento solo el tenant **diglo-it**.
 - Las tareas necesitan **horas estimadas** (se definen en la plantilla, pestaña
   «Tareas», o en el ticket). Sin horas, el puente asume `DEFAULT_TASK_HOURS` (1h).
-- OrganiZate guarda TODO su estado en un único doc `orgs/{ORG_ID}/state/app`
-  (`{ payload: <zustand-persist: {state, version}>, rev }`) con concurrencia por `rev`.
-  El puente escribe con **transacción** (guardia por rev, reintentos) y toca **solo**
-  las tareas que él crea (marcadas `sourceAtenzaTaskId`); nunca las del equipo.
+- OrganiZate reparte su estado en **un documento por tipo de dato**:
+  `orgs/{ORG_ID}/state/{clave}` (tasks, members, projects…), cada uno
+  `{ payload: <JSON del array de ese tipo>, rev, version }`. El puente lee el shard
+  `members` (identidad) y `tasks`, y **escribe SOLO el shard `tasks`** con una
+  **transacción** (re-lee dentro de la transacción, conserva las tareas propias
+  actuales y toca solo las suyas `sourceAtenzaTaskId`). Fallback: si aún no se hubiera
+  migrado a shards, lee/escribe el doc legacy único `orgs/{ORG_ID}/state/app`
+  (`{ payload: {state,version}, rev }`).
 - Identidad: técnico de Atenza ↔ miembro de OrganiZate **por email**. Los que no
   casan se omiten (se registran en el log).
 
@@ -56,17 +60,17 @@ Pasos del propietario (una vez):
      --max-retries 1 --task-timeout 300s
    ```
 
-## Concurrencia (importante)
+## Concurrencia (resuelta por el modelo sharded)
 
-OrganiZate reescribe TODO su estado (blob único) en cada guardado del cliente. El
-puente escribe con transacción (guardia por `rev`), pero un cliente con estado
-**en memoria previo** puede, al guardar, revertir los campos de una tarea-puente
-recién actualizada (no la borra: conserva el item, pero con su versión). El **job
-periódico converge** (reaplica en la siguiente pasada). Verificado en la prueba
-E2E: la escritura aplica correcta al instante; una pestaña activa la revirtió
-segundos después. Recomendación a futuro: mover las tareas de OrganiZate a una
-**subcolección** (`orgs/{id}/tasks/...`, ya previsto en su provider) para escrituras
-granulares sin carrera; entonces el puente escribiría solo su doc por tarea.
+Antes, con el doc único, un cliente con estado previo podía revertir la tarea-puente
+al guardar el blob completo. Desde que OrganiZate **reparte el estado por tipo de
+dato** (commit «repartir el estado en un documento por tipo de dato»), el puente
+escribe **solo el shard `tasks`**, aislado del resto (calendario, sugerencias…). La
+transacción re-lee el shard y conserva las tareas propias; y el propio OrganiZate,
+si detecta cambio de `rev` al escribir, **fusiona en 3 vías** en vez de pisar, así
+que las tareas del puente se conservan. El job periódico sigue convergiendo. La
+carrera queda reducida a «dos escrituras del shard tasks a la vez», absorbida por
+la transacción + reintentos.
 
 ## Notas / límites
 
