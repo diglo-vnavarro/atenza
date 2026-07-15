@@ -391,8 +391,8 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
       </div>
     </div>
 
-    {vw === 'list' ? <div className="wsplit">
-      <div className="listwrap tblwrap wsplit-list">
+    {vw === 'list'
+      ? <div className="listwrap tblwrap">
         {list.length === 0 ? <div className="empty" style={{ padding: 30 }}>{scope === 'requester' ? 'No has creado ninguna solicitud todavía.' : scope === 'assigned' ? 'No tienes solicitudes asignadas.' : 'No hay solicitudes en esta vista.'}</div>
           : <table className="mgmt">
             <thead><tr><th>ID</th><th>Asunto</th><th>Solicitante</th><th>Técnico</th><th>Grupo</th><th>Prioridad</th><th>Estado</th><th>Vence</th></tr></thead>
@@ -413,23 +413,20 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
             })}</tbody>
           </table>}
       </div>
-      <aside className="detailpane">
-        {selected ? <>
-          <div className="drawer-h"><h2>{selected.id} · {selected.type === 'incident' ? 'Incidencia' : 'Solicitud'}</h2><button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button></div>
-          <div className="drawer-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} caps={caps} readOnly={readOnly} meName={meName} meUid={user.uid} /></div>
-        </> : <div className="det-empty"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v16" /></svg><span>Selecciona una solicitud para ver el detalle.</span></div>}
-      </aside>
-    </div>
-    : <>
-      {list.length === 0 ? <div className="card"><div className="empty">No hay solicitudes en esta vista.</div></div>
-        : <Kanban tenant={tenant} list={list} stLabel={stLabel} onSelect={(id) => select(id)} selectedId={selectedId} />}
-      {selected && <div className="scrim" onClick={() => select(null)}>
-        <aside className="drawer detail" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Solicitud ' + selected.id}>
-          <div className="drawer-h"><h2>{selected.id} · {selected.type === 'incident' ? 'Incidencia' : 'Solicitud'}</h2><button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button></div>
-          <div className="drawer-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} caps={caps} readOnly={readOnly} meName={meName} meUid={user.uid} /></div>
-        </aside>
-      </div>}
-    </>}
+      : (list.length === 0 ? <div className="card"><div className="empty">No hay solicitudes en esta vista.</div></div>
+        : <Kanban tenant={tenant} list={list} stLabel={stLabel} onSelect={(id) => select(id)} selectedId={selectedId} />)}
+
+    {/* Detalle en MODAL amplio centrado (sustituye al drawer/panel estrecho). */}
+    {selected && <div className="scrim tmodal-scrim" onClick={() => select(null)}>
+      <div className="tmodal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Solicitud ' + selected.id}>
+        <div className="tmodal-h">
+          <span className={'tchip-type ' + (selected.type === 'incident' ? 'inc' : 'pet')}>{selected.type === 'incident' ? '🛠️ Incidencia' : '📥 Petición'}</span>
+          <b className="tmodal-title"><span className="id">{selected.id}</span> · {selected.subject}</b>
+          <button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button>
+        </div>
+        <div className="tmodal-b"><TicketDetail tenant={tenant} t={selected} canAct={canAct} caps={caps} readOnly={readOnly} meName={meName} meUid={user.uid} /></div>
+      </div>
+    </div>}
   </>;
 }
 

@@ -251,6 +251,19 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .dx{border:none; background:none; color:var(--ink-faint); font-size:23px; line-height:1; padding:2px 8px; border-radius:7px;}
 .dx:hover{background:var(--sink); color:var(--ink);}
 .drawer-b{padding:12px 14px; overflow:auto; flex:1;}
+/* Detalle del ticket en MODAL amplio centrado (F3) */
+.tmodal-scrim{justify-content:center; align-items:center; padding:24px;}
+.tmodal{width:min(940px,96vw); max-height:92vh; background:var(--surface); border:1px solid var(--line); border-radius:14px; box-shadow:0 24px 70px rgba(10,12,24,.34); display:flex; flex-direction:column; overflow:hidden; animation:tmodalin .22s cubic-bezier(.4,0,.2,1);}
+@keyframes tmodalin{from{opacity:0; transform:translateY(10px) scale(.99);}to{opacity:1; transform:none;}}
+@media (prefers-reduced-motion:reduce){ .tmodal{animation:none;} }
+.tmodal-h{display:flex; align-items:center; gap:11px; padding:13px 18px; border-bottom:1px solid var(--line); flex:none;}
+.tmodal-title{font-size:15px; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0;}
+.tmodal-title .id{font-family:var(--mono); font-size:13px; color:var(--ink-faint);}
+.tmodal-h .dx{margin-left:auto;}
+.tmodal-b{padding:16px 20px; overflow:auto; flex:1;}
+.tchip-type{font-size:11.5px; font-weight:700; padding:3px 10px; border-radius:20px; flex:none;}
+.tchip-type.inc{color:var(--crit); background:var(--crit-bg);} .tchip-type.pet{color:var(--accent); background:var(--accent-soft);}
+@media (max-width:640px){ .tmodal-scrim{padding:0;} .tmodal{width:100vw; max-height:100vh; height:100vh; border-radius:0;} }
 .drawer-search{max-width:none; margin-bottom:14px;}
 .backbtn{border:1px solid var(--line); background:var(--surface-2); color:var(--ink-soft); font-size:12.5px; font-weight:600; padding:8px 12px; border-radius:8px; text-align:left; margin-bottom:4px;}
 .backbtn:hover{border-color:var(--accent); color:var(--accent);}
