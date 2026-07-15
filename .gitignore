@@ -6,6 +6,7 @@ firestore-debug.log
 .firebaserc
 *.local
 .env
+scripts/backups/
 importer/imported-seed.json
 # Terraform
 infra/terraform/.terraform/
