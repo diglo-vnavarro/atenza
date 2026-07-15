@@ -59,6 +59,9 @@ export interface Ticket {
   site?: string;
   /** plantilla/tipología concreta (define ciclo de vida y SLA aplicables). */
   templateId: string;
+  /** Modo simplificado: categoría de servicio (eje) y su nombre para mostrar. */
+  serviceCategoryId?: string;
+  serviceCategory?: string;
   /** estado actual = clave de un estado del ciclo de vida (o texto libre si la plantilla no lleva flujo). */
   status: string;
   slaId?: string | null;

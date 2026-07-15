@@ -150,6 +150,13 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .nf-bool{flex-direction:row !important; align-items:center; gap:7px !important; color:var(--ink) !important;}
 .nf-bool input{width:auto;}
 .req{color:var(--crit); margin-left:2px; font-weight:700;}
+.lc-hint{font-size:12.5px; color:var(--ink-soft); background:var(--sink); border-radius:7px; padding:7px 10px; margin-top:4px;}
+.mode-opts{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:12px;}
+.mode-opt{text-align:left; border:1.5px solid var(--line); background:var(--surface); border-radius:10px; padding:14px; cursor:pointer; font-family:inherit; display:flex; flex-direction:column; gap:5px;}
+.mode-opt:hover{border-color:var(--accent);}
+.mode-opt.on{border-color:var(--accent); background:var(--accent-soft);}
+.mode-opt b{font-size:15px; color:var(--ink);} .mode-opt span{font-size:12.5px; color:var(--ink-soft);}
+@media(max-width:640px){ .mode-opts{grid-template-columns:1fr;} }
 @media (max-width:640px){ .nf-cols{grid-template-columns:1fr;} }
 .primary{border:none; background:var(--accent); color:var(--accent-ink); font-weight:600; font-size:12.5px; padding:7px 13px; border-radius:6px;}
 .primary:hover{background:var(--accent-deep);}

@@ -25,6 +25,9 @@ interface NewTicket {
   requesterId: string; technicianId?: string | null;
   templateId?: string;
   udf?: Record<string, string>;
+  /** Modo simplificado: categoría de servicio elegida + tipo (Incidencia/Petición). */
+  serviceCategoryId?: string;
+  type?: 'incident' | 'service_request';
 }
 
 interface State {
@@ -79,6 +82,8 @@ interface State {
   setBusinessRules: (list: BusinessRule[]) => void;
   setFormRules: (list: FormRule[]) => void;
   setOrganizateGroups: (ids: string[]) => void;
+  setOperationMode: (mode: 'classic' | 'simplified') => void;
+  setServiceCategories: (list: import('../data/seed.js').ServiceCategoryDef[]) => void;
   autoAssign: (ticketId: string) => string | null;
   setWebhooks: (list: Webhook[]) => void;
   setCustomFields: (list: FieldDef[]) => void;
@@ -278,16 +283,22 @@ export const useStore = create<State>()(
 
         createTicket: (nt) => {
           const s = get(); const t = activeT(s); if (!t) return;
-          const tpl = t.templates.find((x) => x.id === nt.templateId) ?? t.templates[0];
-          const lc = tpl?.lifecycleId ? t.lifecycles.find((l) => l.id === tpl.lifecycleId) ?? null : null;
+          // Modo SIMPLIFICADO: el ticket nace de una CATEGORÍA de servicio + tipo (el
+          // ciclo se toma de la categoría según el tipo). Modo CLÁSICO: de una plantilla.
+          const cat = nt.serviceCategoryId ? (t.serviceCategories ?? []).find((c) => c.id === nt.serviceCategoryId) : undefined;
+          const tpl = cat ? undefined : (t.templates.find((x) => x.id === nt.templateId) ?? t.templates[0]);
+          const type: 'incident' | 'service_request' = nt.type ?? tpl?.type ?? 'incident';
+          const lcId = cat ? ((type === 'incident' ? cat.incident?.lifecycleId : cat.service_request?.lifecycleId) ?? null) : (tpl?.lifecycleId ?? null);
+          const lc = lcId ? t.lifecycles.find((l) => l.id === lcId) ?? null : null;
           const init = lc ? initialState(lc)?.key ?? 'open' : 'open';
           const now = Date.now(); const id = genId(t);
           const draft = {
-            id, type: tpl?.type ?? 'incident', subject: nt.subject, description: nt.description,
+            id, type, subject: nt.subject, description: nt.description,
             requesterId: nt.requesterId, technicianId: nt.technicianId ?? null, category: nt.category,
             subcategory: nt.subcategory, item: nt.item,
             priority: nt.priority, impact: nt.impact, urgency: nt.urgency, mode: nt.mode, level: nt.level, site: nt.site,
-            templateId: tpl?.id ?? 'tpl-inc', status: init,
+            templateId: cat ? 'unified' : (tpl?.id ?? 'tpl-inc'), status: init,
+            ...(cat ? { serviceCategoryId: cat.id, serviceCategory: cat.name } : {}),
             ...(nt.udf && Object.keys(nt.udf).length ? { udf: nt.udf } : {}),
           };
           // Reglas de negocio: aplican patch (prioridad/grupo/estado/técnico) al crear.
@@ -314,7 +325,9 @@ export const useStore = create<State>()(
           if (tplApprovals.length && (t.statuses ?? []).some((x) => x.name === APPR)) finalStatus = APPR;
           const ticket: StoredTicket = {
             ...merged, status: finalStatus,
-            slaId: SLA_BY_PRIORITY[merged.priority ?? ''] ?? null,
+            // SLA por TIPO: la Incidencia lleva SLA de resolución por prioridad; la
+            // Petición no lleva reloj de resolución (SDP: SLA por tipo). Configurable a futuro.
+            slaId: type === 'incident' ? (SLA_BY_PRIORITY[merged.priority ?? ''] ?? null) : null,
             statusHistory: [{ state: finalStatus, from: now, to: null }],
             // Tareas predefinidas de la plantilla → checklist inicial del ticket.
             ...(tpl?.taskTemplates?.length ? { tasks: tpl.taskTemplates.map((tt, i) => ({ id: `tk-${id}-${i}`, text: tt.text, done: false, ...(tt.type ? { type: tt.type } : {}), ...(tt.estimatedHours != null ? { estimatedHours: tt.estimatedHours } : {}) })) } : {}),
@@ -575,6 +588,14 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, organizateGroupIds: ids })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { organizateGroupIds: ids }).catch(errlog); }
         },
+        setOperationMode: (mode) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, operationMode: mode })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { operationMode: mode }).catch(errlog); }
+        },
+        setServiceCategories: (list) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, serviceCategories: list })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { serviceCategories: list }).catch(errlog); }
+        },
         setBusinessRules: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, businessRules: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { businessRules: list }).catch(errlog); }
@@ -809,6 +830,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v28', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v29', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

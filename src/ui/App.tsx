@@ -257,7 +257,9 @@ export function App() {
         </main>
       </div>
 
-      {showNew && <NewTicket tenant={tenant} role={role} user={user} readOnly={readOnly} onClose={() => setShowNew(false)} />}
+      {showNew && (tenant.operationMode === 'simplified'
+        ? <NewTicketSimplified tenant={tenant} role={role} user={user} readOnly={readOnly} onClose={() => setShowNew(false)} />
+        : <NewTicket tenant={tenant} role={role} user={user} readOnly={readOnly} onClose={() => setShowNew(false)} />)}
     </div>
   );
 }
@@ -522,6 +524,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
         <div><div className="k">Solicitante</div><span style={{ fontSize: 13 }}>{req?.name ?? '—'}</span></div>
         <div><div className="k">Técnico</div><span style={{ fontSize: 13 }}>{tech?.name ?? 'Sin asignar'}</span></div>
         {group && <div><div className="k">Grupo</div><span style={{ fontSize: 13 }}>{group.name}</span></div>}
+        {t.serviceCategory && <div><div className="k">Categoría de servicio</div><span style={{ fontSize: 13 }}>{t.serviceCategory}</span></div>}
         {t.category && <div><div className="k">Categoría</div><span style={{ fontSize: 13 }}>{[t.category, t.subcategory, t.item].filter(Boolean).join(' › ')}</span></div>}
         <div><div className="k">Vencimiento</div><span className={dueSev === 'crit' ? 'sev-crit' : dueSev === 'warn' ? 'sev-warn' : ''} style={{ fontSize: 13, fontWeight: 600 }}>{due}</span></div>
         {t.impact && <div><div className="k">Impacto</div><span style={{ fontSize: 13 }}>{t.impact}</span></div>}
@@ -540,7 +543,8 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
       {t.description && <div className="desc" style={{ whiteSpace: 'pre-wrap' }}>{richToText(t.description)}</div>}
       {t.udf && Object.keys(t.udf).length > 0 && (() => {
         const tpl = tenant.templates.find((x) => x.id === t.templateId);
-        const labelOf = (id: string) => tpl?.fieldDefs?.find((f) => f.id === id)?.label ?? id;
+        const scat = t.serviceCategoryId ? (tenant.serviceCategories ?? []).find((c) => c.id === t.serviceCategoryId) : undefined;
+        const labelOf = (id: string) => tpl?.fieldDefs?.find((f) => f.id === id)?.label ?? scat?.fields?.find((f) => f.id === id)?.label ?? id;
         const nameOf = (id: string) => tenant.members.find((m) => m.uid === id)?.name;
         const entries = Object.entries(t.udf).filter(([, v]) => v !== '' && v != null);
         return entries.length > 0 ? <div style={{ marginTop: 12 }}>
@@ -943,6 +947,113 @@ function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantDa
   );
 }
 
+// Alta en MODO SIMPLIFICADO: 1 plantilla · Tipo (Incidencia/Petición) + Categoría de
+// servicio (filtrada por permisos). Los campos propios de la categoría se muestran en
+// una sección aparte; la categoría define el ciclo de vida (y el SLA por tipo).
+function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; readOnly?: boolean; onClose: () => void }) {
+  const create = useStore((s) => s.createTicket);
+  const pls = tenant.picklists;
+  const [tipo, setTipo] = useState<'incident' | 'service_request'>('incident');
+  const [subject, setSubject] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState(pls?.priority.some((p) => p.name === 'Media') ? 'Media' : pls?.priority[0]?.name ?? 'Media');
+  const [site, setSite] = useState('');
+  const requesters = tenant.members.filter((m) => m.role === 'requester');
+  const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
+  const [udf, setUdf] = useState<Record<string, string>>({});
+  const setU = (id: string, v: string) => setUdf((u) => ({ ...u, [id]: v }));
+
+  const myUG = tenant.members.find((m) => m.uid === user.uid)?.userGroups ?? [];
+  const canSee = (c: import('../data/seed.js').ServiceCategoryDef) => role !== 'requester' || !c.userGroups?.length || c.userGroups.some((g) => myUG.includes(g));
+  const cats = (tenant.serviceCategories ?? []).filter((c) => !!c[tipo]).filter(canSee);
+  const [catId, setCatId] = useState('');
+  const cat = cats.find((c) => c.id === catId) ?? cats[0];
+  useEffect(() => { if (!cats.some((c) => c.id === catId)) setCatId(cats[0]?.id ?? ''); }, [tipo, cats, catId]);
+
+  const lcId = cat ? cat[tipo]?.lifecycleId ?? null : null;
+  const lcName = lcId ? tenant.lifecycles.find((l) => l.id === lcId)?.name ?? lcId : null;
+  const catFields = cat?.fields ?? [];
+  const missingCat = catFields.some((f) => f.mandatory && !(udf[f.id] ?? '').trim());
+  const canSubmit = !!subject.trim() && !!cat && !missingCat && !readOnly;
+  const submit = () => { if (!canSubmit || !cat) return; create({ subject, description, category: '', priority, site: site || undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf }); onClose(); };
+
+  const widget = (f: FieldDef) => {
+    const v = udf[f.id] ?? '';
+    switch (f.type) {
+      case 'textarea': return <textarea value={v} rows={3} onChange={(e) => setU(f.id, e.target.value)} />;
+      case 'bool': return <label className="nf-bool"><input type="checkbox" checked={v === 'true'} onChange={(e) => setU(f.id, e.target.checked ? 'true' : 'false')} /> Sí</label>;
+      case 'date': return <input type="date" value={v} onChange={(e) => setU(f.id, e.target.value)} />;
+      case 'number': return <input type="number" value={v} onChange={(e) => setU(f.id, e.target.value)} />;
+      case 'person': return <select value={v} onChange={(e) => setU(f.id, e.target.value)}><option value="">— Seleccionar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select>;
+      default: return <input value={v} onChange={(e) => setU(f.id, e.target.value)} />;
+    }
+  };
+
+  return (
+    <div className="scrim" onClick={onClose}>
+      <aside className="drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nueva solicitud">
+        <div className="drawer-h"><h2>Nueva solicitud</h2><button className="dx" onClick={onClose} aria-label="Cerrar">×</button></div>
+        <div className="drawer-b"><div className="form nf-form">
+          <div className="nf-sec">
+            <label>Tipo de solicitud
+              <div className="seg" style={{ marginTop: 4 }}>
+                <button type="button" className={tipo === 'incident' ? 'on' : ''} onClick={() => setTipo('incident')}>🛠️ Incidencia</button>
+                <button type="button" className={tipo === 'service_request' ? 'on' : ''} onClick={() => setTipo('service_request')}>📥 Petición</button>
+              </div>
+            </label>
+            <label>Categoría de servicio<select value={cat?.id ?? ''} onChange={(e) => setCatId(e.target.value)}>
+              {cats.map((c) => <option key={c.id} value={c.id}>{c.icon ? c.icon + ' ' : ''}{c.name}</option>)}
+              {cats.length === 0 && <option value="">— sin categorías para este tipo —</option>}
+            </select></label>
+            {lcName ? <div className="lc-hint">⚙️ Ciclo de vida: <b>{lcName}</b></div> : cat && <div className="lc-hint">⚙️ Sin flujo (estado libre)</div>}
+          </div>
+          <div className="nf-sec">
+            <div className="nf-sec-h">Datos de la solicitud</div>
+            <label>Asunto<span className="req">*</span><input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
+            <div className="nf-cols">
+              <div className="nf-col"><label>Prioridad<span className="req">*</span><select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label></div>
+              <div className="nf-col">{(tenant.sites ?? []).length > 0 && <label>Sede<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}</div>
+            </div>
+            {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
+            <label>Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>
+          </div>
+          {catFields.length > 0 && <div className="nf-sec">
+            <div className="nf-sec-h">Campos de la categoría · {cat?.name}</div>
+            <div className="nf-cols">
+              <div className="nf-col">{catFields.filter((f) => (f.col ?? 1) === 1).map((f) => <label key={f.id}>{f.label}{f.mandatory && <span className="req">*</span>}{widget(f)}</label>)}</div>
+              <div className="nf-col">{catFields.filter((f) => f.col === 2).map((f) => <label key={f.id}>{f.label}{f.mandatory && <span className="req">*</span>}{widget(f)}</label>)}</div>
+            </div>
+          </div>}
+          {readOnly && <div className="empty" style={{ fontSize: 12 }}>👁 Modo lectura: no puedes crear la solicitud.</div>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button className="primary" onClick={submit} disabled={!canSubmit}>Crear solicitud</button>
+            <button className="ghost" onClick={onClose}>Cancelar</button>
+          </div>
+        </div></div>
+      </aside>
+    </div>
+  );
+}
+
+// Configuración del MODO DE OPERACIÓN (clásico ↔ simplificado). Mismo backend.
+function ModeAdmin({ tenant }: { tenant: TenantData }) {
+  const setMode = useStore((s) => s.setOperationMode);
+  const mode = tenant.operationMode ?? 'classic';
+  const cats = tenant.serviceCategories ?? [];
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Cómo opera esta instancia. Ambos modos usan los <b>mismos datos</b> (tickets, ciclos, miembros); puedes alternar para comparar y decidir. Cambiar de modo no borra nada.</p>
+    <div className="mode-opts">
+      <button className={'mode-opt' + (mode === 'classic' ? ' on' : '')} onClick={() => setMode('classic')}>
+        <b>Clásico</b><span>Muchas plantillas (estilo SDP). <b>{tenant.templates.length}</b> plantillas.</span>
+      </button>
+      <button className={'mode-opt' + (mode === 'simplified' ? ' on' : '')} onClick={() => setMode('simplified')}>
+        <b>Simplificado</b><span>1 plantilla + Tipo + Categoría de servicio. <b>{cats.length}</b> categorías.</span>
+      </button>
+    </div>
+    <div className="banner" style={{ marginTop: 14 }}>Modo actual: <b>{mode === 'simplified' ? 'Simplificado' : 'Clásico'}</b>. En simplificado, «＋ Nueva solicitud» pide <b>Tipo + Categoría</b>, los campos se adaptan a la categoría y esta define el <b>ciclo de vida</b> (y el SLA por tipo: la Incidencia lleva SLA de resolución; la Petición no).</div>
+  </div>;
+}
+
 // Campana de avisos en pantalla (los del usuario actual).
 function Bell({ tenant, meUid }: { tenant: TenantData; meUid: string }) {
   const markRead = useStore((s) => s.markNotifRead);
@@ -1002,7 +1113,7 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
-  ['Configuraciones de instancia', '🏢', [['Ajustes de instancia', null], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
+  ['Configuraciones de instancia', '🏢', [['Modo de operación', 'modo'], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
   ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', 'servicios'], ['Reglas del formulario', 'formreglas']]],
@@ -1011,7 +1122,7 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuración del correo', '✉️', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', modo: 'Modo de operación' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1341,6 +1452,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'formreglas' && <FormRulesAdmin tenant={tenant} />}
     {sec === 'sync' && <SyncAdmin tenant={tenant} />}
     {sec === 'organizate' && <OrganizateAdmin tenant={tenant} />}
+    {sec === 'modo' && <ModeAdmin tenant={tenant} />}
     </div>
   </div>;
 }

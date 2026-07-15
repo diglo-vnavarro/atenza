@@ -237,9 +237,70 @@ export interface TenantData {
   audit?: AuditEntry[];
   /** recepción de correo entrante activada (por instancia). false/undefined = inerte. */
   inboundEnabled?: boolean;
+  /** MODO SIMPLIFICADO (2ª versión): catálogo de categorías de servicio como eje
+   *  (1 plantilla + Tipo + Categoría). Convive con las plantillas clásicas. */
+  serviceCategories?: ServiceCategoryDef[];
+  /** modo de operación de la instancia. 'classic' = plantillas SDP (por defecto);
+   *  'simplified' = 1 plantilla + categoría-eje. Conmutable; mismo backend. */
+  operationMode?: 'classic' | 'simplified';
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
+
+/** Categoría de servicio (Modo simplificado): el eje del sistema. Define qué tipos
+ *  admite y su ciclo por tipo, quién la ve (permiso por grupo) y sus campos propios
+ *  (se muestran en la sección «Campos de la categoría» de la plantilla única). */
+export interface ServiceCategoryDef {
+  id: string;
+  name: string;
+  /** presencia de la clave = tipo permitido; lifecycleId null = sin flujo (estado libre). */
+  incident?: { lifecycleId: string | null };
+  service_request?: { lifecycleId: string | null };
+  /** grupos de usuario con acceso (vacío/ausente = todos la ven). */
+  userGroups?: string[];
+  /** campos específicos de la categoría (además de los comunes de la plantilla). */
+  fields?: FieldDef[];
+  /** icono (emoji) para el catálogo. */
+  icon?: string;
+}
+
+// Campo de categoría (helper): sección «Campos de la categoría», visible al solicitante.
+const scf = (id: string, label: string, type: FieldDef['type'], mandatory = false, col: 1 | 2 = 1): FieldDef =>
+  ({ id, label, type, mandatory, requesterVisible: true, section: 'Campos de la categoría', col });
+
+// Mapa aprobado (Opción A): categorías al grano, ciclo por tipo, permisos por grupo,
+// campos propios. Ids de ciclo del seed: lc-inc (incidencia), lc-sr (con aprobación),
+// lc-alta (usuarios), lc-ops (operaciones); null = sin flujo (estado libre).
+export const DEFAULT_SERVICE_CATEGORIES: ServiceCategoryDef[] = [
+  { id: 'sc-inc', name: 'Incidencias generales', icon: '🛠️', incident: { lifecycleId: 'lc-inc' },
+    fields: [scf('cf-app', 'Aplicación afectada', 'text', false, 1), scf('cf-repro', '¿Reproducible?', 'bool', false, 2)] },
+  { id: 'sc-reclam', name: 'Reclamaciones de clientes', icon: '📣', incident: { lifecycleId: 'lc-inc' }, userGroups: ['UsuariosReclamaciones'],
+    fields: [scf('cf-exp', 'Nº de expediente', 'text', true, 1), scf('cf-cli', 'Cliente', 'text', false, 2)] },
+  { id: 'sc-recovery', name: 'Recovery', icon: '🔧', incident: { lifecycleId: 'lc-inc' }, service_request: { lifecycleId: null },
+    fields: [scf('cf-sys', 'Sistema', 'text', false, 1)] },
+  { id: 'sc-bi', name: 'BI / Datos', icon: '📊', incident: { lifecycleId: 'lc-inc' }, service_request: { lifecycleId: null }, userGroups: ['Usuarios  BI'],
+    fields: [scf('cf-inf', 'Informe / vista', 'text', false, 1), scf('cf-per', 'Periodicidad', 'select', false, 2)] },
+  { id: 'sc-pd', name: 'PD', icon: '🗂️', incident: { lifecycleId: 'lc-inc' }, service_request: { lifecycleId: null }, userGroups: ['Usuarios PD'],
+    fields: [scf('cf-mod', 'Módulo PD', 'text', false, 1)] },
+  { id: 'sc-gemini', name: 'AI · Gemini', icon: '✨', incident: { lifecycleId: 'lc-inc' }, service_request: { lifecycleId: null },
+    fields: [scf('cf-uso', 'Caso de uso', 'textarea', false, 1)] },
+  { id: 'sc-informes', name: 'Informes (Looker/Google)', icon: '📈', service_request: { lifecycleId: null },
+    fields: [scf('cf-panel', 'Panel / vista', 'text', false, 1)] },
+  { id: 'sc-alta', name: 'Alta de usuario', icon: '👤', service_request: { lifecycleId: 'lc-alta' }, userGroups: ['Usuarios RRHH'],
+    fields: [scf('cf-nom', 'Nombre', 'text', true, 1), scf('cf-ape', 'Apellidos', 'text', true, 2), scf('cf-nif', 'NIF/CIF', 'text', true, 1), scf('cf-dep', 'Departamento', 'select', true, 2), scf('cf-inc2', 'Fecha de incorporación', 'date', true, 1)] },
+  { id: 'sc-baja', name: 'Baja de usuario', icon: '🚪', service_request: { lifecycleId: 'lc-alta' }, userGroups: ['Usuarios RRHH'],
+    fields: [scf('cf-usr', 'Usuario a dar de baja', 'person', true, 1), scf('cf-fbaja', 'Fecha de baja', 'date', true, 2), scf('cf-equip', 'Equipamiento a devolver', 'text', false, 1)] },
+  { id: 'sc-modif', name: 'Modificación / alta externos', icon: '👥', service_request: { lifecycleId: 'lc-alta' },
+    fields: [scf('cf-usr2', 'Usuario', 'person', true, 1), scf('cf-cambio', 'Cambio solicitado', 'textarea', true, 1)] },
+  { id: 'sc-pet', name: 'Peticiones generales', icon: '📥', service_request: { lifecycleId: null },
+    fields: [scf('cf-det', 'Detalle de la petición', 'textarea', false, 1)] },
+  { id: 'sc-waiver', name: 'Waiver', icon: '📝', service_request: { lifecycleId: 'lc-sr' },
+    fields: [scf('cf-just', 'Justificación', 'textarea', true, 1), scf('cf-coste', 'Coste estimado', 'number', false, 2)] },
+  { id: 'sc-ops', name: 'Operaciones · Liquidaciones deuda', icon: '💶', service_request: { lifecycleId: 'lc-ops' }, userGroups: ['Usuarios Operaciones'],
+    fields: [scf('cf-ope', 'Expediente', 'text', true, 1), scf('cf-imp', 'Importe', 'number', false, 2)] },
+  { id: 'sc-reo', name: 'Tareas REO', icon: '🏠', incident: { lifecycleId: 'lc-inc' }, service_request: { lifecycleId: null } },
+  { id: 'sc-seg', name: 'Seguimiento Infoser/Diglo', icon: '🔎', service_request: { lifecycleId: null }, userGroups: ['Infoser'] },
+];
 
 const T = (id: string, name: string, from: string, to: string) => ({ id, name, from, to });
 
@@ -428,6 +489,7 @@ export function makeSeed(now: number): DB {
     categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, formRules: DEFAULT_FORM_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES, announcements: DEFAULT_ANNOUNCEMENTS, customFields: DEFAULT_CUSTOM_FIELDS,
     serviceCategoryIcons: { 'Incidencias': '🛠️', 'Solicitudes de servicio': '📥' },
     organizateGroupIds: ['g-n1'],
+    serviceCategories: DEFAULT_SERVICE_CATEGORIES, operationMode: 'classic',
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },
