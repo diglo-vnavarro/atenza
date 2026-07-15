@@ -133,6 +133,13 @@ async function main() {
     return;
   }
 
+  // Si no hay ningún cambio en las tareas-puente, NO escribir: evita subir `rev` y
+  // contender con la app en vivo cada pasada (el doc de OrganiZate se reescribe entero).
+  if (added === 0 && updated === 0 && removed === 0) {
+    console.log('Sin cambios en las tareas-puente → no se escribe (se evita contención).');
+    return;
+  }
+
   // 5) Escribir con transacción (guardia por rev; reintentos ante conflicto)
   for (let attempt = 0; attempt < 5; attempt++) {
     try {
