@@ -157,6 +157,9 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .mode-opt.on{border-color:var(--accent); background:var(--accent-soft);}
 .mode-opt b{font-size:15px; color:var(--ink);} .mode-opt span{font-size:12.5px; color:var(--ink-soft);}
 @media(max-width:640px){ .mode-opts{grid-template-columns:1fr;} }
+.cfield-row{display:flex; align-items:center; gap:6px; padding:3px 0; flex-wrap:wrap;}
+.inc-tag,.pet-tag{font-size:10px; font-weight:700; padding:1px 7px; border-radius:20px; font-family:var(--mono);}
+.inc-tag{color:var(--crit); background:var(--crit-bg);} .pet-tag{color:var(--accent); background:var(--accent-soft);}
 @media (max-width:640px){ .nf-cols{grid-template-columns:1fr;} }
 .primary{border:none; background:var(--accent); color:var(--accent-ink); font-weight:600; font-size:12.5px; padding:7px 13px; border-radius:6px;}
 .primary:hover{background:var(--accent-deep);}

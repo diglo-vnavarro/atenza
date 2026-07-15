@@ -274,6 +274,8 @@ export interface FieldDef {
   section?: string;
   col?: 1 | 2;
   full?: boolean;
+  /** opciones para type 'select' (si faltan, se renderiza como texto libre). */
+  options?: string[];
 }
 
 export interface Sla {

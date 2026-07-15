@@ -985,6 +985,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
       case 'date': return <input type="date" value={v} onChange={(e) => setU(f.id, e.target.value)} />;
       case 'number': return <input type="number" value={v} onChange={(e) => setU(f.id, e.target.value)} />;
       case 'person': return <select value={v} onChange={(e) => setU(f.id, e.target.value)}><option value="">— Seleccionar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select>;
+      case 'select': return (f.options ?? []).length ? <select value={v} onChange={(e) => setU(f.id, e.target.value)}><option value="">— Seleccionar —</option>{f.options!.map((o) => <option key={o} value={o}>{o}</option>)}</select> : <input value={v} onChange={(e) => setU(f.id, e.target.value)} />;
       default: return <input value={v} onChange={(e) => setU(f.id, e.target.value)} />;
     }
   };
@@ -1054,6 +1055,59 @@ function ModeAdmin({ tenant }: { tenant: TenantData }) {
   </div>;
 }
 
+// Admin de CATEGORÍAS DE SERVICIO (modo simplificado): el eje editable. Cada
+// categoría define tipos permitidos + ciclo por tipo, permisos por grupo y campos.
+function ServiceCategoriesAdmin({ tenant }: { tenant: TenantData }) {
+  const setCats = useStore((s) => s.setServiceCategories);
+  const cats = tenant.serviceCategories ?? [];
+  const [open, setOpen] = useState<string | null>(cats[0]?.id ?? null);
+  const replace = (id: string, nc: import('../data/seed.js').ServiceCategoryDef) => setCats(cats.map((c) => (c.id === id ? nc : c)));
+  const upd = (id: string, patch: Partial<import('../data/seed.js').ServiceCategoryDef>) => setCats(cats.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+  const addCat = () => { const id = 'sc-' + Date.now(); setCats([...cats, { id, name: 'Nueva categoría', service_request: { lifecycleId: null } }]); setOpen(id); };
+  const del = (id: string) => { if (confirm('¿Eliminar la categoría?')) setCats(cats.filter((c) => c.id !== id)); };
+  const setType = (c: import('../data/seed.js').ServiceCategoryDef, type: 'incident' | 'service_request', on: boolean) => {
+    const nc = { ...c }; if (on) nc[type] = { lifecycleId: nc[type]?.lifecycleId ?? null }; else delete nc[type]; replace(c.id, nc);
+  };
+  const lcOpts = (type: 'incident' | 'service_request') => tenant.lifecycles.filter((l) => l.type === type);
+  const FT = FIELD_TYPES;
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Categorías de servicio del <b>modo simplificado</b>. Cada una define qué <b>tipos</b> admite y su <b>ciclo de vida</b> por tipo, quién la <b>ve</b> (permiso por grupo) y sus <b>campos</b> propios. Es lo que sustituye a las 36 plantillas.</p>
+    <div className="svc-cats">{cats.map((c) => { const isOpen = open === c.id; return <div key={c.id} className={'svc-cat' + (isOpen ? ' on' : '')}>
+      <div className="svc-head" style={{ cursor: 'default' }}>
+        <input value={c.icon ?? ''} onChange={(e) => upd(c.id, { icon: e.target.value.slice(0, 2) })} placeholder="📁" style={{ width: 40, textAlign: 'center', fontSize: 15 }} maxLength={2} />
+        <input className="svc-name" style={{ border: 'none', background: 'none', fontWeight: 600, flex: 1 }} value={c.name} onChange={(e) => upd(c.id, { name: e.target.value })} />
+        {c.incident && <span className="inc-tag">INC</span>}{c.service_request && <span className="pet-tag">PET</span>}
+        <button className="ghost sm" onClick={() => setOpen(isOpen ? null : c.id)}>{isOpen ? 'Cerrar' : 'Editar'}</button>
+        <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => del(c.id)}>✕</button>
+      </div>
+      {isOpen && <div className="svc-body">
+        <div className="rule-row"><span className="rule-lbl">Tipos y ciclo</span></div>
+        {(['incident', 'service_request'] as const).map((tp) => { const en = !!c[tp]; return <div key={tp} className="rule-row cond">
+          <label className="chipsel" style={{ cursor: 'pointer' }}><input type="checkbox" checked={en} onChange={(e) => setType(c, tp, e.target.checked)} style={{ marginRight: 5 }} />{tp === 'incident' ? '🛠️ Incidencia' : '📥 Petición'}</label>
+          {en && <select value={c[tp]!.lifecycleId ?? ''} onChange={(e) => replace(c.id, { ...c, [tp]: { lifecycleId: e.target.value || null } })}>
+            <option value="">— sin flujo (estado libre) —</option>{lcOpts(tp).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select>}
+        </div>; })}
+        <div className="rule-row" style={{ marginTop: 8 }}><span className="rule-lbl">Ven la categoría</span>
+          <ChipMulti options={tenant.userGroups ?? []} selected={c.userGroups ?? []} onChange={(ug) => upd(c.id, { userGroups: ug })} />
+        </div>
+        {(c.userGroups ?? []).length === 0 && <div className="soft" style={{ fontSize: 12, paddingLeft: 74 }}>vacío = la ven todos</div>}
+        <div className="rule-row" style={{ marginTop: 8 }}><span className="rule-lbl">Campos propios</span></div>
+        <div className="tt-list">{(c.fields ?? []).map((f, i) => <div key={f.id} className="cfield-row">
+          <input value={f.label} onChange={(e) => replace(c.id, { ...c, fields: (c.fields ?? []).map((x) => (x.id === f.id ? { ...x, label: e.target.value } : x)) })} placeholder="Etiqueta" style={{ flex: 1 }} />
+          <select value={f.type} onChange={(e) => replace(c.id, { ...c, fields: (c.fields ?? []).map((x) => (x.id === f.id ? { ...x, type: e.target.value as FieldType } : x)) })} style={{ width: 120 }}>{FT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
+          {f.type === 'select' && <input value={(f.options ?? []).join(', ')} onChange={(e) => replace(c.id, { ...c, fields: (c.fields ?? []).map((x) => (x.id === f.id ? { ...x, options: e.target.value.split(',').map((o) => o.trim()).filter(Boolean) } : x)) })} placeholder="opción1, opción2…" style={{ width: 150 }} title="Opciones del desplegable" />}
+          <label className="chipsel" style={{ cursor: 'pointer' }} title="Obligatorio"><input type="checkbox" checked={!!f.mandatory} onChange={(e) => replace(c.id, { ...c, fields: (c.fields ?? []).map((x) => (x.id === f.id ? { ...x, mandatory: e.target.checked } : x)) })} style={{ marginRight: 4 }} />oblig.</label>
+          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => replace(c.id, { ...c, fields: (c.fields ?? []).filter((x) => x.id !== f.id) })}>✕</button>
+        </div>)}</div>
+        <button className="linkbtn" onClick={() => replace(c.id, { ...c, fields: [...(c.fields ?? []), { id: 'cf-' + Date.now(), label: 'Nuevo campo', type: 'text', requesterVisible: true, section: 'Campos de la categoría', col: 1 }] })}>＋ campo</button>
+      </div>}
+    </div>; })}</div>
+    {cats.length === 0 && <div className="empty">Sin categorías. Añade la primera.</div>}
+    <button className="primary" style={{ marginTop: 12 }} onClick={addCat}>＋ Añadir categoría</button>
+  </div>;
+}
+
 // Campana de avisos en pantalla (los del usuario actual).
 function Bell({ tenant, meUid }: { tenant: TenantData; meUid: string }) {
   const markRead = useStore((s) => s.markNotifRead);
@@ -1116,13 +1170,13 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', '🏢', [['Modo de operación', 'modo'], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
-  ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', 'servicios'], ['Reglas del formulario', 'formreglas']]],
+  ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', 'servicios'], ['Categorías (modo simplificado)', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
   ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', '✉️', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', modo: 'Modo de operación' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', modo: 'Modo de operación', catservicio: 'Categorías de servicio (modo simplificado)' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1453,6 +1507,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'sync' && <SyncAdmin tenant={tenant} />}
     {sec === 'organizate' && <OrganizateAdmin tenant={tenant} />}
     {sec === 'modo' && <ModeAdmin tenant={tenant} />}
+    {sec === 'catservicio' && <ServiceCategoriesAdmin tenant={tenant} />}
     </div>
   </div>;
 }
