@@ -3,6 +3,12 @@
 // id de SDP (no colisionan con el superadmin ni con el seed); son registros de
 // referencia (sin auth) para que los tickets muestren solicitante/técnico.
 //
+// UNIFICACIÓN: consulta el idmap del tenant (tenants/{tid}/idmap/{sdpId} = {uid},
+// escrito por scripts/provision-access.ts). Los tickets se atribuyen al uid REAL
+// de Firebase (technicianId/requesterId traducidos) y NO se recrean fichas de
+// referencia para los ids ya unificados. Así la importación del histórico completo
+// es coherente con los usuarios ya provisionados.
+//
 //   GOOGLE_APPLICATION_CREDENTIALS=<adc> GOOGLE_CLOUD_PROJECT=diglo-desk-pd \
 //   TENANT=diglo-it npx tsx scripts/load-tickets.ts
 import { readFileSync } from 'node:fs';
@@ -29,8 +35,20 @@ async function writeAll(col: string, items: { id?: string; uid?: string }[], idK
 }
 
 async function main() {
-  await writeAll('members', members, 'uid');
-  await writeAll('tickets', tickets, 'id');
-  console.log('Cargado en tenant', TENANT);
+  // Mapa id-SDP → uid unificado (de los usuarios ya provisionados con acceso).
+  const idmapSnap = await db.collection(`tenants/${TENANT}/idmap`).get();
+  const idmap = new Map<string, string>(idmapSnap.docs.map((d) => [d.id, (d.data().uid as string)]));
+  const tr = (id?: string | null) => (id && idmap.has(id) ? idmap.get(id)! : id);
+  if (idmap.size) console.log(`idmap: ${idmap.size} ids unificados → se traducen technicianId/requesterId`);
+
+  // No recrear fichas de referencia para ids ya unificados (su ficha real existe).
+  const refMembers = (members as { uid?: string }[]).filter((m) => !(m.uid && idmap.has(m.uid)));
+  const mappedTickets = (tickets as { technicianId?: string; requesterId?: string }[]).map((t) => ({
+    ...t, technicianId: tr(t.technicianId) ?? null, requesterId: tr(t.requesterId) ?? t.requesterId,
+  }));
+
+  await writeAll('members', refMembers, 'uid');
+  await writeAll('tickets', mappedTickets as { id?: string }[], 'id');
+  console.log(`Cargado en tenant ${TENANT} (fichas de referencia: ${refMembers.length}/${members.length}; ${idmap.size} unificadas omitidas)`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
