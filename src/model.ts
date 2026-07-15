@@ -59,6 +59,10 @@ export interface Ticket {
   site?: string;
   /** correos a notificar (además del solicitante/técnico); como en SDP «Emails to notify». */
   notifyEmails?: string;
+  /** detalles del impacto (SDP «impact_details»); texto libre opcional. */
+  impactDetails?: string;
+  /** activos / elementos afectados (SDP «assets»); texto libre (sin CMDB completo). */
+  assets?: string;
   /** plantilla/tipología concreta (define ciclo de vida y SLA aplicables). */
   templateId: string;
   /** Modo simplificado: categoría de servicio (eje) y su nombre para mostrar. */

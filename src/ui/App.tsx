@@ -594,8 +594,10 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
         {t.mode && <div><div className="k">Modo</div><span style={{ fontSize: 13 }}>{t.mode}</span></div>}
         {(t.site || req?.site) && <div><div className="k">Sede</div><span style={{ fontSize: 13 }}>{t.site ?? req?.site}</span></div>}
         {req?.department && <div><div className="k">Departamento</div><span style={{ fontSize: 13 }}>{req.department}</span></div>}
+        {t.assets && <div><div className="k">Activos afectados</div><span style={{ fontSize: 13 }}>{t.assets}</span></div>}
         {t.notifyEmails && <div><div className="k">Correos a notificar</div><span style={{ fontSize: 13 }}>{t.notifyEmails}</span></div>}
       </div>
+      {t.impactDetails && <div style={{ marginTop: 8 }}><div className="k">Detalles del impacto</div><div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{t.impactDetails}</div></div>}
       {ss && <div style={{ marginTop: 12 }}>
         <div className="k">SLA de resolución {paused && '· ⏸ en pausa'}</div>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 12, color: ss.breached ? 'var(--crit)' : 'var(--ink-soft)' }}>
@@ -1033,6 +1035,8 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   // Sede: por defecto SIEMPRE «Base Site» (como en SDP); si no existe, la primera sede.
   const [site, setSite] = useState(() => defaultSite(tenant));
   const [notifyEmails, setNotifyEmails] = useState('');
+  const [impactDetails, setImpactDetails] = useState('');
+  const [assets, setAssets] = useState('');
   const requesters = tenant.members.filter((m) => m.role === 'requester');
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
   const [udf, setUdf] = useState<Record<string, string>>({});
@@ -1072,7 +1076,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const canSubmit = !!subject.trim() && !!cat && !missingCat && !readOnly;
   const submit = async () => {
     if (!canSubmit || !cat) return;
-    const id = create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, site: site || undefined, notifyEmails: notifyEmails || undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf });
+    const id = create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, site: site || undefined, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, assets: assets || undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf });
     if (id) for (const f of files) { try { await uploadAttachment(id, f, meName); } catch { /* ignora fallo de subida individual */ } }
     onClose();
   };
@@ -1148,8 +1152,10 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
             {files.length > 0 && <div className="dz-list">{files.map((f, i) => <span key={i} className="dz-file">📎 {f.name} <span className="soft">({fmtSize(f.size)})</span><button className="xbtn" onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))} aria-label="Quitar">✕</button></span>)}</div>}
           </div>
           <div className="nf-sec">
-            <div className="nf-sec-h">Correos a notificar</div>
-            <label>{fcap('Añadir destinatarios (además del solicitante)')}<input type="text" value={notifyEmails} onChange={(e) => setNotifyEmails(e.target.value)} placeholder="correo1@dominio.com, correo2@dominio.com…" /></label>
+            <div className="nf-sec-h">Más detalles</div>
+            <label>{fcap('Detalles del impacto')}<textarea value={impactDetails} rows={2} onChange={(e) => setImpactDetails(e.target.value)} placeholder="A quién/qué afecta, alcance…" /></label>
+            <label>{fcap('Activos / elementos afectados')}<input type="text" value={assets} onChange={(e) => setAssets(e.target.value)} placeholder="Equipo, aplicación, servicio…" /></label>
+            <label>{fcap('Correos a notificar')}<input type="text" value={notifyEmails} onChange={(e) => setNotifyEmails(e.target.value)} placeholder="correo1@dominio.com, correo2@dominio.com…" /></label>
           </div>
           {readOnly && <div className="empty" style={{ fontSize: 12 }}>👁 Modo lectura: no puedes crear la solicitud.</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
