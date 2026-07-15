@@ -134,11 +134,23 @@ export type ArchiveCursor = unknown;
 /** Consulta PAGINADA de tickets ARCHIVADOS (bajo demanda; no se suscriben en vivo).
  *  Ordenados por fecha de creación descendente. El solicitante solo ve los suyos
  *  (obligatorio: las reglas no le dejan leer tickets ajenos). */
-export async function queryArchive(tid: string, opts: { requesterUid?: string | null; pageSize?: number; after?: ArchiveCursor } = {}): Promise<{ tickets: StoredTicket[]; last: ArchiveCursor }> {
+export type ArchiveFilters = {
+  requesterUid?: string | null;
+  /** UNA igualdad indexada del lado servidor: serviceCategoryId | technicianId | status. */
+  where?: { field: 'serviceCategoryId' | 'technicianId' | 'status'; value: string } | null;
+  from?: number; to?: number; // rango sobre createdAt (epoch ms)
+  pageSize?: number; after?: ArchiveCursor;
+};
+export async function queryArchive(tid: string, opts: ArchiveFilters = {}): Promise<{ tickets: StoredTicket[]; last: ArchiveCursor }> {
   const { m, db } = await fs();
   const col = m.collection(db, `tenants/${tid}/tickets`);
   const clauses: QueryConstraint[] = [m.where('archived', '==', true)];
+  // El solicitante SIEMPRE se acota a lo suyo (reglas); en ese caso el filtro `where`
+  // se aplica en cliente (evita índices combinados requesterId+campo).
   if (opts.requesterUid) clauses.push(m.where('requesterId', '==', opts.requesterUid));
+  else if (opts.where) clauses.push(m.where(opts.where.field, '==', opts.where.value));
+  if (opts.from) clauses.push(m.where('createdAt', '>=', opts.from));
+  if (opts.to) clauses.push(m.where('createdAt', '<=', opts.to));
   clauses.push(m.orderBy('createdAt', 'desc'));
   if (opts.after) clauses.push(m.startAfter(opts.after));
   clauses.push(m.limit(opts.pageSize ?? 50));

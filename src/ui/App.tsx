@@ -522,22 +522,38 @@ function Kanban({ tenant, list, stLabel, onSelect, selectedId }:
 // solicitante ve solo los suyos. En modo local (demo) filtra los tickets locales.
 function Archive({ tenant, role, caps, meName, meUid, cloud }: { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; caps: string[]; meName: string; meUid: string; cloud: boolean }) {
   const isReq = role === 'requester';
-  const PAGE = 50;
+  const PAGE = 100;
   const [rows, setRows] = useState<StoredTicket[]>([]);
   const [cursor, setCursor] = useState<ArchiveCursor>(null);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Filtros: categoría/estado/técnico + rango de fechas van al servidor; texto refina en cliente.
+  const [catId, setCatId] = useState('');
+  const [estado, setEstado] = useState('');
+  const [tech, setTech] = useState('');
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
   const [q, setQ] = useState('');
   const [idq, setIdq] = useState('');
   const [sel, setSel] = useState<StoredTicket | null>(null);
   const [err, setErr] = useState('');
   const nameOf = (uid?: string | null) => tenant.members.find((m) => m.uid === uid)?.name ?? '—';
+  const cats = tenant.serviceCategories ?? [];
+  const statuses = tenant.statuses ?? [];
+  const techs = tenant.members.filter((m) => m.role !== 'requester');
+  const fromMs = from ? new Date(from).getTime() : undefined;
+  const toMs = to ? new Date(to).getTime() + 86399999 : undefined; // fin del día, inclusivo
 
-  const loadPage = useCallback(async (reset: boolean) => {
+  const loadPage = useCallback(async (reset: boolean, after?: ArchiveCursor) => {
     setLoading(true); setErr('');
     try {
       if (cloud) {
-        const { tickets, last } = await queryArchive(tenant.id, { requesterUid: isReq ? meUid : null, pageSize: PAGE, after: reset ? undefined : cursor });
+        // UNA igualdad indexada al servidor (prioridad categoría › técnico › estado);
+        // el resto refina en cliente. El solicitante se acota a lo suyo (server).
+        const where = catId ? { field: 'serviceCategoryId' as const, value: catId }
+          : tech ? { field: 'technicianId' as const, value: tech }
+          : estado ? { field: 'status' as const, value: estado } : null;
+        const { tickets, last } = await queryArchive(tenant.id, { requesterUid: isReq ? meUid : null, where: isReq ? null : where, from: fromMs, to: toMs, pageSize: PAGE, after });
         setRows((r) => (reset ? tickets : [...r, ...tickets]));
         setCursor(last); setDone(tickets.length < PAGE);
       } else {
@@ -547,12 +563,18 @@ function Archive({ tenant, role, caps, meName, meUid, cloud }: { tenant: TenantD
       }
     } catch (e) { setErr('No se pudo cargar el archivo: ' + (e as Error).message); }
     finally { setLoading(false); }
-  }, [cloud, tenant.id, tenant.tickets, isReq, meUid, cursor]);
+  }, [cloud, tenant.id, tenant.tickets, isReq, meUid, catId, tech, estado, fromMs, toMs]);
 
-  useEffect(() => { setRows([]); setCursor(null); setDone(false); void loadPage(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tenant.id]);
+  // Recarga desde el servidor al cambiar cualquier filtro de servidor.
+  useEffect(() => { setRows([]); setCursor(null); setDone(false); void loadPage(true); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [tenant.id, catId, tech, estado, fromMs, toMs]);
 
+  // Refino en cliente: todos los filtros + texto (sobre lo cargado).
   const ql = q.trim().toLowerCase();
-  const filtered = ql ? rows.filter((t) => `${t.id} ${t.subject} ${nameOf(t.requesterId)} ${nameOf(t.technicianId)} ${t.status}`.toLowerCase().includes(ql)) : rows;
+  const filtered = rows.filter((t) =>
+    (!catId || t.serviceCategoryId === catId) && (!estado || t.status === estado) && (!tech || t.technicianId === tech) &&
+    (!ql || `${t.id} ${t.subject} ${nameOf(t.requesterId)} ${nameOf(t.technicianId)} ${t.status} ${t.serviceCategory ?? t.category ?? ''}`.toLowerCase().includes(ql)));
+  const anyFilter = !!(catId || estado || tech || from || to || ql);
+  const clear = () => { setCatId(''); setEstado(''); setTech(''); setFrom(''); setTo(''); setQ(''); };
 
   const openById = async () => {
     const raw = idq.trim(); if (!raw) return;
@@ -565,32 +587,42 @@ function Archive({ tenant, role, caps, meName, meUid, cloud }: { tenant: TenantD
   return <>
     <div className="hd">
       <h1>Archivo</h1>
-      <span className="sub">Cerrados/resueltos/cancelados · solo lectura{isReq ? ' · tus solicitudes' : ''}</span>
+      <span className="sub">Solo lectura · {rows.length} cargados{anyFilter ? ` · ${filtered.length} filtrados` : ''}{isReq ? ' · tus solicitudes' : ''}</span>
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input value={idq} onChange={(e) => setIdq(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void openById(); }} placeholder="Abrir por nº (p. ej. 27738)" style={{ width: 190 }} />
+        <input value={idq} onChange={(e) => setIdq(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void openById(); }} placeholder="Abrir por nº…" style={{ width: 150 }} />
         <button className="ghost" onClick={() => void openById()}>Abrir</button>
-        <label className="searchbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filtrar los cargados…" /></label>
       </div>
     </div>
+    <div className="card fbar">
+      {!isReq && <><select value={catId} onChange={(e) => setCatId(e.target.value)} title="Categoría"><option value="">Categoría: todas</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+      <select value={tech} onChange={(e) => setTech(e.target.value)} title="Técnico"><option value="">Técnico: todos</option>{techs.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></>}
+      <select value={estado} onChange={(e) => setEstado(e.target.value)} title="Estado"><option value="">Estado: todos</option>{statuses.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select>
+      <label className="fdate">Desde<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label>
+      <label className="fdate">Hasta<input type="date" value={to} onChange={(e) => setTo(e.target.value)} /></label>
+      <label className="searchbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Texto (asunto, persona…)" /></label>
+      {anyFilter && <button className="ghost sm" onClick={clear}>Limpiar</button>}
+    </div>
     {err && <div className="closeerr" style={{ margin: '8px 0' }}>⚠ {err}</div>}
-    <div className="card" style={{ overflow: 'hidden' }}>
+    <div className="card" style={{ overflow: 'hidden', marginTop: 12 }}>
       <table className="mgmt">
-        <thead><tr><th>ID</th><th>Asunto</th><th>Solicitante</th><th>Técnico</th><th>Categoría</th><th>Estado</th><th>Creado</th></tr></thead>
-        <tbody>{filtered.map((t) => <tr key={t.id} className="mrow" onClick={() => setSel(t)}>
+        <thead><tr><th>ID</th><th>Asunto</th><th>Solicitante</th><th>Técnico</th><th>Categoría</th><th>Prioridad</th><th>Estado</th><th>Creado</th></tr></thead>
+        <tbody>{filtered.map((t) => { const pv = priorityView(tenant, t.priority); const sv = statusView(tenant, t); return <tr key={t.id} className="mrow" onClick={() => setSel(t)}>
           <td><span className="id">{t.id}</span></td>
           <td>{t.subject}</td>
           <td>{nameOf(t.requesterId)}</td>
           <td>{t.technicianId ? nameOf(t.technicianId) : '—'}</td>
           <td>{t.serviceCategory ?? t.category ?? '—'}</td>
-          <td><span className="pill">{t.status}</span></td>
+          <td>{badge(pv.label, pv.color)}</td>
+          <td><span className="stbadge" style={{ color: sv.color, background: `color-mix(in srgb, ${sv.color} 15%, transparent)` }}>{sv.label}</span></td>
           <td style={{ whiteSpace: 'nowrap' }}>{t.createdAt ? fmtDate(t.createdAt) : '—'}</td>
-        </tr>)}</tbody>
+        </tr>; })}</tbody>
       </table>
-      {filtered.length === 0 && !loading && <div className="empty" style={{ padding: 24 }}>Sin resultados en el archivo.</div>}
+      {filtered.length === 0 && !loading && <div className="empty" style={{ padding: 24 }}>{anyFilter ? 'Sin resultados con estos filtros.' : 'Sin tickets archivados.'}</div>}
     </div>
     <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 10 }}>
-      <span className="soft" style={{ fontSize: 12 }}>{rows.length} cargados{ql ? ` · ${filtered.length} filtrados` : ''}</span>
-      {cloud && !done && <button className="ghost" onClick={() => void loadPage(false)} disabled={loading}>{loading ? 'Cargando…' : 'Cargar más'}</button>}
+      {cloud && !done && <button className="ghost" onClick={() => void loadPage(false, cursor)} disabled={loading}>{loading ? 'Cargando…' : 'Cargar más'}</button>}
+      {loading && <span className="soft" style={{ fontSize: 12 }}>Cargando…</span>}
+      {done && rows.length > 0 && <span className="soft" style={{ fontSize: 12 }}>fin de resultados</span>}
     </div>
     {sel && <div className="scrim tmodal-scrim" onClick={() => setSel(null)}>
       <div className="tmodal fixed" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Archivo ' + sel.id}>
