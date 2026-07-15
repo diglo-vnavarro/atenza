@@ -12,7 +12,7 @@ import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
 import { webhooksFor } from '../webhooks.js';
 import { canTransition, initialState } from '../lifecycle.js';
-import { makeSeed, SLA_BY_PRIORITY, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours } from '../data/seed.js';
+import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
 
@@ -403,8 +403,11 @@ export const useStore = create<State>()(
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { userGroups: list }).catch(errlog); }
         },
         setRoles: (list) => {
-          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, roles: list })) }));
-          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { roles: list }).catch(errlog); }
+          // Re-deriva las caps denormalizadas de cada miembro (para que las reglas de
+          // servidor reflejen el cambio de config de roles) y persiste los que cambien.
+          const changed: UiMember[] = [];
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, roles: list, members: t.members.map((m) => { const caps = memberCaps(m, list); if (JSON.stringify(caps) === JSON.stringify(m.caps)) return m; const nm = { ...m, caps }; changed.push(nm); return nm; }) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) { void cloud.patchTenantDoc(t.id, { roles: list }).catch(errlog); for (const m of changed) void cloud.writeMember(t.id, m).catch(errlog); } }
         },
         setNotifRules: (rules) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, notifRules: rules })) }));
@@ -770,12 +773,13 @@ export const useStore = create<State>()(
           const member: UiMember = {
             uid: 'm-' + Date.now(), name: name.trim() || em, email: em, role, status: 'invited', external,
             color: palette[(t0?.members.length ?? 0) % palette.length]!,
+            caps: memberCaps({ role }, t0?.roles),
           };
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: [...t.members, member] })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.writeMember(t.id, member).catch(errlog); }
         },
         updateMember: (uid, patch) => {
-          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.map((x) => (x.uid === uid ? { ...x, ...patch } : x)) })) }));
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.map((x) => { if (x.uid !== uid) return x; const nx = { ...x, ...patch }; nx.caps = memberCaps(nx, t.roles); return nx; }) })) }));
           if (CLOUD) { const t = activeT(get()); const m = t?.members.find((x) => x.uid === uid); if (t && m) void cloud.writeMember(t.id, m).catch(errlog); }
         },
         // Habilitación escalonada de traspaso a Atenza (varios miembros a la vez).

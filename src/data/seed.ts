@@ -81,6 +81,14 @@ export const DEFAULT_CAPS: Record<RoleBase, Cap[]> = {
   requester: [],
 };
 export interface RoleDef { name: string; base: RoleBase; caps?: Cap[] }
+
+/** Capacidades EFECTIVAS de un miembro = caps del rol nombrado (si las define),
+ *  si no, las por defecto de su nivel base. Se denormalizan al doc del miembro
+ *  para que firestore.rules las pueda enforcar. */
+export function memberCaps(m: { role: RoleBase; roleName?: string }, roles: RoleDef[] | undefined): Cap[] {
+  const rd = m.roleName ? (roles ?? []).find((r) => r.name === m.roleName) : undefined;
+  return rd?.caps ?? DEFAULT_CAPS[rd?.base ?? m.role];
+}
 const ROLE_BASE: Record<string, RoleBase> = { SDAdmin: 'tenant_admin', SDSiteAdmin: 'tenant_admin', HelpdeskConfig: 'tenant_admin', SDGuest: 'requester' };
 export const SDP_ROLES: RoleDef[] = ['AnnouncementConfig', 'AssetConfig', 'ContractConfig', 'HelpdeskConfig', 'PurchaseConfig', 'RolTecnicosReclamaciones', 'SDAdmin', 'SDAssetAuditAdmin', 'SDAssetAuditor', 'SDAssetManager', 'SDCo-ordinator', 'SDGuest', 'SDMaintenanceManager', 'SDRemoteControl', 'SDReport', 'SDSiteAdmin', 'Técnicos externos']
   .map((name) => ({ name, base: ROLE_BASE[name] ?? 'technician' }));
@@ -160,6 +168,9 @@ export interface UiMember {
   userGroups?: string[];
   /** rol granular (nombre del catálogo de roles del tenant); role sigue siendo el nivel base. */
   roleName?: string;
+  /** capacidades DENORMALIZADAS del rol, para que las reglas de servidor las enforcen
+   *  (se re-derivan al cambiar el rol del miembro o la config de roles). */
+  caps?: Cap[];
   /** datos maestros del solicitante. */
   site?: string;
   department?: string;

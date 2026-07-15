@@ -25,11 +25,20 @@ service cloud.firestore {
         && exists(memberRef(tid))
         && get(memberRef(tid)).data.status == 'active';
     }
-    function roleIn(tid) { return get(memberRef(tid)).data.role; }
+    function memberData(tid) { return get(memberRef(tid)).data; }
+    function roleIn(tid) { return memberData(tid).role; }
     function isAdmin(tid) { return isMember(tid) && roleIn(tid) == 'tenant_admin'; }
     // "técnico" incluye a tenant_admin (superconjunto operativo sobre tickets)
     function isTech(tid) { return isMember(tid) && roleIn(tid) in ['technician', 'tenant_admin']; }
     function isRequester(tid) { return isMember(tid) && roleIn(tid) == 'requester'; }
+    // Capacidad granular del rol. Si el miembro trae `caps` (denormalizadas), se
+    // consultan; si NO (miembros previos / seed), se cae al nivel base: solo
+    // tenant_admin tiene capacidades de gestión. El fallback evita bloquear a los
+    // administradores actuales al endurecer las reglas.
+    function hasCap(tid, cap) {
+      return isMember(tid)
+        && ( ('caps' in memberData(tid)) ? (cap in memberData(tid).caps) : (roleIn(tid) == 'tenant_admin') );
+    }
 
     // superadmin de plataforma (Diglo), fuera de todo tenant
     function isPlatformAdmin() {
@@ -68,14 +77,14 @@ service cloud.firestore {
       allow get:    if isMember(tid) || isPlatformAdmin();
       allow list:   if isPlatformAdmin();
       allow create: if isPlatformAdmin();
-      allow update: if isAdmin(tid) || isPlatformAdmin();
+      allow update: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       allow delete: if isPlatformAdmin();
 
       // --- miembros del tenant (identidad + rol AQUÍ) ---
       match /members/{u} {
         allow get:  if isMember(tid) || isPlatformAdmin();
         allow list: if isTech(tid)   || isPlatformAdmin();
-        allow create, update, delete: if isAdmin(tid) || isPlatformAdmin();
+        allow create, update, delete: if hasCap(tid, 'manageUsers') || isPlatformAdmin();
       }
 
       // --- tickets ---
@@ -125,31 +134,31 @@ service cloud.firestore {
       // categorías y capacidad viven en el propio doc del tenant (get: miembro).
       match /lifecycles/{docId} {
         allow read:  if isMember(tid) || isPlatformAdmin();
-        allow write: if isAdmin(tid)  || isPlatformAdmin();
+        allow write: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       }
       match /templates/{docId} {
         allow read:  if isMember(tid) || isPlatformAdmin();
-        allow write: if isAdmin(tid)  || isPlatformAdmin();
+        allow write: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       }
       match /catalog/{docId} {
         allow read:  if isMember(tid) || isPlatformAdmin();
-        allow write: if isAdmin(tid)  || isPlatformAdmin();
+        allow write: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       }
       match /slas/{docId} {
         allow read:  if isMember(tid) || isPlatformAdmin();
-        allow write: if isAdmin(tid)  || isPlatformAdmin();
+        allow write: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       }
       match /workflows/{docId} {
         allow read:  if isMember(tid) || isPlatformAdmin();
-        allow write: if isAdmin(tid)  || isPlatformAdmin();
+        allow write: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       }
       match /groups/{docId} {
         allow read:  if isMember(tid) || isPlatformAdmin();
-        allow write: if isAdmin(tid)  || isPlatformAdmin();
+        allow write: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       }
       match /approvals/{docId} {
         allow read:  if isMember(tid) || isPlatformAdmin();
-        allow write: if isAdmin(tid)  || isPlatformAdmin();
+        allow write: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       }
 
       // --- avisos en pantalla: cada miembro solo lee/actualiza LOS SUYOS ---

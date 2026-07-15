@@ -5,8 +5,9 @@ import {
   canReadTenant, canUpdateTenant, canCreateTenant,
   canManageMembers, canReadMember,
   canGetTicket, canListTickets, canCreateTicket, canUpdateTicket, canDeleteTicket,
-  canReadConfig, canWriteConfig,
+  canReadConfig, canWriteConfig, hasCap, type User,
 } from '../src/access.js';
+import type { Role } from '../src/model.js';
 import {
   IT, LEASYS,
   adminIT, techIT, reqIT1, reqIT2,
@@ -110,6 +111,35 @@ describe('estados de acceso negados', () => {
   it('sin sesión (null) todo se deniega', () => {
     expect(canReadTenant(null, IT)).toBe(false);
     expect(canGetTicket(null, IT, ticketOfReq1)).toBe(false);
+  });
+});
+
+describe('capacidades granulares en servidor (RBAC)', () => {
+  const mk = (role: Role, caps?: string[]): User => ({ uid: 'u1', memberships: { [IT]: { role, status: 'active', ...(caps ? { caps } : {}) } } });
+
+  it('sin caps → fallback al nivel base (no bloquea a los admins actuales)', () => {
+    expect(canWriteConfig(mk('tenant_admin'), IT)).toBe(true);
+    expect(canManageMembers(mk('tenant_admin'), IT)).toBe(true);
+    expect(canWriteConfig(mk('technician'), IT)).toBe(false);
+    expect(canManageMembers(mk('technician'), IT)).toBe(false);
+  });
+
+  it('caps restringen a un admin-base al que se le quitó manageConfig/manageUsers', () => {
+    const restricted = mk('tenant_admin', ['viewAllTickets', 'assign', 'close']);
+    expect(canWriteConfig(restricted, IT)).toBe(false);
+    expect(canManageMembers(restricted, IT)).toBe(false);
+    expect(canUpdateTenant(restricted, IT)).toBe(false);
+    expect(hasCap(restricted, IT, 'assign')).toBe(true);
+  });
+
+  it('caps elevan a un técnico-base con manageConfig', () => {
+    const elevated = mk('technician', ['viewAllTickets', 'manageConfig']);
+    expect(canWriteConfig(elevated, IT)).toBe(true);
+    expect(canManageMembers(elevated, IT)).toBe(false); // no tiene manageUsers
+  });
+
+  it('caps vacías → sin capacidades de gestión aunque el base fuese admin', () => {
+    expect(canWriteConfig(mk('tenant_admin', []), IT)).toBe(false);
   });
 });
 

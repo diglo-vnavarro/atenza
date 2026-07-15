@@ -16,6 +16,8 @@ import type { Role, MemberStatus, TicketType } from './model.js';
 export interface Membership {
   role: Role;
   status: MemberStatus;
+  /** capacidades denormalizadas del rol (opcional). Si faltan, se cae al nivel base. */
+  caps?: string[];
 }
 
 /** Sujeto autenticado y sus pertenencias por tenant. */
@@ -64,6 +66,20 @@ export function isPlatformAdmin(u: User | null): boolean {
   return !!u?.platformAdmin;
 }
 
+/**
+ * ¿Tiene el miembro esta capacidad? Si el documento trae `caps` (denormalizadas
+ * del rol), se consultan; si NO las trae (miembros previos / seed), se cae al
+ * nivel base: solo `tenant_admin` tiene capacidades de gestión. Este fallback
+ * garantiza que endurecer las reglas NO bloquea a los administradores actuales.
+ */
+export function hasCap(u: User | null, tid: string, cap: string): boolean {
+  if (!u) return false;
+  const m = u.memberships[tid];
+  if (!m || m.status !== 'active') return false;
+  if (m.caps) return m.caps.includes(cap);
+  return m.role === 'tenant_admin';
+}
+
 // ---- tenant -----------------------------------------------------------------
 
 export function canReadTenant(u: User | null, tid: string): boolean {
@@ -71,7 +87,7 @@ export function canReadTenant(u: User | null, tid: string): boolean {
 }
 
 export function canUpdateTenant(u: User | null, tid: string): boolean {
-  return isAdmin(u, tid) || isPlatformAdmin(u);
+  return hasCap(u, tid, 'manageConfig') || isPlatformAdmin(u);
 }
 
 export function canCreateTenant(u: User | null): boolean {
@@ -85,7 +101,7 @@ export function canReadMember(u: User | null, tid: string): boolean {
 }
 
 export function canManageMembers(u: User | null, tid: string): boolean {
-  return isAdmin(u, tid) || isPlatformAdmin(u);
+  return hasCap(u, tid, 'manageUsers') || isPlatformAdmin(u);
 }
 
 // ---- tickets ----------------------------------------------------------------
@@ -135,5 +151,5 @@ export function canReadConfig(u: User | null, tid: string): boolean {
 }
 
 export function canWriteConfig(u: User | null, tid: string): boolean {
-  return isAdmin(u, tid) || isPlatformAdmin(u);
+  return hasCap(u, tid, 'manageConfig') || isPlatformAdmin(u);
 }
