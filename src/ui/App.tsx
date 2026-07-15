@@ -738,7 +738,13 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
     </div>}
 
     {tab === 'aprobaciones' && (() => {
-      const candidates = tenant.members.filter((m) => m.status === 'active' && m.uid !== meUid);
+      // Solo aprobadores CONFIGURADOS de la categoría (modo simplificado) o de la plantilla
+      // (modo clásico) del ticket — nunca la lista completa de usuarios.
+      const tplA = tenant.templates.find((x) => x.id === t.templateId);
+      const catA = t.serviceCategoryId ? (tenant.serviceCategories ?? []).find((c) => c.id === t.serviceCategoryId) : undefined;
+      const levels = tplA?.approvalLevels ?? catA?.approvalLevels ?? [];
+      const approverUids = [...new Set(levels.flatMap((lv) => lv.approverUids))];
+      const candidates = tenant.members.filter((m) => m.status === 'active' && m.uid !== meUid && approverUids.includes(m.uid));
       const toggle = (uid: string) => setApprSel(apprSel.includes(uid) ? apprSel.filter((x) => x !== uid) : [...apprSel, uid]);
       const send = () => { if (apprSel.length) { requestApproval(t.id, apprSel, apprNote); setApprSel([]); setApprNote(''); } };
       const APV: Record<string, [string, string]> = { pending: ['Pendiente', 'var(--warn)'], approved: ['Aprobada', 'var(--ok)'], rejected: ['Rechazada', 'var(--crit)'], waiting: ['En espera del nivel anterior', 'var(--ink-faint)'] };
@@ -762,7 +768,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
             </div>}
           </div>;
         })}</div>
-        {canAct && <div style={{ marginTop: 12, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+        {canAct && candidates.length > 0 && <div style={{ marginTop: 12, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
           <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginBottom: 6 }}>Solicitar aprobación a:</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {candidates.map((m) => <button key={m.uid} type="button" className={'chipsel' + (apprSel.includes(m.uid) ? ' on' : '')} onClick={() => toggle(m.uid)}>{m.name}</button>)}
@@ -772,6 +778,9 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
             <button className="primary" onClick={send} disabled={apprSel.length === 0}>Solicitar aprobación</button>
           </div>
           <div style={{ fontSize: 11, color: 'var(--ink-faint)', marginTop: 6 }}>Al solicitar, la solicitud pasa a «Pendiente Aprobación» (pausa el SLA).</div>
+        </div>}
+        {canAct && candidates.length === 0 && approvals.length === 0 && <div style={{ fontSize: 12, color: 'var(--ink-faint)', marginTop: 12, borderTop: '1px solid var(--line)', paddingTop: 10 }}>
+          {t.serviceCategoryId ? 'Esta categoría de servicio' : 'Esta plantilla'} no tiene aprobadores configurados, por lo que no requiere aprobación.
         </div>}
       </div>;
     })()}
@@ -1197,6 +1206,33 @@ function ServiceCategoriesAdmin({ tenant }: { tenant: TenantData }) {
           <ChipMulti options={tenant.userGroups ?? []} selected={c.userGroups ?? []} onChange={(ug) => upd(c.id, { userGroups: ug })} />
         </div>
         {(c.userGroups ?? []).length === 0 && <div className="soft" style={{ fontSize: 12, paddingLeft: 74 }}>vacío = la ven todos</div>}
+        <div className="rule-row" style={{ marginTop: 8 }}><span className="rule-lbl">Grupo de soporte</span>
+          <select value={c.groupId ?? ''} onChange={(e) => { const v = e.target.value; if (v) upd(c.id, { groupId: v }); else { const nc = { ...c }; delete nc.groupId; replace(c.id, nc); } }}>
+            <option value="">— sin grupo (lo ven todos los técnicos) —</option>
+            {(tenant.groups ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        </div>
+        <div className="soft" style={{ fontSize: 12, paddingLeft: 74 }}>Sus técnicos ven, cogen y reciben la asignación de los tickets de esta categoría.</div>
+        <div className="rule-row" style={{ marginTop: 8 }}><span className="rule-lbl">Aprobaciones</span></div>
+        <p className="soft" style={{ fontSize: 12, paddingLeft: 74, marginTop: 0 }}>Niveles que se crean al abrir un ticket de esta categoría. Solo estos aprobadores aparecerán en la pestaña «Aprobaciones». Vacío = no requiere visto bueno.</p>
+        <div className="al-list" style={{ paddingLeft: 74 }}>
+          {(c.approvalLevels ?? []).map((lv, li) => { const levels = c.approvalLevels ?? []; return <div key={lv.id} className="al-card">
+            <div className="al-head">
+              <span className="tt-num">{li + 1}</span>
+              <input className="tt-text" value={lv.name} onChange={(e) => replace(c.id, { ...c, approvalLevels: levels.map((x) => (x.id === lv.id ? { ...x, name: e.target.value } : x)) })} placeholder="Nombre del nivel" />
+              <select value={lv.rule} onChange={(e) => replace(c.id, { ...c, approvalLevels: levels.map((x) => (x.id === lv.id ? { ...x, rule: e.target.value as 'any' | 'all' } : x)) })} title="Regla de decisión"><option value="any">Basta con uno</option><option value="all">Deben aprobar todos</option></select>
+              <button className="xbtn" onClick={() => { if (li === 0) return; const n = [...levels]; [n[li - 1], n[li]] = [n[li]!, n[li - 1]!]; replace(c.id, { ...c, approvalLevels: n }); }} disabled={li === 0} aria-label="Subir">↑</button>
+              <button className="xbtn" onClick={() => { if (li >= levels.length - 1) return; const n = [...levels]; [n[li + 1], n[li]] = [n[li]!, n[li + 1]!]; replace(c.id, { ...c, approvalLevels: n }); }} disabled={li >= levels.length - 1} aria-label="Bajar">↓</button>
+              <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => replace(c.id, { ...c, approvalLevels: levels.filter((x) => x.id !== lv.id) })} aria-label="Eliminar">✕</button>
+            </div>
+            <div className="al-approvers">
+              <span className="soft" style={{ fontSize: 12 }}>Aprobadores:</span>
+              {tenant.members.filter((m) => m.role !== 'requester').map((m) => <button key={m.uid} className={'chipsel' + (lv.approverUids.includes(m.uid) ? ' on' : '')} onClick={() => replace(c.id, { ...c, approvalLevels: levels.map((x) => (x.id === lv.id ? { ...x, approverUids: x.approverUids.includes(m.uid) ? x.approverUids.filter((u) => u !== m.uid) : [...x.approverUids, m.uid] } : x)) })}>{m.name}</button>)}
+              {lv.approverUids.length === 0 && <span className="soft" style={{ fontSize: 11, color: 'var(--crit)' }}>sin aprobadores → el nivel no hará nada</span>}
+            </div>
+          </div>; })}
+        </div>
+        <button className="linkbtn" style={{ marginLeft: 74 }} onClick={() => replace(c.id, { ...c, approvalLevels: [...(c.approvalLevels ?? []), { id: 'al-' + Date.now(), name: `Nivel ${(c.approvalLevels ?? []).length + 1}`, approverUids: [], rule: 'any' }] })}>＋ nivel de aprobación</button>
         <div className="rule-row" style={{ marginTop: 8 }}><span className="rule-lbl">Campos propios</span></div>
         <div className="tt-list">{(c.fields ?? []).map((f, i) => <div key={f.id} className="cfield-row">
           <input value={f.label} onChange={(e) => replace(c.id, { ...c, fields: (c.fields ?? []).map((x) => (x.id === f.id ? { ...x, label: e.target.value } : x)) })} placeholder="Etiqueta" style={{ flex: 1 }} />

@@ -1,6 +1,6 @@
 // Datos semilla del piloto (local-first). Dos instancias, reflejando la
 // realidad de Diglo: una interna completa y un cliente externo (Leasys).
-import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef } from '../model.js';
+import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, ApprovalLevelDef } from '../model.js';
 
 // Catálogo de campos adicionales (ad-hoc) de ejemplo para diglo-it.
 export const DEFAULT_CUSTOM_FIELDS: FieldDef[] = [
@@ -268,6 +268,12 @@ export interface ServiceCategoryDef {
   icon?: string;
   /** icono de IMAGEN: SVG inline («<svg…») o data URL (PNG). Prevalece sobre el emoji. */
   iconImage?: string;
+  /** grupo de soporte asignado: sus técnicos ven/cogen/reciben la asignación del
+   *  ticket (como el grupo asociado a la plantilla en SDP). Se fija al crear. */
+  groupId?: string;
+  /** niveles de aprobación de la categoría: se instancian como aprobaciones al crear
+   *  (solo aparecen los aprobadores definidos, cuando la categoría los requiere). */
+  approvalLevels?: ApprovalLevelDef[];
 }
 
 // Campo de categoría (helper): sección «Campos de la categoría», visible al solicitante.
@@ -278,7 +284,7 @@ const scf = (id: string, label: string, type: FieldDef['type'], mandatory = fals
 // campos propios. Ids de ciclo del seed: lc-inc (incidencia), lc-sr (con aprobación),
 // lc-alta (usuarios), lc-ops (operaciones); null = sin flujo (estado libre).
 export const DEFAULT_SERVICE_CATEGORIES: ServiceCategoryDef[] = [
-  { id: 'sc-inc', name: 'Incidencias generales', icon: '🛠️', incident: { lifecycleId: 'lc-inc' },
+  { id: 'sc-inc', name: 'Incidencias generales', icon: '🛠️', incident: { lifecycleId: 'lc-inc' }, groupId: 'g-n1',
     fields: [scf('cf-app', 'Aplicación afectada', 'text', false, 1), scf('cf-repro', '¿Reproducible?', 'bool', false, 2)] },
   { id: 'sc-reclam', name: 'Reclamaciones de clientes', icon: '📣', incident: { lifecycleId: 'lc-inc' }, userGroups: ['UsuariosReclamaciones'],
     fields: [scf('cf-exp', 'Nº de expediente', 'text', true, 1), scf('cf-cli', 'Cliente', 'text', false, 2)] },
@@ -293,7 +299,8 @@ export const DEFAULT_SERVICE_CATEGORIES: ServiceCategoryDef[] = [
     fields: [scf('cf-uso', 'Caso de uso', 'textarea', false, 1)] },
   { id: 'sc-informes', name: 'Informes (Looker/Google)', icon: '📈', service_request: { lifecycleId: null },
     fields: [scf('cf-panel', 'Panel / vista', 'text', false, 1)] },
-  { id: 'sc-alta', name: 'Alta de usuario', icon: '👤', service_request: { lifecycleId: 'lc-alta' }, userGroups: ['Usuarios RRHH'],
+  { id: 'sc-alta', name: 'Alta de usuario', icon: '👤', service_request: { lifecycleId: 'lc-alta' }, userGroups: ['Usuarios RRHH'], groupId: 'g-n1',
+    approvalLevels: [{ id: 'al-alta-1', name: 'Visto bueno responsable', approverUids: ['u-elena'], rule: 'any' }],
     fields: [scf('cf-nom', 'Nombre', 'text', true, 1), scf('cf-ape', 'Apellidos', 'text', true, 2), scf('cf-nif', 'NIF/CIF', 'text', true, 1), scf('cf-dep', 'Departamento', 'select', true, 2), scf('cf-inc2', 'Fecha de incorporación', 'date', true, 1)] },
   { id: 'sc-baja', name: 'Baja de usuario', icon: '🚪', service_request: { lifecycleId: 'lc-alta' }, userGroups: ['Usuarios RRHH'],
     fields: [scf('cf-usr', 'Usuario a dar de baja', 'person', true, 1), scf('cf-fbaja', 'Fecha de baja', 'date', true, 2), scf('cf-equip', 'Equipamiento a devolver', 'text', false, 1)] },

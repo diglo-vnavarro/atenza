@@ -299,6 +299,8 @@ export const useStore = create<State>()(
             priority: nt.priority, impact: nt.impact, urgency: nt.urgency, mode: nt.mode, level: nt.level, site: nt.site,
             templateId: cat ? 'unified' : (tpl?.id ?? 'tpl-inc'), status: init,
             ...(cat ? { serviceCategoryId: cat.id, serviceCategory: cat.name } : {}),
+            // Grupo de soporte de la categoría (una regla de negocio puede sobrescribirlo).
+            ...(cat?.groupId ? { groupId: cat.groupId } : {}),
             ...(nt.udf && Object.keys(nt.udf).length ? { udf: nt.udf } : {}),
           };
           // Reglas de negocio: aplican patch (prioridad/grupo/estado/técnico) al crear.
@@ -316,7 +318,7 @@ export const useStore = create<State>()(
           const reqName = t.members.find((m) => m.uid === nt.requesterId)?.name ?? nt.requesterId;
           // Secuencial: solo el nivel 1 arranca 'pending'; los siguientes quedan 'waiting'
           // hasta que se complete el nivel anterior (ver decideApproval).
-          const tplApprovals = (tpl?.approvalLevels ?? []).flatMap((lv, li) => lv.approverUids.map((uid, i) => ({
+          const tplApprovals = (tpl?.approvalLevels ?? cat?.approvalLevels ?? []).flatMap((lv, li) => lv.approverUids.map((uid, i) => ({
             id: `ap-${id}-${li}-${i}`, approverUid: uid, approverName: t.members.find((m) => m.uid === uid)?.name ?? uid,
             status: (li === 0 ? 'pending' : 'waiting') as 'pending' | 'waiting', requestedBy: nt.requesterId, requestedByName: reqName, requestedAt: now, level: li + 1, note: lv.name || undefined,
           })));
@@ -531,7 +533,8 @@ export const useStore = create<State>()(
           let activatedUids: string[] = [];
           if (decision === 'approved' && decided?.level) {
             const tpl = t.templates.find((x) => x.id === tk.templateId);
-            const rule = tpl?.approvalLevels?.[decided.level - 1]?.rule ?? 'all';
+            const cat = tk.serviceCategoryId ? (t.serviceCategories ?? []).find((c) => c.id === tk.serviceCategoryId) : undefined;
+            const rule = (tpl?.approvalLevels ?? cat?.approvalLevels)?.[decided.level - 1]?.rule ?? 'all';
             const lvl = approvals.filter((a) => a.level === decided.level);
             const complete = rule === 'any' ? lvl.some((a) => a.status === 'approved') : lvl.every((a) => a.status === 'approved');
             const nextLvl = decided.level + 1;
@@ -831,6 +834,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v31', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v32', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );
