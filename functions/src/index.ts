@@ -16,7 +16,9 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 initializeApp();
 const db = getFirestore();
 
-export const autoOnboard = beforeUserSignedIn(async (event) => {
+// Región europe-west1 (cerca de Firestore eur3). El id de la función es el mismo,
+// así que al desplegar aquí hay que borrar la versión anterior de us-east1.
+export const autoOnboard = beforeUserSignedIn({ region: 'europe-west1' }, async (event) => {
   const uid = event.data?.uid;
   // Email autenticado en minúsculas (así se comparan las fichas de miembro).
   const email = event.data?.email?.toLowerCase();
