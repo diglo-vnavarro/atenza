@@ -41,6 +41,59 @@ function richToText(html: string): string {
     return (doc.body.textContent ?? '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
   } catch { return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); }
 }
+// Renderiza el icono de una categoría de servicio: imagen (SVG inline o data URL)
+// si existe, si no el emoji. Para el modo simplificado con iconos de marca.
+function catIconEl(c: { icon?: string; iconImage?: string } | undefined, size = 18): import('react').ReactNode {
+  if (!c) return null;
+  const img = c.iconImage?.trim();
+  if (img) {
+    if (img.startsWith('<svg')) return <span className="cicon" style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: img }} />;
+    return <img className="cicon" src={img} alt="" style={{ width: size, height: size, objectFit: 'contain' }} />;
+  }
+  return c.icon ? <span style={{ fontSize: size - 2 }}>{c.icon}</span> : null;
+}
+// Sanea HTML del editor enriquecido para mostrarlo sin riesgo (allowlist de etiquetas,
+// sin scripts ni atributos on*/style peligrosos). Las imágenes de servlet de SDP se marcan.
+function sanitizeHtml(html: string): string {
+  if (!html || !/[<&]/.test(html)) return (html ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>');
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const ALLOW = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'S', 'STRIKE', 'BR', 'P', 'DIV', 'UL', 'OL', 'LI', 'A', 'SPAN', 'H3', 'H4', 'BLOCKQUOTE']);
+    // 1) elementos peligrosos fuera (imágenes de SDP → nota).
+    doc.body.querySelectorAll('img').forEach((im) => im.replaceWith(doc.createTextNode('🖼 [imagen adjunta en SDP]')));
+    doc.body.querySelectorAll('script,style,iframe,object,embed,link,meta').forEach((e) => e.remove());
+    // 2) limpiar atributos (solo href seguro en enlaces).
+    doc.body.querySelectorAll('*').forEach((el) => {
+      [...el.attributes].forEach((a) => {
+        const n = a.name.toLowerCase();
+        if (el.tagName === 'A' && n === 'href' && /^(https?:|mailto:)/i.test(a.value)) return;
+        el.removeAttribute(a.name);
+      });
+      if (el.tagName === 'A') { el.setAttribute('target', '_blank'); el.setAttribute('rel', 'noopener noreferrer'); }
+    });
+    // 3) desenvolver etiquetas no permitidas, de la más profunda a la menos (evita
+    //    desanclar padres antes que hijos).
+    Array.from(doc.body.querySelectorAll('*')).reverse().forEach((el) => {
+      if (!ALLOW.has(el.tagName) && el.parentNode) el.replaceWith(...Array.from(el.childNodes));
+    });
+    return doc.body.innerHTML;
+  } catch { return richToText(html).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\n/g, '<br>'); }
+}
+// Editor de texto enriquecido mínimo (negrita/cursiva/subrayado/listas/enlace),
+// como la barra del formulario de SDP. Devuelve HTML; se muestra saneado.
+function RichText({ value, onChange, placeholder, disabled }: { value: string; onChange: (html: string) => void; placeholder?: string; disabled?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (ref.current && ref.current.innerHTML !== (value || '')) ref.current.innerHTML = value || ''; /* init una vez */ }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const exec = (c: string, val?: string) => { ref.current?.focus(); document.execCommand(c, false, val); onChange(ref.current?.innerHTML ?? ''); };
+  const btns: [string, string][] = [['bold', 'B'], ['italic', 'I'], ['underline', 'U'], ['insertUnorderedList', '☰'], ['insertOrderedList', '№']];
+  return <div className={'rte' + (disabled ? ' dis' : '')}>
+    <div className="rte-tb">
+      {btns.map(([c, l]) => <button key={c} type="button" tabIndex={-1} onMouseDown={(e) => { e.preventDefault(); exec(c); }} title={c}>{l}</button>)}
+      <button type="button" tabIndex={-1} onMouseDown={(e) => { e.preventDefault(); const u = prompt('URL del enlace:'); if (u) exec('createLink', u); }} title="Enlace">🔗</button>
+    </div>
+    <div ref={ref} className="rte-body" contentEditable={!disabled} suppressContentEditableWarning role="textbox" aria-multiline data-ph={placeholder ?? ''} onInput={() => onChange(ref.current?.innerHTML ?? '')} />
+  </div>;
+}
 const initials = (n: string) => n.replace(/\(.*?\)/g, '').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 const fmtMins = (m: number) => (m >= 1440 ? Math.round(m / 1440) + 'd' : m >= 60 ? Math.round(m / 60) + 'h' : m + 'm');
 /** Duración exacta para el registro de tiempo: 90→"1h 30m", 45→"45m", 120→"2h". */
@@ -521,7 +574,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
         <div><div className="k">Solicitante</div><span style={{ fontSize: 13 }}>{req?.name ?? '—'}</span></div>
         <div><div className="k">Técnico</div><span style={{ fontSize: 13 }}>{tech?.name ?? 'Sin asignar'}</span></div>
         {group && <div><div className="k">Grupo</div><span style={{ fontSize: 13 }}>{group.name}</span></div>}
-        {t.serviceCategory && <div><div className="k">Categoría de servicio</div><span style={{ fontSize: 13 }}>{t.serviceCategory}</span></div>}
+        {t.serviceCategory && <div><div className="k">Categoría de servicio</div><span style={{ fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>{catIconEl((tenant.serviceCategories ?? []).find((c) => c.id === t.serviceCategoryId), 16)}{t.serviceCategory}</span></div>}
         {t.category && <div><div className="k">Categoría</div><span style={{ fontSize: 13 }}>{[t.category, t.subcategory, t.item].filter(Boolean).join(' › ')}</span></div>}
         <div><div className="k">Vencimiento</div><span className={dueSev === 'crit' ? 'sev-crit' : dueSev === 'warn' ? 'sev-warn' : ''} style={{ fontSize: 13, fontWeight: 600 }}>{due}</span></div>
         {t.impact && <div><div className="k">Impacto</div><span style={{ fontSize: 13 }}>{t.impact}</span></div>}
@@ -537,7 +590,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
         </div>
         <div className="slabar"><span style={{ width: pct + '%', background: ss.breached ? 'var(--crit)' : paused ? 'var(--warn)' : 'var(--ok)' }} /></div>
       </div>}
-      {t.description && <div className="desc" style={{ whiteSpace: 'pre-wrap' }}>{richToText(t.description)}</div>}
+      {t.description && <div className="desc rich" dangerouslySetInnerHTML={{ __html: sanitizeHtml(t.description) }} />}
       {t.udf && Object.keys(t.udf).length > 0 && (() => {
         const tpl = tenant.templates.find((x) => x.id === t.templateId);
         const scat = t.serviceCategoryId ? (tenant.serviceCategories ?? []).find((c) => c.id === t.serviceCategoryId) : undefined;
@@ -959,6 +1012,18 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
   const [udf, setUdf] = useState<Record<string, string>>({});
   const setU = (id: string, v: string) => setUdf((u) => ({ ...u, [id]: v }));
+  const uploadAttachment = useStore((s) => s.uploadAttachment);
+  const meName = tenant.members.find((m) => m.uid === user.uid)?.name ?? user.uid;
+  // Clasificación Categoría › Subcategoría › Artículo (como SDP; independiente de la
+  // categoría de servicio, que es el eje del modo simplificado).
+  const tree = tenant.categoryTree ?? [];
+  const [category, setCategory] = useState(tree[0]?.name ?? tenant.categories[0] ?? 'General');
+  const [subcategory, setSubcategory] = useState('');
+  const [item, setItem] = useState('');
+  const catNode = tree.find((c) => c.name === category) ?? null;
+  const subNode = catNode?.subs.find((s) => s.name === subcategory) ?? null;
+  const [files, setFiles] = useState<File[]>([]);
+  const [dragOver, setDragOver] = useState(false);
 
   const myUG = tenant.members.find((m) => m.uid === user.uid)?.userGroups ?? [];
   const canSee = (c: import('../data/seed.js').ServiceCategoryDef) => role !== 'requester' || !c.userGroups?.length || c.userGroups.some((g) => myUG.includes(g));
@@ -980,7 +1045,13 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const visCatFields = catFields.filter((f) => !isHidden(f));
   const missingCat = visCatFields.some((f) => isMand(f) && !(udf[f.id] ?? '').trim());
   const canSubmit = !!subject.trim() && !!cat && !missingCat && !readOnly;
-  const submit = () => { if (!canSubmit || !cat) return; create({ subject, description, category: '', priority, site: site || undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf }); onClose(); };
+  const submit = async () => {
+    if (!canSubmit || !cat) return;
+    const id = create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, site: site || undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf });
+    if (id) for (const f of files) { try { await uploadAttachment(id, f, meName); } catch { /* ignora fallo de subida individual */ } }
+    onClose();
+  };
+  const onDrop = (e: import('react').DragEvent<HTMLDivElement>) => { e.preventDefault(); setDragOver(false); setFiles((fs) => [...fs, ...Array.from(e.dataTransfer.files)]); };
 
   const widget = (f: FieldDef) => {
     const v = udf[f.id] ?? ''; const dis = isDis(f);
@@ -997,7 +1068,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
 
   return (
     <div className="scrim" onClick={onClose}>
-      <aside className="drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nueva solicitud">
+      <aside className="drawer wide" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nueva solicitud">
         <div className="drawer-h"><h2>Nueva solicitud</h2><button className="dx" onClick={onClose} aria-label="Cerrar">×</button></div>
         <div className="drawer-b"><div className="form nf-form">
           <div className="nf-sec">
@@ -1007,21 +1078,33 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
                 <button type="button" className={tipo === 'service_request' ? 'on' : ''} onClick={() => setTipo('service_request')}>📥 Petición</button>
               </div>
             </label>
-            <label>Categoría de servicio<select value={cat?.id ?? ''} onChange={(e) => setCatId(e.target.value)}>
-              {cats.map((c) => <option key={c.id} value={c.id}>{c.icon ? c.icon + ' ' : ''}{c.name}</option>)}
-              {cats.length === 0 && <option value="">— sin categorías para este tipo —</option>}
-            </select></label>
+            <label>Categoría de servicio
+              <span className="cat-pick">
+                {cat && <span className="cat-pick-ic">{catIconEl(cat, 22)}</span>}
+                <select value={cat?.id ?? ''} onChange={(e) => setCatId(e.target.value)}>
+                  {cats.map((c) => <option key={c.id} value={c.id}>{!c.iconImage && c.icon ? c.icon + ' ' : ''}{c.name}</option>)}
+                  {cats.length === 0 && <option value="">— sin categorías para este tipo —</option>}
+                </select>
+              </span>
+            </label>
             {lcName ? <div className="lc-hint">⚙️ Ciclo de vida: <b>{lcName}</b></div> : cat && <div className="lc-hint">⚙️ Sin flujo (estado libre)</div>}
           </div>
           <div className="nf-sec">
             <div className="nf-sec-h">Datos de la solicitud</div>
             <label>Asunto<span className="req">*</span><input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
             <div className="nf-cols">
-              <div className="nf-col"><label>Prioridad<span className="req">*</span><select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label></div>
-              <div className="nf-col">{(tenant.sites ?? []).length > 0 && <label>Sede<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}</div>
+              <div className="nf-col">
+                <label>Prioridad<span className="req">*</span><select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
+                <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
+                {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
+              </div>
+              <div className="nf-col">
+                {(tenant.sites ?? []).length > 0 && <label>Sede<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
+                {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((sn) => <option key={sn.name} value={sn.name}>{sn.name}</option>)}</select></label>}
+              </div>
             </div>
             {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
-            <label>Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>
+            <label>Descripción<RichText value={description} onChange={setDescription} placeholder="Describe la solicitud con detalle…" disabled={readOnly} /></label>
           </div>
           {visCatFields.length > 0 && <div className="nf-sec">
             <div className="nf-sec-h">Campos de la categoría · {cat?.name}</div>
@@ -1030,6 +1113,15 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
               <div className="nf-col">{visCatFields.filter((f) => f.col === 2).map((f) => <label key={f.id}>{f.label}{isMand(f) && <span className="req">*</span>}{widget(f)}</label>)}</div>
             </div>
           </div>}
+          <div className="nf-sec">
+            <div className="nf-sec-h">Archivos adjuntos</div>
+            <div className={'dropzone' + (dragOver ? ' over' : '')} onDragOver={(e) => { e.preventDefault(); setDragOver(true); }} onDragLeave={() => setDragOver(false)} onDrop={onDrop}>
+              <label className="dz-pick">Arrastra y suelta archivos aquí, o <span className="linkbtn">selecciónalos</span>
+                <input type="file" multiple style={{ display: 'none' }} onChange={(e) => { setFiles((fs) => [...fs, ...Array.from(e.target.files ?? [])]); e.target.value = ''; }} />
+              </label>
+            </div>
+            {files.length > 0 && <div className="dz-list">{files.map((f, i) => <span key={i} className="dz-file">📎 {f.name} <span className="soft">({fmtSize(f.size)})</span><button className="xbtn" onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))} aria-label="Quitar">✕</button></span>)}</div>}
+          </div>
           {readOnly && <div className="empty" style={{ fontSize: 12 }}>👁 Modo lectura: no puedes crear la solicitud.</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
             <button className="primary" onClick={submit} disabled={!canSubmit}>Crear solicitud</button>
@@ -1079,13 +1171,21 @@ function ServiceCategoriesAdmin({ tenant }: { tenant: TenantData }) {
     <p className="cfg-lead">Categorías de servicio del <b>modo simplificado</b>. Cada una define qué <b>tipos</b> admite y su <b>ciclo de vida</b> por tipo, quién la <b>ve</b> (permiso por grupo) y sus <b>campos</b> propios. Es lo que sustituye a las 36 plantillas.</p>
     <div className="svc-cats">{cats.map((c) => { const isOpen = open === c.id; return <div key={c.id} className={'svc-cat' + (isOpen ? ' on' : '')}>
       <div className="svc-head" style={{ cursor: 'default' }}>
-        <input value={c.icon ?? ''} onChange={(e) => upd(c.id, { icon: e.target.value.slice(0, 2) })} placeholder="📁" style={{ width: 40, textAlign: 'center', fontSize: 15 }} maxLength={2} />
+        <span className="cat-pick-ic" style={{ width: 26 }}>{catIconEl(c, 22) ?? <input value={c.icon ?? ''} onChange={(e) => upd(c.id, { icon: e.target.value.slice(0, 2) })} placeholder="📁" style={{ width: 34, textAlign: 'center', fontSize: 15 }} maxLength={2} />}</span>
         <input className="svc-name" style={{ border: 'none', background: 'none', fontWeight: 600, flex: 1 }} value={c.name} onChange={(e) => upd(c.id, { name: e.target.value })} />
         {c.incident && <span className="inc-tag">INC</span>}{c.service_request && <span className="pet-tag">PET</span>}
         <button className="ghost sm" onClick={() => setOpen(isOpen ? null : c.id)}>{isOpen ? 'Cerrar' : 'Editar'}</button>
         <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => del(c.id)}>✕</button>
       </div>
       {isOpen && <div className="svc-body">
+        <div className="rule-row"><span className="rule-lbl">Icono</span>
+          <span className="cat-pick-ic" style={{ width: 30 }}>{catIconEl(c, 26)}</span>
+          <input value={c.icon ?? ''} onChange={(e) => upd(c.id, { icon: e.target.value.slice(0, 2) })} placeholder="emoji" style={{ width: 56, textAlign: 'center' }} maxLength={2} />
+          <label className="ghost sm" style={{ cursor: 'pointer' }}>Subir imagen (SVG/PNG)
+            <input type="file" accept=".svg,image/*" style={{ display: 'none' }} onChange={(e) => { const file = e.target.files?.[0]; if (!file) return; const svg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg'); const r = new FileReader(); r.onload = () => upd(c.id, { iconImage: String(r.result) }); svg ? r.readAsText(file) : r.readAsDataURL(file); e.target.value = ''; }} />
+          </label>
+          {c.iconImage && <button className="xbtn" onClick={() => { const nc = { ...c }; delete nc.iconImage; replace(c.id, nc); }} title="Quitar imagen">quitar imagen ✕</button>}
+        </div>
         <div className="rule-row"><span className="rule-lbl">Tipos y ciclo</span></div>
         {(['incident', 'service_request'] as const).map((tp) => { const en = !!c[tp]; return <div key={tp} className="rule-row cond">
           <label className="chipsel" style={{ cursor: 'pointer' }}><input type="checkbox" checked={en} onChange={(e) => setType(c, tp, e.target.checked)} style={{ marginRight: 5 }} />{tp === 'incident' ? '🛠️ Incidencia' : '📥 Petición'}</label>

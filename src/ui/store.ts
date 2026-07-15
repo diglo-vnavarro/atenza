@@ -49,7 +49,7 @@ interface State {
   setAdminSec: (s: string) => void;
   setAdminLc: (i: number) => void;
   select: (id: string | null) => void;
-  createTicket: (t: NewTicket) => void;
+  createTicket: (t: NewTicket) => string;
   assign: (ticketId: string, techUid: string | null) => void;
   transition: (ticketId: string, to: string) => void;
   setStatus: (ticketId: string, statusName: string) => void;
@@ -282,7 +282,7 @@ export const useStore = create<State>()(
         select: (id) => set({ selectedTicketId: id }),
 
         createTicket: (nt) => {
-          const s = get(); const t = activeT(s); if (!t) return;
+          const s = get(); const t = activeT(s); if (!t) return '';
           // Modo SIMPLIFICADO: el ticket nace de una CATEGORÍA de servicio + tipo (el
           // ciclo se toma de la categoría según el tipo). Modo CLÁSICO: de una plantilla.
           const cat = nt.serviceCategoryId ? (t.serviceCategories ?? []).find((c) => c.id === nt.serviceCategoryId) : undefined;
@@ -340,6 +340,7 @@ export const useStore = create<State>()(
           emitNotifs(t, 'created', ticket);
           if (ro.patch.technicianId || autoAssigned) emitNotifs(t, 'assigned', ticket); // regla asignó / auto por carga
           logAudit(t, 'ticket.create', `${ticket.id}: ${ticket.subject}`, ticket.id);
+          return ticket.id; // devuelve el id para adjuntar ficheros tras crear
         },
 
         assign: (ticketId, techUid) => {
@@ -830,6 +831,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v30', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v31', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );
