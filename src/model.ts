@@ -122,7 +122,7 @@ export interface ChecklistItem { id: string; text: string; done: boolean; by?: s
 /** Registro de tiempo trabajado en un ticket (alimenta la capacidad del técnico). */
 export interface WorkEntry { id: string; techUid: string; techName: string; mins: number; at: number; note?: string }
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'waiting';
 /** Solicitud de aprobación a una persona concreta (como SDP: nivel de aprobación con aprobadores). */
 export interface Approval {
   id: string;

@@ -303,9 +303,11 @@ export const useStore = create<State>()(
           let finalStatus = merged.status ?? init;
           // Aprobaciones predefinidas de la plantilla → se instancian al crear.
           const reqName = t.members.find((m) => m.uid === nt.requesterId)?.name ?? nt.requesterId;
+          // Secuencial: solo el nivel 1 arranca 'pending'; los siguientes quedan 'waiting'
+          // hasta que se complete el nivel anterior (ver decideApproval).
           const tplApprovals = (tpl?.approvalLevels ?? []).flatMap((lv, li) => lv.approverUids.map((uid, i) => ({
             id: `ap-${id}-${li}-${i}`, approverUid: uid, approverName: t.members.find((m) => m.uid === uid)?.name ?? uid,
-            status: 'pending' as const, requestedBy: nt.requesterId, requestedByName: reqName, requestedAt: now, level: li + 1, note: lv.name || undefined,
+            status: (li === 0 ? 'pending' : 'waiting') as 'pending' | 'waiting', requestedBy: nt.requesterId, requestedByName: reqName, requestedAt: now, level: li + 1, note: lv.name || undefined,
           })));
           // Si hay aprobaciones y existe el estado, el ticket arranca en "Pendiente Aprobación".
           const APPR = 'Pendiente Aprobación';
@@ -505,13 +507,28 @@ export const useStore = create<State>()(
         decideApproval: (ticketId, approvalId, decision, comment) => {
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
           const now = Date.now();
-          const approvals = (tk.approvals ?? []).map((a) => (a.id === approvalId ? { ...a, status: decision, decidedAt: now, comment: comment.trim() || undefined } : a));
+          let approvals = (tk.approvals ?? []).map((a) => (a.id === approvalId ? { ...a, status: decision, decidedAt: now, comment: comment.trim() || undefined } : a));
+          // Aprobación SECUENCIAL: si al aprobar se completa el nivel actual (según su
+          // regla any/all en la plantilla), se activa el siguiente nivel (waiting→pending).
+          const decided = approvals.find((a) => a.id === approvalId);
+          let activatedUids: string[] = [];
+          if (decision === 'approved' && decided?.level) {
+            const tpl = t.templates.find((x) => x.id === tk.templateId);
+            const rule = tpl?.approvalLevels?.[decided.level - 1]?.rule ?? 'all';
+            const lvl = approvals.filter((a) => a.level === decided.level);
+            const complete = rule === 'any' ? lvl.some((a) => a.status === 'approved') : lvl.every((a) => a.status === 'approved');
+            const nextLvl = decided.level + 1;
+            if (complete && approvals.some((a) => a.level === nextLvl && a.status === 'waiting')) {
+              approvals = approvals.map((a) => (a.level === nextLvl && a.status === 'waiting' ? { ...a, status: 'pending' as const } : a));
+              activatedUids = approvals.filter((a) => a.level === nextLvl && a.status === 'pending').map((a) => a.approverUid);
+            }
+          }
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, approvals } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { approvals }).catch(errlog);
-          const decided = approvals.find((a) => a.id === approvalId);
           const who = t.members.find((m) => m.uid === s.currentUserId)?.name ?? 'Un aprobador';
           const verb = decision === 'approved' ? 'APROBÓ' : 'RECHAZÓ';
           pushNotifTo(t, [decided?.requestedBy ?? '', tk.technicianId ?? ''], tk, `${who} ${verb} · ${tk.id}: ${tk.subject}`);
+          if (activatedUids.length) pushNotifTo(t, activatedUids, tk, `Aprobación pendiente · ${tk.id}: ${tk.subject}`);
           logAudit(t, 'approval.decide', `${tk.id}: ${who} ${verb}`, tk.id);
         },
         // Sube un adjunto: en la nube va a Storage (path+url); en local, inline como
@@ -788,6 +805,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v26', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v27', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

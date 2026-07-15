@@ -686,15 +686,15 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
       const candidates = tenant.members.filter((m) => m.status === 'active' && m.uid !== meUid);
       const toggle = (uid: string) => setApprSel(apprSel.includes(uid) ? apprSel.filter((x) => x !== uid) : [...apprSel, uid]);
       const send = () => { if (apprSel.length) { requestApproval(t.id, apprSel, apprNote); setApprSel([]); setApprNote(''); } };
-      const APV: Record<string, [string, string]> = { pending: ['Pendiente', 'var(--warn)'], approved: ['Aprobada', 'var(--ok)'], rejected: ['Rechazada', 'var(--crit)'] };
+      const APV: Record<string, [string, string]> = { pending: ['Pendiente', 'var(--warn)'], approved: ['Aprobada', 'var(--ok)'], rejected: ['Rechazada', 'var(--crit)'], waiting: ['En espera del nivel anterior', 'var(--ink-faint)'] };
       return <div style={{ marginTop: 4 }}>
         {approvals.length === 0 && <div className="empty">Sin solicitudes de aprobación.</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{approvals.map((a) => {
           const [lbl, col] = APV[a.status] ?? APV.pending!;
           const canDecide = a.status === 'pending' && a.approverUid === meUid && !readOnly;
-          return <div key={a.id} className="approw">
+          return <div key={a.id} className={'approw' + (a.status === 'waiting' ? ' waiting' : '')}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-              <b>{a.approverName}</b>
+              <b>{a.approverName}{a.level ? <span className="pill" style={{ marginLeft: 6 }}>Nivel {a.level}</span> : null}</b>
               <span className="pill" style={{ color: col, borderColor: col }}>{lbl}</span>
             </div>
             <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>Solicitada por {a.requestedByName} · {fmtDate(a.requestedAt)}</div>

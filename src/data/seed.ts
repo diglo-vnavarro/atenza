@@ -408,7 +408,10 @@ export function makeSeed(now: number): DB {
           { id: 'ck-user', text: 'Usuario notificado de la resolución' },
         ], checklistGate: true },
       { id: 'tpl-sr', type: 'service_request', name: 'Solicitud de servicio', lifecycleId: 'lc-sr', slaId: null, fields: ['subject', 'description', 'category', 'priority'],
-        approvalLevels: [{ id: 'al-resp', name: 'Visto bueno del responsable', approverUids: ['u-admin'], rule: 'any' }] },
+        approvalLevels: [
+          { id: 'al-resp', name: 'Visto bueno del responsable', approverUids: ['u-admin'], rule: 'any' },
+          { id: 'al-dir', name: 'Aprobación de dirección', approverUids: ['u-elena'], rule: 'all' },
+        ] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
     categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, formRules: DEFAULT_FORM_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES, announcements: DEFAULT_ANNOUNCEMENTS, customFields: DEFAULT_CUSTOM_FIELDS,
