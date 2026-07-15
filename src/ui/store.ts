@@ -140,6 +140,15 @@ export function tenantsForUser(db: DB, u: User): TenantData[] {
   return db.tenants.filter((t) => u.memberships[t.id]?.status === 'active');
 }
 export function lifecycleOfTicket(t: TenantData, tk: StoredTicket): Lifecycle | null {
+  // Modo simplificado: el ciclo lo define la CATEGORÍA de servicio por tipo (el
+  // ticket usa templateId='unified', que no existe en t.templates).
+  if (tk.serviceCategoryId) {
+    const cat = (t.serviceCategories ?? []).find((c) => c.id === tk.serviceCategoryId);
+    if (cat) {
+      const lcId = cat[tk.type]?.lifecycleId ?? null;
+      return lcId ? t.lifecycles.find((l) => l.id === lcId) ?? null : null;
+    }
+  }
   const tpl = t.templates.find((x) => x.id === tk.templateId);
   if (!tpl || !tpl.lifecycleId) return null;
   return t.lifecycles.find((l) => l.id === tpl.lifecycleId) ?? null;
