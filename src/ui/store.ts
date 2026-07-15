@@ -299,13 +299,23 @@ export const useStore = create<State>()(
             const pick = pickByLoad(cand, t.capacity);
             if (pick) { merged.technicianId = pick; autoAssigned = true; }
           }
-          const finalStatus = merged.status ?? init;
+          let finalStatus = merged.status ?? init;
+          // Aprobaciones predefinidas de la plantilla → se instancian al crear.
+          const reqName = t.members.find((m) => m.uid === nt.requesterId)?.name ?? nt.requesterId;
+          const tplApprovals = (tpl?.approvalLevels ?? []).flatMap((lv, li) => lv.approverUids.map((uid, i) => ({
+            id: `ap-${id}-${li}-${i}`, approverUid: uid, approverName: t.members.find((m) => m.uid === uid)?.name ?? uid,
+            status: 'pending' as const, requestedBy: nt.requesterId, requestedByName: reqName, requestedAt: now, level: li + 1, note: lv.name || undefined,
+          })));
+          // Si hay aprobaciones y existe el estado, el ticket arranca en "Pendiente Aprobación".
+          const APPR = 'Pendiente Aprobación';
+          if (tplApprovals.length && (t.statuses ?? []).some((x) => x.name === APPR)) finalStatus = APPR;
           const ticket: StoredTicket = {
             ...merged, status: finalStatus,
             slaId: SLA_BY_PRIORITY[merged.priority ?? ''] ?? null,
             statusHistory: [{ state: finalStatus, from: now, to: null }],
             // Tareas predefinidas de la plantilla → checklist inicial del ticket.
             ...(tpl?.taskTemplates?.length ? { tasks: tpl.taskTemplates.map((tt, i) => ({ id: `tk-${id}-${i}`, text: tt.text, done: false, ...(tt.type ? { type: tt.type } : {}), ...(tt.estimatedHours != null ? { estimatedHours: tt.estimatedHours } : {}) })) } : {}),
+            ...(tplApprovals.length ? { approvals: tplApprovals } : {}),
           } as StoredTicket;
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
           if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
@@ -766,6 +776,6 @@ export const useStore = create<State>()(
         },
       };
     },
-    { name: 'atenza-pilot-v24', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
+    { name: 'atenza-pilot-v25', partialize: (s) => (firebaseEnabled ? ({ layouts: s.layouts } as unknown as State) : s) },
   ),
 );

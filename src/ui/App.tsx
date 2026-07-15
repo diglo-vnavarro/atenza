@@ -12,7 +12,7 @@ import { slaStatus } from '../sla.js';
 import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
 import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
 import { FORM_OPS, FORM_ACTIONS, evaluateFormRules, type FormRule, type FormActionType, type FormScope, type FieldEffects } from '../formrules.js';
-import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate } from '../model.js';
+import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate, ApprovalLevelDef } from '../model.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
@@ -2115,7 +2115,7 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const [ncol, setNcol] = useState<1 | 2>(1);
   const [drag, setDrag] = useState<string | null>(null);
   const [over, setOver] = useState<string | null>(null);
-  const [view, setView] = useState<'tech' | 'req' | 'tasks'>('tech');
+  const [view, setView] = useState<'tech' | 'req' | 'tasks' | 'approvals'>('tech');
   const [showPrev, setShowPrev] = useState(false);
   const [palTab, setPalTab] = useState<'avail' | 'new'>('avail');
   const [palQ, setPalQ] = useState('');
@@ -2190,6 +2190,16 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
   const delTaskTpl = (id: string) => saveTasks(taskTpls.filter((x) => x.id !== id));
   const moveTaskTpl = (i: number, dir: number) => { const j = i + dir; if (j < 0 || j >= taskTpls.length) return; const n = [...taskTpls]; [n[i], n[j]] = [n[j]!, n[i]!]; saveTasks(n); };
 
+  // --- Niveles de aprobación predefinidos de la plantilla ---
+  const apprLevels = tpl.approvalLevels ?? [];
+  const saveAppr = (list: ApprovalLevelDef[]) => updateTemplate(tpl.id, { approvalLevels: list });
+  const addApprLevel = () => saveAppr([...apprLevels, { id: 'al-' + Date.now(), name: `Nivel ${apprLevels.length + 1}`, approverUids: [], rule: 'any' }]);
+  const updApprLevel = (id: string, patch: Partial<ApprovalLevelDef>) => saveAppr(apprLevels.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const delApprLevel = (id: string) => saveAppr(apprLevels.filter((x) => x.id !== id));
+  const moveApprLevel = (i: number, dir: number) => { const j = i + dir; if (j < 0 || j >= apprLevels.length) return; const n = [...apprLevels]; [n[i], n[j]] = [n[j]!, n[i]!]; saveAppr(n); };
+  const toggleApprover = (lv: ApprovalLevelDef, uid: string) => updApprLevel(lv.id, { approverUids: lv.approverUids.includes(uid) ? lv.approverUids.filter((x) => x !== uid) : [...lv.approverUids, uid] });
+  const approverPool = tenant.members.filter((m) => m.role !== 'requester');
+
   return <div className="card te">
     <div className="te-head">
       <input className="te-name" value={tpl.name} onChange={(e) => updateTemplate(tpl.id, { name: e.target.value })} />
@@ -2211,11 +2221,11 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
       <button className={view === 'tech' && !showPrev ? 'on' : ''} onClick={() => { setView('tech'); setShowPrev(false); }}>Vista del técnico</button>
       <button className={view === 'req' && !showPrev ? 'on' : ''} onClick={() => { setView('req'); setShowPrev(false); }}>Vista del solicitante</button>
       <button className="dim" disabled>Información de recurso<span className="soon">pronto</span></button>
-      <button className="dim" disabled>Aprobaciones<span className="soon">pronto</span></button>
+      <button className={view === 'approvals' && !showPrev ? 'on' : ''} onClick={() => { setView('approvals'); setShowPrev(false); }}>Aprobaciones{(tpl.approvalLevels?.length ?? 0) > 0 && <span className="pill" style={{ marginLeft: 6 }}>{tpl.approvalLevels!.length}</span>}</button>
       <button className={view === 'tasks' && !showPrev ? 'on' : ''} onClick={() => { setView('tasks'); setShowPrev(false); }}>Tareas{(tpl.taskTemplates?.length ?? 0) > 0 && <span className="pill" style={{ marginLeft: 6 }}>{tpl.taskTemplates!.length}</span>}</button>
       <button className="dim" disabled>Listas de comprobación<span className="soon">pronto</span></button>
       <button className="dim" disabled>Reglas del formulario<span className="soon">pronto</span></button>
-      {view !== 'tasks' && <button className="te-prev" onClick={() => setShowPrev(!showPrev)}>{showPrev ? '‹ Volver al editor' : '⤢ Vista preliminar'}</button>}
+      {view !== 'tasks' && view !== 'approvals' && <button className="te-prev" onClick={() => setShowPrev(!showPrev)}>{showPrev ? '‹ Volver al editor' : '⤢ Vista preliminar'}</button>}
     </div>
 
     {view === 'tasks' ? <div className="tt-editor">
@@ -2236,6 +2246,27 @@ function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: T
         <input value={ntask} onChange={(e) => setNtask(e.target.value)} placeholder="Nueva tarea…" onKeyDown={(e) => { if (e.key === 'Enter') addTaskTpl(); }} />
         <button className="primary" onClick={addTaskTpl} disabled={!ntask.trim()}>＋ Añadir tarea</button>
       </div>
+    </div> : view === 'approvals' ? <div className="tt-editor">
+      <p className="cfg-lead">Niveles de aprobación que se crean al generar un ticket desde esta plantilla (como en SDP). Mientras haya aprobaciones pendientes, el ticket arranca en «Pendiente Aprobación». Se resuelven en la pestaña «Aprobaciones» del ticket.</p>
+      <div className="al-list">
+        {apprLevels.map((lv, i) => <div key={lv.id} className="al-card">
+          <div className="al-head">
+            <span className="tt-num">{i + 1}</span>
+            <input className="tt-text" value={lv.name} onChange={(e) => updApprLevel(lv.id, { name: e.target.value })} placeholder="Nombre del nivel" />
+            <select value={lv.rule} onChange={(e) => updApprLevel(lv.id, { rule: e.target.value as 'any' | 'all' })} title="Regla de decisión"><option value="any">Basta con uno</option><option value="all">Deben aprobar todos</option></select>
+            <button className="xbtn" onClick={() => moveApprLevel(i, -1)} disabled={i === 0} aria-label="Subir">↑</button>
+            <button className="xbtn" onClick={() => moveApprLevel(i, 1)} disabled={i === apprLevels.length - 1} aria-label="Bajar">↓</button>
+            <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => delApprLevel(lv.id)} aria-label="Eliminar">✕</button>
+          </div>
+          <div className="al-approvers">
+            <span className="soft" style={{ fontSize: 12 }}>Aprobadores:</span>
+            {approverPool.map((m) => <button key={m.uid} className={'chipsel' + (lv.approverUids.includes(m.uid) ? ' on' : '')} onClick={() => toggleApprover(lv, m.uid)}>{m.name}</button>)}
+            {lv.approverUids.length === 0 && <span className="soft" style={{ fontSize: 11, color: 'var(--crit)' }}>sin aprobadores → el nivel no hará nada</span>}
+          </div>
+        </div>)}
+        {apprLevels.length === 0 && <div className="empty">Sin niveles de aprobación. Esta plantilla no requiere visto bueno.</div>}
+      </div>
+      <button className="primary" style={{ marginTop: 10 }} onClick={addApprLevel}>＋ Añadir nivel de aprobación</button>
     </div> : <div className="fbx2">
       <div className="fbx-canvas">
         {showPrev

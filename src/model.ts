@@ -110,6 +110,9 @@ export interface TicketTask { id: string; text: string; done: boolean; assigneeU
 /** Tarea predefinida de una plantilla: se instancia como TicketTask al crear el
  *  ticket (checklist estándar de la tipología, como en SDP). */
 export interface TaskTemplate { id: string; text: string; type?: string; estimatedHours?: number }
+/** Nivel de aprobación predefinido de una plantilla: se instancia como Approval(s)
+ *  al crear el ticket. `rule` = basta con uno (any) o deben aprobar todos (all). */
+export interface ApprovalLevelDef { id: string; name: string; approverUids: string[]; rule: 'any' | 'all' }
 /** Registro de tiempo trabajado en un ticket (alimenta la capacidad del técnico). */
 export interface WorkEntry { id: string; techUid: string; techName: string; mins: number; at: number; note?: string }
 
@@ -128,6 +131,8 @@ export interface Approval {
   decidedAt?: number;
   /** comentario de la decisión (aprobar/rechazar). */
   comment?: string;
+  /** nivel de aprobación (1..n) cuando procede de la config de la plantilla. */
+  level?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -199,6 +204,8 @@ export interface Template {
   fieldDefs?: FieldDef[];
   /** tareas predefinidas: se instancian como checklist del ticket al crearlo. */
   taskTemplates?: TaskTemplate[];
+  /** niveles de aprobación predefinidos: se instancian como aprobaciones al crear. */
+  approvalLevels?: ApprovalLevelDef[];
   /** agrupación del catálogo de creación (categoría de servicio de SDP). */
   group?: string;
   /** ¿visible para el solicitante en el catálogo de autoservicio? (false = solo staff). */
