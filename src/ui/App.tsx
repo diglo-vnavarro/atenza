@@ -1511,25 +1511,49 @@ function SupportGroupsAdmin({ tenant }: { tenant: TenantData }) {
   const addGroup = useStore((s) => s.addGroup);
   const removeGroup = useStore((s) => s.removeGroup);
   const updateMember = useStore((s) => s.updateMember);
-  const [gn, setGn] = useState(''); const [openG, setOpenG] = useState<string | null>(tenant.groups[0]?.id ?? null);
-  const techs = tenant.members.filter((m) => m.role !== 'requester');
-  const inGroup = (gid: string) => techs.filter((m) => (m.groupIds ?? []).includes(gid)).length;
+  const [gn, setGn] = useState(''); const [q, setQ] = useState(''); const [openG, setOpenG] = useState<string | null>(tenant.groups[0]?.id ?? null);
+  // Técnicos ordenados alfabéticamente (para el desplegable de alta).
+  const techs = tenant.members.filter((m) => m.role !== 'requester').slice().sort((a, b) => a.name.localeCompare(b.name));
+  const inGroup = (gid: string) => techs.filter((m) => (m.groupIds ?? []).includes(gid));
+  const notIn = (gid: string) => techs.filter((m) => !(m.groupIds ?? []).includes(gid));
   const catCount = (gid: string) => (tenant.serviceCategories ?? []).filter((c) => c.groupId === gid).length;
-  const toggle = (m: UiMember, gid: string) => { const cur = m.groupIds ?? []; updateMember(m.uid, { groupIds: cur.includes(gid) ? cur.filter((x) => x !== gid) : [...cur, gid] }); };
+  const setGroups = (m: UiMember, gids: string[]) => updateMember(m.uid, { groupIds: gids });
+  const addTo = (m: UiMember, gid: string) => setGroups(m, [...(m.groupIds ?? []), gid]);
+  const rmFrom = (m: UiMember, gid: string) => setGroups(m, (m.groupIds ?? []).filter((x) => x !== gid));
+  const ql = q.trim().toLowerCase();
+  const shown = tenant.groups.filter((g) => !ql || g.name.toLowerCase().includes(ql));
   return <div className="card" style={{ padding: 16 }}>
     <p className="cfg-lead">Un <b>grupo de soporte</b> agrupa a los técnicos que ven, cogen y reciben la asignación de los tickets de una categoría. Asigna sus miembros aquí; en <b>Categorías de servicio</b> eliges el grupo de cada categoría.</p>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {tenant.groups.map((g) => { const open = openG === g.id; return <div key={g.id} className="card" style={{ padding: '10px 12px' }}>
-        <div className="lcstate" style={{ border: 'none', padding: 0 }}>
-          <button className="ghost" style={{ flex: 1, textAlign: 'left', display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }} onClick={() => setOpenG(open ? null : g.id)}><span style={{ color: 'var(--ink-faint)', width: 10 }}>{open ? '▾' : '▸'}</span><b>{g.name}</b><span className="pill" style={{ marginLeft: 'auto' }}>{inGroup(g.id)} téc.</span><span className="pill">{catCount(g.id)} cat.</span></button>
-          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeGroup(g.id)}><Icon name="trash" size={14} /></button>
-        </div>
-        {open && <div style={{ marginTop: 8 }}><div className="k" style={{ marginBottom: 4 }}>Técnicos del grupo (clic para añadir/quitar)</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{techs.length === 0 ? <span className="soft" style={{ fontSize: 12 }}>No hay técnicos.</span> : techs.map((m) => <button key={m.uid} className={'chipsel' + ((m.groupIds ?? []).includes(g.id) ? ' on' : '')} onClick={() => toggle(m, g.id)}>{m.name}</button>)}</div></div>}
-      </div>; })}
-      {tenant.groups.length === 0 && <div className="empty" style={{ padding: 20 }}>Sin grupos de soporte.</div>}
+    <div className="fbar">
+      <label className="searchbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar grupo…" /></label>
+      <span className="soft" style={{ fontSize: 12 }}>{tenant.groups.length} grupos</span>
+      <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6 }}>
+        <input style={{ width: 200 }} value={gn} onChange={(e) => setGn(e.target.value)} placeholder="Nuevo grupo de soporte…" onKeyDown={(e) => { if (e.key === 'Enter' && gn.trim()) { addGroup(gn.trim()); setGn(''); } }} />
+        <button className="primary" disabled={!gn.trim()} onClick={() => { addGroup(gn.trim()); setGn(''); }}>＋ Grupo</button>
+      </span>
     </div>
-    <div className="designer"><input style={{ flex: 1, minWidth: 120 }} value={gn} onChange={(e) => setGn(e.target.value)} placeholder="Nuevo grupo de soporte…" /><button className="primary" onClick={() => { if (gn.trim()) { addGroup(gn.trim()); setGn(''); } }}>＋ Grupo</button></div>
+    <div className="card" style={{ overflow: 'hidden', marginTop: 12 }}>
+      {shown.map((g) => { const mem = inGroup(g.id); const open = openG === g.id; return <div key={g.id} className="grp-row">
+        <div className="grp-head" onClick={() => setOpenG(open ? null : g.id)}>
+          <span className="grp-caret">{open ? '▾' : '▸'}</span>
+          <b className="grp-name">{g.name}</b>
+          <span className="pill">{mem.length} téc.</span>
+          <span className="pill">{catCount(g.id)} cat.</span>
+          <button className="xbtn" style={{ marginLeft: 'auto', color: 'var(--crit)' }} title="Eliminar grupo" onClick={(e) => { e.stopPropagation(); if (confirm(`¿Eliminar el grupo «${g.name}»?`)) removeGroup(g.id); }}><Icon name="trash" size={14} /></button>
+        </div>
+        {open && <div className="grp-body">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            {mem.length === 0 && <span className="soft" style={{ fontSize: 12 }}>Sin técnicos en este grupo.</span>}
+            {mem.map((m) => <span key={m.uid} className="pill">{m.name}<button className="xbtn" style={{ marginLeft: 4 }} onClick={() => rmFrom(m, g.id)} aria-label="Quitar">✕</button></span>)}
+          </div>
+          <select value="" style={{ marginTop: 8, maxWidth: 280 }} onChange={(e) => { const m = techs.find((x) => x.uid === e.target.value); if (m) addTo(m, g.id); }}>
+            <option value="">＋ Añadir técnico…</option>
+            {notIn(g.id).map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}
+          </select>
+        </div>}
+      </div>; })}
+      {shown.length === 0 && <div className="empty" style={{ padding: 20 }}>{tenant.groups.length === 0 ? 'Sin grupos de soporte.' : 'Ningún grupo coincide.'}</div>}
+    </div>
   </div>;
 }
 
@@ -2114,6 +2138,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
   const setMembersEnabled = useStore((s) => s.setMembersEnabled);
   const setImpersonate = useStore((s) => s.setImpersonate);
   const [q, setQ] = useState(''); const [fGroup, setFGroup] = useState(''); const [fRole, setFRole] = useState(''); const [fStatus, setFStatus] = useState('');
+  const [sort, setSort] = useState<{ col: 'name' | 'role' | 'status' | 'enabled'; dir: 1 | -1 }>({ col: 'name', dir: 1 });
   const [selId, setSelId] = useState<string | null>(null);
   const [invite, setInvite] = useState(false); const [inName, setInName] = useState(''); const [inEmail, setInEmail] = useState(''); const [inRole, setInRole] = useState<Role>('technician');
   const [bulkGrp, setBulkGrp] = useState('');
@@ -2124,11 +2149,19 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
   const enabledCount = tenant.members.filter((m) => m.enabled).length;
 
   const ql = q.trim().toLowerCase();
-  const list = tenant.members.filter((m) =>
-    (!ql || `${m.name} ${m.email}`.toLowerCase().includes(ql)) &&
-    (!fGroup || (m.groupIds ?? []).includes(fGroup)) &&
-    (!fRole || m.role === fRole) &&
-    (!fStatus || m.status === fStatus));
+  const sortVal = (m: UiMember): string | number =>
+    sort.col === 'role' ? (m.roleName ?? ROLE_LABEL[m.role])
+      : sort.col === 'status' ? (STATUS_LABEL[m.status] ?? m.status)
+        : sort.col === 'enabled' ? (m.enabled ? 1 : 0)
+          : m.name.toLowerCase();
+  const list = tenant.members
+    .filter((m) =>
+      (!ql || `${m.name} ${m.email}`.toLowerCase().includes(ql)) &&
+      (!fGroup || (m.groupIds ?? []).includes(fGroup)) &&
+      (!fRole || m.role === fRole) &&
+      (!fStatus || m.status === fStatus))
+    .sort((a, b) => { const va = sortVal(a), vb = sortVal(b); const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'es'); return c * sort.dir; });
+  const sortTh = (col: typeof sort.col, label: string, extra?: import('react').CSSProperties) => <th onClick={() => setSort((s) => ({ col, dir: s.col === col ? (s.dir * -1 as 1 | -1) : 1 }))} style={{ cursor: 'pointer', userSelect: 'none', ...extra }}>{label}{sort.col === col ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</th>;
   const sel = tenant.members.find((m) => m.uid === selId) ?? null;
   const toggleGroup = (m: UiMember, gid: string) => { const cur = m.groupIds ?? []; updateMember(m.uid, { groupIds: cur.includes(gid) ? cur.filter((x) => x !== gid) : [...cur, gid] }); };
 
@@ -2152,7 +2185,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
     </div>
     <div className="card" style={{ overflow: 'hidden', marginTop: 12 }}>
       <table className="mgmt">
-        <thead><tr><th>Usuario</th><th>Tipo</th><th>Grupos de soporte</th><th>Estado</th><th style={{ textAlign: 'center' }}>En Atenza</th></tr></thead>
+        <thead><tr>{sortTh('name', 'Usuario')}{sortTh('role', 'Tipo')}<th>Grupos de soporte</th>{sortTh('status', 'Estado')}{sortTh('enabled', 'En Atenza', { textAlign: 'center' })}</tr></thead>
         <tbody>{list.map((m) => <tr key={m.uid} className="mrow" onClick={() => setSelId(m.uid)}>
           <td><div className="who"><Avatar m={m} /><span><span className="nm">{m.name}</span><span style={{ display: 'block', fontSize: 11, color: 'var(--ink-faint)' }}>{m.email}{m.external ? ' · externo' : ''}</span></span></div></td>
           <td style={{ fontSize: 12 }}>{m.roleName ?? ROLE_LABEL[m.role]}</td>

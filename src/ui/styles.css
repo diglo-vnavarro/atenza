@@ -155,6 +155,14 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .fbar select, .fbar input{font-size:13px;}
 .fdate{display:inline-flex; align-items:center; gap:5px; font-size:12px; color:var(--ink-soft);}
 .ghost.sm{font-size:12px; padding:4px 8px;}
+/* Filas de grupo (soporte): compactas y simétricas, con borde entre filas. */
+.grp-row{border-bottom:1px solid var(--line);}
+.grp-row:last-child{border-bottom:none;}
+.grp-head{display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer;}
+.grp-head:hover{background:var(--sink);}
+.grp-caret{color:var(--ink-faint); width:12px; font-size:11px;}
+.grp-name{font-size:13px; flex:0 1 auto;}
+.grp-body{padding:2px 12px 14px 32px;}
 /* Barra de estado del ticket: actual (coloreado) + siguientes (clic). */
 .statusflow{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:2px 0 16px;}
 .sf-cur{padding:6px 14px; border-radius:999px; color:#fff; font-weight:700; font-size:12.5px; border:1px solid transparent; box-shadow:0 1px 2px rgba(0,0,0,.12);}
