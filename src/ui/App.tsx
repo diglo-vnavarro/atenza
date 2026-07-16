@@ -1333,7 +1333,7 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', 'server', [['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
-  ['Usuarios y permisos', 'users', [['Usuarios', 'miembros'], ['Solicitudes de acceso', 'accesos'], ['Roles', 'roles'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
+  ['Usuarios y permisos', 'users', [['Usuarios', 'miembros'], ['Solicitudes de acceso', 'accesos'], ['Roles', 'roles'], ['Grupos de usuarios', 'gruposusuarios'], ['Grupos de soporte', 'gruposoporte'], ['Acceso específico', null]]],
   ['Personalización', 'sliders', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
   ['Plantillas y formularios', 'file-text', [['Categorías de servicio', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
   ['Autoservicio y anuncios', 'megaphone', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
@@ -1341,7 +1341,7 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuración del correo', 'mail', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', 'shield', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1479,17 +1479,58 @@ function StringListCard({ title, list, onChange, placeholder, search }: { title:
 function MasterDataAdmin({ tenant }: { tenant: TenantData }) {
   const setSites = useStore((s) => s.setSites);
   const setDepartments = useStore((s) => s.setDepartments);
+  return <div className="work">
+    <StringListCard title="Sedes" list={tenant.sites ?? []} onChange={setSites} placeholder="Nueva sede…" />
+    <StringListCard title="Departamentos" list={tenant.departments ?? []} onChange={setDepartments} placeholder="Nuevo departamento…" search />
+  </div>;
+}
+
+// GRUPOS DE USUARIOS: perfilan el catálogo (qué categorías ve cada grupo). Muestra
+// cuántos usuarios y cuántas categorías restringe cada uno.
+function UserGroupsAdmin({ tenant }: { tenant: TenantData }) {
   const setUserGroups = useStore((s) => s.setUserGroups);
-  return <>
-    <div className="work">
-      <StringListCard title="Sedes" list={tenant.sites ?? []} onChange={setSites} placeholder="Nueva sede…" />
-      <StringListCard title="Departamentos" list={tenant.departments ?? []} onChange={setDepartments} placeholder="Nuevo departamento…" search />
+  const [nv, setNv] = useState('');
+  const groups = tenant.userGroups ?? [];
+  const memCount = (g: string) => tenant.members.filter((m) => (m.userGroups ?? []).includes(g)).length;
+  const catCount = (g: string) => (tenant.serviceCategories ?? []).filter((c) => (c.userGroups ?? []).includes(g)).length;
+  const add = () => { const v = nv.trim(); if (v && !groups.includes(v)) { setUserGroups([...groups, v]); setNv(''); } };
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Los <b>grupos de usuarios</b> perfilan el catálogo de autoservicio: en cada <b>categoría de servicio</b> eliges qué grupos pueden verla, y en cada <b>usuario</b> a qué grupos pertenece. Sin restricción, la categoría la ve cualquier solicitante.</p>
+    <div className="card" style={{ overflow: 'hidden' }}>
+      <table className="mgmt"><thead><tr><th>Grupo</th><th>Usuarios</th><th>Categorías restringidas</th><th /></tr></thead>
+        <tbody>{groups.map((g) => <tr key={g}><td><b>{g}</b></td><td>{memCount(g)}</td><td>{catCount(g)}</td><td style={{ textAlign: 'right' }}><button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => setUserGroups(groups.filter((x) => x !== g))} aria-label="Eliminar">✕</button></td></tr>)}</tbody></table>
+      {groups.length === 0 && <div className="empty" style={{ padding: 20 }}>Sin grupos de usuarios.</div>}
     </div>
-    <div className="work" style={{ marginTop: 16 }}>
-      <StringListCard title="Grupos de usuarios" list={tenant.userGroups ?? []} onChange={setUserGroups} placeholder="Nuevo grupo de usuarios…" />
-      <div className="card"><div className="banner" style={{ margin: 0 }}>Los <b>grupos de usuarios</b> perfilan el catálogo: en cada plantilla (Plantillas → editar) eliges qué grupos pueden verla, y en cada persona (Miembros) a qué grupos pertenece. Sin restricción, la plantilla la ve cualquier solicitante.</div></div>
+    <div className="designer"><input style={{ flex: 1, minWidth: 140 }} value={nv} onChange={(e) => setNv(e.target.value)} placeholder="Nuevo grupo de usuarios…" onKeyDown={(e) => e.key === 'Enter' && add()} /><button className="primary" onClick={add}>＋ Grupo</button></div>
+  </div>;
+}
+
+// GRUPOS DE SOPORTE: técnicos que ven/cogen/reciben los tickets de una categoría.
+// Asigna miembros aquí (clic en el chip); muestra nº de técnicos y de categorías.
+function SupportGroupsAdmin({ tenant }: { tenant: TenantData }) {
+  const addGroup = useStore((s) => s.addGroup);
+  const removeGroup = useStore((s) => s.removeGroup);
+  const updateMember = useStore((s) => s.updateMember);
+  const [gn, setGn] = useState(''); const [openG, setOpenG] = useState<string | null>(tenant.groups[0]?.id ?? null);
+  const techs = tenant.members.filter((m) => m.role !== 'requester');
+  const inGroup = (gid: string) => techs.filter((m) => (m.groupIds ?? []).includes(gid)).length;
+  const catCount = (gid: string) => (tenant.serviceCategories ?? []).filter((c) => c.groupId === gid).length;
+  const toggle = (m: UiMember, gid: string) => { const cur = m.groupIds ?? []; updateMember(m.uid, { groupIds: cur.includes(gid) ? cur.filter((x) => x !== gid) : [...cur, gid] }); };
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Un <b>grupo de soporte</b> agrupa a los técnicos que ven, cogen y reciben la asignación de los tickets de una categoría. Asigna sus miembros aquí; en <b>Categorías de servicio</b> eliges el grupo de cada categoría.</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {tenant.groups.map((g) => { const open = openG === g.id; return <div key={g.id} className="card" style={{ padding: '10px 12px' }}>
+        <div className="lcstate" style={{ border: 'none', padding: 0 }}>
+          <button className="ghost" style={{ flex: 1, textAlign: 'left', display: 'flex', gap: 8, alignItems: 'center', fontSize: 13 }} onClick={() => setOpenG(open ? null : g.id)}><span style={{ color: 'var(--ink-faint)', width: 10 }}>{open ? '▾' : '▸'}</span><b>{g.name}</b><span className="pill" style={{ marginLeft: 'auto' }}>{inGroup(g.id)} téc.</span><span className="pill">{catCount(g.id)} cat.</span></button>
+          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeGroup(g.id)}><Icon name="trash" size={14} /></button>
+        </div>
+        {open && <div style={{ marginTop: 8 }}><div className="k" style={{ marginBottom: 4 }}>Técnicos del grupo (clic para añadir/quitar)</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{techs.length === 0 ? <span className="soft" style={{ fontSize: 12 }}>No hay técnicos.</span> : techs.map((m) => <button key={m.uid} className={'chipsel' + ((m.groupIds ?? []).includes(g.id) ? ' on' : '')} onClick={() => toggle(m, g.id)}>{m.name}</button>)}</div></div>}
+      </div>; })}
+      {tenant.groups.length === 0 && <div className="empty" style={{ padding: 20 }}>Sin grupos de soporte.</div>}
     </div>
-  </>;
+    <div className="designer"><input style={{ flex: 1, minWidth: 120 }} value={gn} onChange={(e) => setGn(e.target.value)} placeholder="Nuevo grupo de soporte…" /><button className="primary" onClick={() => { if (gn.trim()) { addGroup(gn.trim()); setGn(''); } }}>＋ Grupo</button></div>
+  </div>;
 }
 
 // Calendario laboral (horas operativas + festivos) → alimenta el SLA por horario.
@@ -1657,6 +1698,8 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'matriz' && <MatrixAdmin tenant={tenant} />}
     {sec === 'horario' && <CalendarAdmin tenant={tenant} />}
     {sec === 'maestros' && <MasterDataAdmin tenant={tenant} />}
+    {sec === 'gruposusuarios' && <UserGroupsAdmin tenant={tenant} />}
+    {sec === 'gruposoporte' && <SupportGroupsAdmin tenant={tenant} />}
     {sec === 'notif' && <NotifAdmin tenant={tenant} />}
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}
@@ -2010,52 +2053,24 @@ function SlaAdmin({ tenant }: { tenant: TenantData }) {
   const addSla = useStore((s) => s.addSla);
   const updateSla = useStore((s) => s.updateSla);
   const removeSla = useStore((s) => s.removeSla);
-  const addGroup = useStore((s) => s.addGroup);
-  const removeGroup = useStore((s) => s.removeGroup);
   const [sn, setSn] = useState(''); const [sr, setSr] = useState(60); const [sx, setSx] = useState(480);
-  const [gn, setGn] = useState('');
-  const [openG, setOpenG] = useState<string | null>(null);
-  const groupTechs = (gid: string) => tenant.members.filter((m) => (m.groupIds ?? []).includes(gid));
-  return <div className="work">
-    <div className="card"><h2>SLA <span className="badge">{tenant.slas.length}</span></h2>
-      <div className="facts" style={{ gridTemplateColumns: '1fr 90px 90px auto', alignItems: 'center', rowGap: 8 }}>
-        <div className="k">Nombre</div><div className="k">Resp. (min)</div><div className="k">Resol. (min)</div><div className="k" />
-        {tenant.slas.map((s) => <Fragment key={s.id}>
-          <input value={s.name} onChange={(e) => updateSla(s.id, { name: e.target.value })} style={{ fontSize: 13, fontWeight: 600 }} />
-          <input type="number" min={0} value={s.responseMins} onChange={(e) => updateSla(s.id, { responseMins: +e.target.value })} className="mono" style={{ fontSize: 12, width: 84 }} title={fmtMins(s.responseMins)} />
-          <input type="number" min={0} value={s.resolveMins} onChange={(e) => updateSla(s.id, { resolveMins: +e.target.value })} className="mono" style={{ fontSize: 12, width: 84 }} title={fmtMins(s.resolveMins)} />
-          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeSla(s.id)}><Icon name="trash" size={14} /></button>
-        </Fragment>)}
-      </div>
-      <div className="designer">
-        <input style={{ flex: 1, minWidth: 120 }} value={sn} onChange={(e) => setSn(e.target.value)} placeholder="Nuevo SLA…" />
-        <input type="number" min={0} value={sr} onChange={(e) => setSr(+e.target.value)} style={{ width: 90 }} title="Respuesta (min)" />
-        <input type="number" min={0} value={sx} onChange={(e) => setSx(+e.target.value)} style={{ width: 90 }} title="Resolución (min)" />
-        <button className="primary" onClick={() => { if (sn.trim()) { addSla(sn.trim(), sr, sx); setSn(''); } }}>＋ SLA</button>
-      </div>
-      <div className="banner" style={{ marginTop: 12 }}>El SLA solo consume en estados <b>En curso</b>; se pausa en <b>Detener temporizador</b>. Verificado en el motor (sla.ts).</div>
+  return <div className="card"><h2>SLA <span className="badge">{tenant.slas.length}</span></h2>
+    <div className="facts" style={{ gridTemplateColumns: '1fr 90px 90px auto', alignItems: 'center', rowGap: 8 }}>
+      <div className="k">Nombre</div><div className="k">Resp. (min)</div><div className="k">Resol. (min)</div><div className="k" />
+      {tenant.slas.map((s) => <Fragment key={s.id}>
+        <input value={s.name} onChange={(e) => updateSla(s.id, { name: e.target.value })} style={{ fontSize: 13, fontWeight: 600 }} />
+        <input type="number" min={0} value={s.responseMins} onChange={(e) => updateSla(s.id, { responseMins: +e.target.value })} className="mono" style={{ fontSize: 12, width: 84 }} title={fmtMins(s.responseMins)} />
+        <input type="number" min={0} value={s.resolveMins} onChange={(e) => updateSla(s.id, { resolveMins: +e.target.value })} className="mono" style={{ fontSize: 12, width: 84 }} title={fmtMins(s.resolveMins)} />
+        <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeSla(s.id)}><Icon name="trash" size={14} /></button>
+      </Fragment>)}
     </div>
-    <div className="card"><h2>Grupos de soporte <span className="badge">{tenant.groups.length}</span></h2>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-        {tenant.groups.map((g) => { const techs = groupTechs(g.id); const open = openG === g.id; return <div key={g.id}>
-          <div className="lcstate">
-            <button className="ghost" style={{ flex: 1, textAlign: 'left', fontSize: 13, display: 'flex', gap: 8, alignItems: 'center' }} onClick={() => setOpenG(open ? null : g.id)} title="Ver técnicos">
-              <span style={{ color: 'var(--ink-faint)', width: 10 }}>{open ? '▾' : '▸'}</span>{g.name}
-              <span className="pill" style={{ marginLeft: 'auto' }}>{techs.length} {techs.length === 1 ? 'técnico' : 'técnicos'}</span>
-            </button>
-            <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeGroup(g.id)}><Icon name="trash" size={14} /></button>
-          </div>
-          {open && <div style={{ padding: '4px 0 8px 26px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {techs.length === 0 ? <span className="empty" style={{ fontSize: 12 }}>Sin técnicos asignados.</span>
-              : techs.map((m) => <span key={m.uid} className="who" style={{ fontSize: 12 }}><Avatar m={m} /> <span className="soft">{m.name}</span></span>)}
-          </div>}
-        </div>; })}
-      </div>
-      <div className="designer">
-        <input style={{ flex: 1, minWidth: 120 }} value={gn} onChange={(e) => setGn(e.target.value)} placeholder="Nuevo grupo…" />
-        <button className="primary" onClick={() => { if (gn.trim()) { addGroup(gn.trim()); setGn(''); } }}>＋ Grupo</button>
-      </div>
+    <div className="designer">
+      <input style={{ flex: 1, minWidth: 120 }} value={sn} onChange={(e) => setSn(e.target.value)} placeholder="Nuevo SLA…" />
+      <input type="number" min={0} value={sr} onChange={(e) => setSr(+e.target.value)} style={{ width: 90 }} title="Respuesta (min)" />
+      <input type="number" min={0} value={sx} onChange={(e) => setSx(+e.target.value)} style={{ width: 90 }} title="Resolución (min)" />
+      <button className="primary" onClick={() => { if (sn.trim()) { addSla(sn.trim(), sr, sx); setSn(''); } }}>＋ SLA</button>
     </div>
+    <div className="banner" style={{ marginTop: 12 }}>El SLA solo consume en estados <b>En curso</b>; se pausa en <b>Detener temporizador</b>. Verificado en el motor (sla.ts). Los grupos de soporte se gestionan en su propia sección.</div>
   </div>;
 }
 
