@@ -14,8 +14,8 @@ import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRule
 import { madridHolidayDates } from '../holidays.js';
 import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleActionType } from '../rules.js';
 import { FORM_OPS, FORM_ACTIONS, evaluateFormRules, type FormRule, type FormActionType, type FormScope, type FieldEffects } from '../formrules.js';
-import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate, ApprovalLevelDef, ChecklistItemDef } from '../model.js';
-import { isArchivedStatus } from '../model.js';
+import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate, ApprovalLevelDef, ChecklistItemDef, Asset, AssetStatus } from '../model.js';
+import { isArchivedStatus, ASSET_STATUS, ASSET_TYPES, assetStatusView } from '../model.js';
 import { queryArchive, getTicketById, type ArchiveCursor } from '../data/firestore.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
@@ -171,6 +171,24 @@ function ChipMulti({ options, selected, onChange }: { options: string[]; selecte
   </div>;
 }
 
+/** Selector de activos afectados: chips de los elegidos + desplegable para añadir
+ *  (solo los aún no añadidos, alfabético). Guarda ids de activos. */
+function AssetPicker({ tenant, value, onChange, disabled }: { tenant: TenantData; value: string[]; onChange: (ids: string[]) => void; disabled?: boolean }) {
+  const assets = tenant.assets ?? [];
+  const byId = (id: string) => assets.find((a) => a.id === id);
+  const avail = assets.filter((a) => !value.includes(a.id)).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  return <div className="assetpick">
+    {value.length > 0 && <div className="ap-chips">{value.map((id) => { const a = byId(id); return <span key={id} className="ap-chip">{a ? a.name : id}{a?.tag ? <span className="ap-tag">{a.tag}</span> : null}{!disabled && <button type="button" onClick={() => onChange(value.filter((x) => x !== id))} aria-label="Quitar">×</button>}</span>; })}</div>}
+    {!disabled && (assets.length === 0
+      ? <span className="soft" style={{ fontSize: 12.5 }}>No hay activos en el inventario todavía.</span>
+      : <select value="" onChange={(e) => { if (e.target.value) onChange([...value, e.target.value]); }}>
+        <option value="">＋ Añadir activo…</option>
+        {avail.map((a) => <option key={a.id} value={a.id}>{a.name}{a.tag ? ` · ${a.tag}` : ''}</option>)}
+      </select>)}
+    {value.length === 0 && disabled && <span className="soft" style={{ fontSize: 12.5 }}>—</span>}
+  </div>;
+}
+
 // Buscador global de la barra superior: encuentra tickets por id/asunto/solicitante/
 // técnico y los abre. Reemplaza al input decorativo de la maqueta.
 function GlobalSearch({ tenant, onOpen }: { tenant: TenantData; onOpen: (id: string) => void }) {
@@ -212,7 +230,7 @@ export function App() {
   useEffect(() => { void useAuth.getState().init(); }, []);
   useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
   const [, setTheme] = useState<'light' | 'dark' | null>(null);
-  const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo'>('home');
+  const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo' | 'activos'>('home');
   const [dismissedAnn, setDismissedAnn] = useState<string[]>([]);
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
@@ -264,7 +282,7 @@ export function App() {
   const isReq = role === 'requester';
   const caps = capsOf(tenant, effectiveUserId, !!user.platformAdmin);
   const canManageConfig = caps.includes('manageConfig');
-  const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo' = isReq && view !== 'kb' && view !== 'archivo' ? 'requests' : view;
+  const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo' | 'activos' = isReq && view !== 'kb' && view !== 'archivo' ? 'requests' : view;
   const openCount = tenant.tickets.length;
   const myAssignedCount = tenant.tickets.filter((t) => t.technicianId === effectiveUserId).length;
   const myReqCount = tenant.tickets.filter((t) => t.requesterId === effectiveUserId).length;
@@ -318,6 +336,9 @@ export function App() {
             <button title="Base de conocimiento" className={'modlink' + (activeView === 'kb' ? ' on' : '')} onClick={() => setView('kb')}>
               <Icon name="book-open" />
               <span className="ml-l">Base de conocimiento</span></button>
+            {!isReq && <button title="Activos" className={'modlink' + (activeView === 'activos' ? ' on' : '')} onClick={() => setView('activos')}>
+              <Icon name="server" />
+              <span className="ml-l">Activos</span></button>}
             <button title="Archivo" className={'modlink' + (activeView === 'archivo' ? ' on' : '')} onClick={() => setView('archivo')}>
               <Icon name="archive" />
               <span className="ml-l">Archivo</span></button>
@@ -342,6 +363,7 @@ export function App() {
           {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />}
           {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" caps={caps} readOnly={readOnly} />}
           {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester' && !readOnly} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
+          {activeView === 'activos' && !isReq && <AssetsModule tenant={tenant} canManage={!readOnly} onOpenTicket={(id) => { useStore.getState().select(id); setView('tickets'); }} />}
           {activeView === 'archivo' && <Archive tenant={tenant} role={role} user={user} caps={caps} meName={tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo'} meUid={user.uid} cloud={firebaseEnabled} />}
           {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
         </main>
@@ -692,6 +714,118 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   </>;
 }
 
+// ---- Módulo de Activos / CMDB (lista + ficha viva + CRUD + asignación) ----
+function AssetsModule({ tenant, canManage, onOpenTicket }: { tenant: TenantData; canManage: boolean; onOpenTicket: (id: string) => void }) {
+  const addAsset = useStore((s) => s.addAsset);
+  const updateAsset = useStore((s) => s.updateAsset);
+  const removeAsset = useStore((s) => s.removeAsset);
+  const [q, setQ] = useState('');
+  const [fType, setFType] = useState('');
+  const [fStatus, setFStatus] = useState('');
+  const [fAssignee, setFAssignee] = useState('');
+  const [sort, setSort] = useState<{ col: 'name' | 'productType' | 'status' | 'assignedTo' | 'warrantyUntil'; dir: 1 | -1 }>({ col: 'name', dir: 1 });
+  const [selId, setSelId] = useState<string | null>(null);
+  const assets = tenant.assets ?? [];
+  const now = Date.now();
+  const memberName = (uid?: string | null) => tenant.members.find((m) => m.uid === uid)?.name ?? '';
+  const ql = q.trim().toLowerCase();
+  const sortVal = (a: Asset): string | number =>
+    sort.col === 'status' ? assetStatusView(a.status).label
+      : sort.col === 'assignedTo' ? memberName(a.assignedTo).toLowerCase()
+        : sort.col === 'warrantyUntil' ? (a.warrantyUntil ?? 0)
+          : sort.col === 'productType' ? (a.productType ?? '').toLowerCase()
+            : a.name.toLowerCase();
+  const list = assets
+    .filter((a) =>
+      (!ql || `${a.name} ${a.tag ?? ''} ${a.serial ?? ''} ${a.vendor ?? ''} ${a.model ?? ''} ${a.id}`.toLowerCase().includes(ql)) &&
+      (!fType || a.productType === fType) &&
+      (!fStatus || a.status === fStatus) &&
+      (!fAssignee || (fAssignee === '__none__' ? !a.assignedTo : a.assignedTo === fAssignee)))
+    .sort((a, b) => { const va = sortVal(a), vb = sortVal(b); const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'es'); return c * sort.dir; });
+  const sortTh = (col: typeof sort.col, label: string, extra?: import('react').CSSProperties) => <th onClick={() => setSort((s) => ({ col, dir: s.col === col ? (s.dir * -1 as 1 | -1) : 1 }))} style={{ cursor: 'pointer', userSelect: 'none', ...extra }}>{label}{sort.col === col ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</th>;
+  const sel = assets.find((a) => a.id === selId) ?? null;
+  const stat = (k: AssetStatus) => assets.filter((a) => a.status === k).length;
+  const dayVal = (ms?: number | null) => (ms ? new Date(ms).toISOString().slice(0, 10) : '');
+  const linkedTickets = sel ? tenant.tickets.filter((t) => (t.assetIds ?? []).includes(sel.id)) : [];
+
+  return <>
+    <div className="hd">
+      <h1>Activos</h1>
+      <span className="sub">{tenant.name} · {assets.length} activos</span>
+      {canManage && <button className="primary" style={{ marginLeft: 'auto' }} onClick={() => { const id = addAsset({ name: 'Nuevo activo', status: 'in_stock' }); setSelId(id); }}>＋ Nuevo activo</button>}
+    </div>
+    <div className="astats">
+      {ASSET_STATUS.map((s) => <button key={s.key} className={'astat' + (fStatus === s.key ? ' on' : '')} onClick={() => setFStatus(fStatus === s.key ? '' : s.key)}>
+        <span className="sdot" style={{ background: s.color }} /><span className="astat-l">{s.label}</span><b className="mono">{stat(s.key)}</b></button>)}
+    </div>
+    <div className="card fbar" style={{ marginTop: 10 }}>
+      <label className="searchbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre, etiqueta, nº serie…" /></label>
+      <select value={fType} onChange={(e) => setFType(e.target.value)}><option value="">Tipo: todos</option>{ASSET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select>
+      <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}><option value="">Estado: todos</option>{ASSET_STATUS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select>
+      <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)}><option value="">Asignado: todos</option><option value="__none__">— Sin asignar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select>
+      {(q || fType || fStatus || fAssignee) && <button className="ghost sm" onClick={() => { setQ(''); setFType(''); setFStatus(''); setFAssignee(''); }}>Limpiar</button>}
+    </div>
+    <div className="card" style={{ overflow: 'hidden', marginTop: 12 }}>
+      <table className="mgmt">
+        <thead><tr>{sortTh('name', 'Activo')}{sortTh('productType', 'Tipo')}<th>Nº serie</th>{sortTh('status', 'Estado')}{sortTh('assignedTo', 'Asignado a')}<th>Sede</th>{sortTh('warrantyUntil', 'Garantía')}</tr></thead>
+        <tbody>{list.map((a) => { const sv = assetStatusView(a.status); const mem = tenant.members.find((m) => m.uid === a.assignedTo); const exp = a.warrantyUntil && a.warrantyUntil < now; return <tr key={a.id} className="mrow" onClick={() => setSelId(a.id)}>
+          <td><div><span className="nm">{a.name}</span>{a.tag && <span className="soft" style={{ display: 'block', fontSize: 11.5 }}>{a.tag}</span>}</div></td>
+          <td className="soft">{a.productType ?? '—'}</td>
+          <td className="soft mono" style={{ fontSize: 12 }}>{a.serial ?? '—'}</td>
+          <td><span className="stbadge" style={{ color: sv.color, background: `color-mix(in srgb, ${sv.color} 14%, transparent)` }}>{sv.label}</span></td>
+          <td>{mem ? <span className="who"><Avatar m={mem} /> <span className="soft">{mem.name}</span></span> : <span className="soft">Sin asignar</span>}</td>
+          <td className="soft">{a.site ?? '—'}</td>
+          <td className="soft" style={{ fontSize: 12, color: exp ? 'var(--crit)' : undefined }}>{a.warrantyUntil ? new Date(a.warrantyUntil).toLocaleDateString('es-ES') : '—'}</td>
+        </tr>; })}</tbody>
+      </table>
+      {list.length === 0 && <div className="empty" style={{ padding: 24 }}>{assets.length === 0 ? 'Todavía no hay activos. Crea el primero con «＋ Nuevo activo».' : 'Sin activos con estos filtros.'}</div>}
+    </div>
+
+    {sel && <div className="scrim tmodal-scrim" onClick={() => setSelId(null)}>
+      <div className="tmodal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Activo ' + sel.name}>
+        <div className="tmodal-h"><Icon name="server" size={16} /><b className="tmodal-title">{sel.name}</b><span className="soft mono" style={{ fontSize: 12 }}>{sel.id}</span><button className="dx" onClick={() => setSelId(null)} aria-label="Cerrar" style={{ marginLeft: 'auto' }}>×</button></div>
+        <div className="tmodal-b"><div className="form">
+          <label>{fcap('Nombre', true)}<input value={sel.name} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { name: e.target.value })} /></label>
+          <div className="nf-cols">
+            <label>{fcap('Etiqueta / Asset tag')}<input value={sel.tag ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { tag: e.target.value })} /></label>
+            <label>{fcap('Nº de serie')}<input value={sel.serial ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { serial: e.target.value })} /></label>
+          </div>
+          <div className="nf-cols">
+            <label>{fcap('Tipo')}<select value={sel.productType ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { productType: e.target.value })}><option value="">—</option>{ASSET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+            <label>{fcap('Estado')}<select value={sel.status} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { status: e.target.value as AssetStatus })}>{ASSET_STATUS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
+          </div>
+          <div className="nf-cols">
+            <label>{fcap('Asignado a')}<select value={sel.assignedTo ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { assignedTo: e.target.value || null })}><option value="">— Sin asignar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>
+            <label>{fcap('Sede')}<select value={sel.site ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { site: e.target.value })}><option value="">—</option>{(tenant.sites ?? []).map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
+          </div>
+          <div className="nf-cols">
+            <label>{fcap('Departamento')}<select value={sel.department ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { department: e.target.value })}><option value="">—</option>{(tenant.departments ?? []).map((d) => <option key={d} value={d}>{d}</option>)}</select></label>
+            <label>{fcap('Coste (€)')}<input type="number" value={sel.cost ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { cost: e.target.value ? Number(e.target.value) : null })} /></label>
+          </div>
+          <div className="nf-cols">
+            <label>{fcap('Fabricante')}<input value={sel.vendor ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { vendor: e.target.value })} /></label>
+            <label>{fcap('Modelo')}<input value={sel.model ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { model: e.target.value })} /></label>
+          </div>
+          <div className="nf-cols">
+            <label>{fcap('Fecha de compra')}<input type="date" value={dayVal(sel.purchaseDate)} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { purchaseDate: e.target.value ? Date.parse(e.target.value) : null })} /></label>
+            <label>{fcap('Garantía hasta')}<input type="date" value={dayVal(sel.warrantyUntil)} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { warrantyUntil: e.target.value ? Date.parse(e.target.value) : null })} /></label>
+          </div>
+          <label>{fcap('Notas')}<textarea rows={3} value={sel.notes ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { notes: e.target.value })} /></label>
+
+          <div className="k" style={{ marginTop: 4 }}>Tickets vinculados ({linkedTickets.length})</div>
+          {linkedTickets.length === 0 ? <span className="soft" style={{ fontSize: 12.5 }}>Sin tickets activos vinculados a este activo.</span>
+            : <div className="asset-tks">{linkedTickets.map((t) => { const sv = statusView(tenant, t); return <button key={t.id} className="asset-tk" onClick={() => onOpenTicket(t.id)}>
+              <span className="id mono">{t.id}</span><span className="subj">{t.subject}</span><span className="stbadge" style={{ color: sv.color, background: `color-mix(in srgb, ${sv.color} 14%, transparent)` }}>{sv.label}</span></button>; })}</div>}
+
+          {canManage && <div style={{ display: 'flex', marginTop: 12 }}>
+            <button className="ghost sm" style={{ color: 'var(--crit)' }} onClick={() => { if (confirm(`¿Eliminar el activo «${sel.name}» (${sel.id})?`)) { removeAsset(sel.id); setSelId(null); } }}><Icon name="trash" size={13} /> Eliminar activo</button>
+          </div>}
+        </div></div>
+      </div>
+    </div>}
+  </>;
+}
+
 function dueLabel(ms?: number | null): [string, string] {
   if (!ms) return ['—', ''];
   const diff = ms - Date.now();
@@ -978,6 +1112,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
   const uploadAttachment = useStore((s) => s.uploadAttachment);
   const removeAttachment = useStore((s) => s.removeAttachment);
   const setStatus = useStore((s) => s.setStatus);
+  const setTicketAssets = useStore((s) => s.setTicketAssets);
   const [tab, setTab] = useState<'detalles' | 'resolucion' | 'historico' | 'tareas' | 'tiempo' | 'aprobaciones' | 'adjuntos' | 'conversaciones'>('detalles');
   const [comment, setComment] = useState('');
   const [internal, setInternal] = useState(false);
@@ -1078,9 +1213,13 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
         {t.mode && <div><div className="k">Modo</div><span style={{ fontSize: 13 }}>{t.mode}</span></div>}
         {(t.site || req?.site) && <div><div className="k">Sede</div><span style={{ fontSize: 13 }}>{t.site ?? req?.site}</span></div>}
         {req?.department && <div><div className="k">Departamento</div><span style={{ fontSize: 13 }}>{req.department}</span></div>}
-        {t.assets && <div><div className="k">Activos afectados</div><span style={{ fontSize: 13 }}>{t.assets}</span></div>}
         {t.notifyEmails && <div><div className="k">Correos a notificar</div><span style={{ fontSize: 13 }}>{t.notifyEmails}</span></div>}
       </div>
+      {(canAct || (t.assetIds ?? []).length > 0 || t.assets) && <div style={{ marginTop: 8 }}>
+        <div className="k">Activos afectados</div>
+        <AssetPicker tenant={tenant} value={t.assetIds ?? []} onChange={(ids) => setTicketAssets(t.id, ids)} disabled={!canAct} />
+        {t.assets && !(t.assetIds ?? []).length && <div className="soft" style={{ fontSize: 12, marginTop: 4 }}>Texto importado: {t.assets}</div>}
+      </div>}
       {t.impactDetails && <div style={{ marginTop: 8 }}><div className="k">Detalles del impacto</div><div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{t.impactDetails}</div></div>}
       {ss && <div style={{ marginTop: 12 }}>
         <div className="k">SLA de resolución {paused && '· ⏸ en pausa'}</div>
@@ -1337,7 +1476,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const [site, setSite] = useState(() => defaultSite(tenant));
   const [notifyEmails, setNotifyEmails] = useState('');
   const [impactDetails, setImpactDetails] = useState('');
-  const [assets, setAssets] = useState('');
+  const [assetIds, setAssetIds] = useState<string[]>([]);
   const requesters = tenant.members.filter((m) => m.role === 'requester');
   const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
   const [udf, setUdf] = useState<Record<string, string>>({});
@@ -1377,7 +1516,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const canSubmit = !!subject.trim() && !!cat && !missingCat && !readOnly;
   const submit = async () => {
     if (!canSubmit || !cat) return;
-    const id = create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, site: site || undefined, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, assets: assets || undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf });
+    const id = create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, site: site || undefined, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, assetIds: assetIds.length ? assetIds : undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf });
     if (id) for (const f of files) { try { await uploadAttachment(id, f, meName); } catch { /* ignora fallo de subida individual */ } }
     onClose();
   };
@@ -1455,7 +1594,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
           <div className="nf-sec">
             <div className="nf-sec-h">Más detalles</div>
             <label>{fcap('Detalles del impacto')}<textarea value={impactDetails} rows={2} onChange={(e) => setImpactDetails(e.target.value)} placeholder="A quién/qué afecta, alcance…" /></label>
-            <label>{fcap('Activos / elementos afectados')}<input type="text" value={assets} onChange={(e) => setAssets(e.target.value)} placeholder="Equipo, aplicación, servicio…" /></label>
+            <label>{fcap('Activos / elementos afectados')}<AssetPicker tenant={tenant} value={assetIds} onChange={setAssetIds} /></label>
             <label>{fcap('Correos a notificar')}<input type="text" value={notifyEmails} onChange={(e) => setNotifyEmails(e.target.value)} placeholder="correo1@dominio.com, correo2@dominio.com…" /></label>
           </div>
           {readOnly && <div className="empty" style={{ fontSize: 12 }}><Icon name="eye" size={13} /> Modo lectura: no puedes crear la solicitud.</div>}

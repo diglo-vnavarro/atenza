@@ -76,8 +76,11 @@ export interface Ticket {
   notifyEmails?: string;
   /** detalles del impacto (SDP «impact_details»); texto libre opcional. */
   impactDetails?: string;
-  /** activos / elementos afectados (SDP «assets»); texto libre (sin CMDB completo). */
+  /** activos / elementos afectados (SDP «assets»); texto libre LEGADO (import). Se
+   *  mantiene por compatibilidad; la vinculación viva usa `assetIds`. */
   assets?: string;
+  /** ids de activos afectados (módulo CMDB). Sustituye al texto libre `assets`. */
+  assetIds?: string[];
   /** archivado = ticket en estado terminal (Cerrada/Cancelada/Resuelta). La bandeja
    *  en vivo solo suscribe archived=false; los archivados se ven en la vista Archivo.
    *  Imprescindible en TODOS los tickets vivos (Firestore no casa el campo ausente). */
@@ -319,4 +322,45 @@ export interface StatusSegment {
   state: string;
   from: number; // epoch ms
   to: number | null;
+}
+
+// ============================================================================
+// Activos / CMDB — inventario vivo y editable (módulo D). Cada activo vive en
+// tenants/{tid}/assets/{id}. Se puede asignar a un miembro y vincular a tickets.
+// ============================================================================
+export type AssetStatus = 'in_use' | 'in_stock' | 'repair' | 'retired' | 'lost';
+/** Estados del activo (clave · etiqueta · color de token). */
+export const ASSET_STATUS: { key: AssetStatus; label: string; color: string }[] = [
+  { key: 'in_use', label: 'En uso', color: 'var(--ok)' },
+  { key: 'in_stock', label: 'En stock', color: 'var(--accent)' },
+  { key: 'repair', label: 'En reparación', color: 'var(--warn)' },
+  { key: 'retired', label: 'Retirado', color: 'var(--ink-faint)' },
+  { key: 'lost', label: 'Extraviado', color: 'var(--crit)' },
+];
+export const assetStatusView = (s: string | undefined) => ASSET_STATUS.find((x) => x.key === s) ?? { key: 'in_stock' as AssetStatus, label: s || '—', color: 'var(--ink-soft)' };
+/** Tipos de producto (categoría del activo). */
+export const ASSET_TYPES = ['Portátil', 'Sobremesa', 'Monitor', 'Móvil', 'Tablet', 'Servidor', 'Impresora', 'Red', 'Periférico', 'Licencia SW', 'Otro'];
+
+export interface Asset {
+  id: string;
+  name: string;
+  /** etiqueta / asset tag (código de inventario). */
+  tag?: string;
+  /** tipo de producto (uno de ASSET_TYPES, o libre). */
+  productType?: string;
+  /** número de serie. */
+  serial?: string;
+  status: AssetStatus;
+  /** uid del miembro al que está asignado (o null = sin asignar). */
+  assignedTo?: string | null;
+  site?: string;
+  department?: string;
+  /** fabricante. */
+  vendor?: string;
+  model?: string;
+  purchaseDate?: number | null; // epoch ms
+  warrantyUntil?: number | null; // epoch ms
+  cost?: number | null;
+  notes?: string;
+  createdAt?: number;
 }

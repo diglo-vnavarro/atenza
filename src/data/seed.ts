@@ -1,6 +1,6 @@
 // Datos semilla del piloto (local-first). Dos instancias, reflejando la
 // realidad de Diglo: una interna completa y un cliente externo (Leasys).
-import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, ApprovalLevelDef } from '../model.js';
+import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, ApprovalLevelDef, Asset } from '../model.js';
 
 // Catálogo de campos adicionales (ad-hoc) de ejemplo para diglo-it.
 export const DEFAULT_CUSTOM_FIELDS: FieldDef[] = [
@@ -193,6 +193,8 @@ export interface TenantData {
   id: string; name: string; key: string; active: boolean;
   members: UiMember[]; lifecycles: Lifecycle[]; templates: Template[];
   slas: Sla[]; groups: Group[]; tickets: StoredTicket[];
+  /** activos / CMDB (módulo D). Subcolección en la nube: tenants/{tid}/assets. */
+  assets?: Asset[];
   /** lista plana (compat); se deriva de categoryTree cuando existe. */
   categories: string[];
   /** árbol Categoría › Subcategoría › Artículo. */
@@ -515,6 +517,14 @@ export function makeSeed(now: number): DB {
       { type: 'incident', subject: 'VPN caída en la oficina de Madrid', description: 'Varios usuarios no pueden conectar a la VPN desde esta mañana.', requesterId: 'u-laura', technicianId: null, groupId: 'g-red', category: 'Red', priority: 'Alta', impact: 'Afecta a departamento', urgency: 'Alta', mode: 'Llamada telefonica', site: 'Madrid - Sede central', templateId: 'tpl-inc', status: 'open', slaId: 'sla-high', statusHistory: [seg('open', 90, null, now)] },
       { type: 'incident', subject: 'Portátil no arranca tras actualización', description: 'Pantalla azul tras la actualización de Windows.', requesterId: 'u-laura', technicianId: 'u-elena', groupId: 'g-n1', category: 'Hardware', priority: 'Media', impact: 'Afecta a usuario', urgency: 'Normal', mode: 'Formulario Web', templateId: 'tpl-inc', status: 'p_user', slaId: 'sla-med', statusHistory: [seg('open', 300, 260, now), seg('working', 260, 180, now), seg('p_user', 180, null, now)] },
     ].map((t, i) => ({ ...t, id: 'INC-' + (2039 + i) } as Ticket & { id: string })),
+    assets: [
+      { id: 'AS-0001', name: 'Portátil Dell Latitude 5540', tag: 'DIGLO-PC-0142', productType: 'Portátil', serial: 'DL5540-9F2K1', status: 'in_use', assignedTo: 'u-laura', site: 'Madrid - Sede central', department: 'Operaciones', vendor: 'Dell', model: 'Latitude 5540', purchaseDate: now - 400 * 86400000, warrantyUntil: now + 330 * 86400000, cost: 1180, notes: '', createdAt: now - 400 * 86400000 },
+      { id: 'AS-0002', name: 'Monitor LG 27" UltraFine', tag: 'DIGLO-MON-0311', productType: 'Monitor', serial: 'LG27UF-33A9', status: 'in_use', assignedTo: 'u-laura', site: 'Madrid - Sede central', department: 'Operaciones', vendor: 'LG', model: '27UP850', purchaseDate: now - 380 * 86400000, warrantyUntil: now + 350 * 86400000, cost: 320, notes: '', createdAt: now - 380 * 86400000 },
+      { id: 'AS-0003', name: 'iPhone 13 corporativo', tag: 'DIGLO-MOV-0088', productType: 'Móvil', serial: 'IP13-77G2H', status: 'in_use', assignedTo: 'u-admin', site: 'Madrid - Sede central', department: 'Sistemas', vendor: 'Apple', model: 'iPhone 13', purchaseDate: now - 600 * 86400000, warrantyUntil: now - 240 * 86400000, cost: 809, notes: 'Fuera de garantía.', createdAt: now - 600 * 86400000 },
+      { id: 'AS-0004', name: 'Portátil HP EliteBook 840', tag: 'DIGLO-PC-0177', productType: 'Portátil', serial: 'HP840-1K2M8', status: 'in_stock', assignedTo: null, site: 'Madrid - Sede central', department: 'Sistemas', vendor: 'HP', model: 'EliteBook 840 G9', purchaseDate: now - 120 * 86400000, warrantyUntil: now + 610 * 86400000, cost: 1350, notes: 'Repuesto de guardia.', createdAt: now - 120 * 86400000 },
+      { id: 'AS-0005', name: 'Switch Cisco Catalyst 9200', tag: 'DIGLO-NET-0012', productType: 'Red', serial: 'C9200-44FZ', status: 'repair', assignedTo: null, site: 'Barcelona', department: 'Redes y Comunicaciones', vendor: 'Cisco', model: 'Catalyst 9200', purchaseDate: now - 900 * 86400000, warrantyUntil: now + 90 * 86400000, cost: 2600, notes: 'En RMA por puerto averiado.', createdAt: now - 900 * 86400000 },
+      { id: 'AS-0006', name: 'Licencia Microsoft 365 E3', tag: 'DIGLO-LIC-0450', productType: 'Licencia SW', serial: 'M365E3-2026', status: 'in_use', assignedTo: 'u-elena', site: 'Madrid - Sede central', department: 'Soporte a usuarios', vendor: 'Microsoft', model: '365 E3', purchaseDate: now - 200 * 86400000, warrantyUntil: now + 165 * 86400000, cost: 260, notes: 'Renovación anual.', createdAt: now - 200 * 86400000 },
+    ] as Asset[],
   };
 
   const leasys: TenantData = {

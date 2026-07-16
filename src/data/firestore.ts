@@ -15,7 +15,7 @@
 // El store llama a estas funciones solo en modo nube (firebaseEnabled).
 // ============================================================================
 import { getFirebaseApp } from '../firebase.js';
-import type { Lifecycle, Template, Sla, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, AccessRequest } from '../model.js';
+import type { Lifecycle, Template, Sla, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, AccessRequest, Asset } from '../model.js';
 import type { ClosureRules } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import type { FormRule } from '../formrules.js';
@@ -58,6 +58,7 @@ export async function seedTenantToFirestore(t: TenantData): Promise<void> {
   for (const tp of t.templates) batch.set(m.doc(db, `tenants/${t.id}/templates`, tp.id), tp);
   for (const s of t.slas) batch.set(m.doc(db, `tenants/${t.id}/slas`, s.id), s);
   for (const g of t.groups) batch.set(m.doc(db, `tenants/${t.id}/groups`, g.id), g);
+  for (const a of t.assets ?? []) batch.set(m.doc(db, `tenants/${t.id}/assets`, a.id), a);
   await batch.commit();
 }
 
@@ -105,7 +106,7 @@ export type Unsub = () => void;
 export async function subscribeTenant(tid: string, requesterFilterUid: string | null, onData: (t: TenantData) => void, meUid?: string): Promise<Unsub> {
   const { m, db } = await fs();
   const acc: Partial<TenantData> & { id: string } = {
-    id: tid, members: [], tickets: [], lifecycles: [], templates: [], slas: [], groups: [], categories: [], capacity: {}, notifications: [], audit: [],
+    id: tid, members: [], tickets: [], lifecycles: [], templates: [], slas: [], groups: [], assets: [], categories: [], capacity: {}, notifications: [], audit: [],
     name: tid, key: tid, active: true, counter: 1000,
   };
   const emit = () => onData(acc as TenantData);
@@ -122,6 +123,7 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
   subs.push(m.onSnapshot(col('templates'), (s) => { acc.templates = s.docs.map((d) => d.data() as Template); emit(); }));
   subs.push(m.onSnapshot(col('slas'), (s) => { acc.slas = s.docs.map((d) => d.data() as Sla); emit(); }));
   subs.push(m.onSnapshot(col('groups'), (s) => { acc.groups = s.docs.map((d) => d.data() as Group); emit(); }));
+  subs.push(m.onSnapshot(col('assets'), (s) => { acc.assets = s.docs.map((d) => ({ ...(d.data() as Asset), id: d.id })); emit(); }, () => { acc.assets = []; emit(); }));
 
   // tickets EN VIVO: solo NO archivados (los ~23k terminales van a la vista Archivo,
   // no se suscriben, para que la bandeja sea rápida). Técnico/admin => todos los
@@ -249,6 +251,14 @@ export async function removeGroupDoc(tid: string, id: string): Promise<void> {
 export async function writeMember(tid: string, member: UiMember): Promise<void> {
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, `tenants/${tid}/members`, member.uid), member);
+}
+export async function writeAsset(tid: string, a: Asset): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, `tenants/${tid}/assets`, a.id), a);
+}
+export async function removeAssetDoc(tid: string, id: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.deleteDoc(m.doc(db, `tenants/${tid}/assets`, id));
 }
 export async function removeMemberDoc(tid: string, uid: string): Promise<void> {
   const { m, db } = await fs();

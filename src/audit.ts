@@ -25,6 +25,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   'inbound.create': 'Ticket creado por correo',
   'inbound.comment': 'Respuesta por correo',
   'config.change': 'Cambio de configuración',
+  'asset.create': 'Activo creado',
+  'asset.delete': 'Activo eliminado',
 };
 
 export const auditLabel = (action: string): string => AUDIT_LABELS[action] ?? action;

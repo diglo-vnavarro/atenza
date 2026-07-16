@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification, ReplyTemplate, Attachment, AccessRequest } from '../model.js';
+import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification, ReplyTemplate, Attachment, AccessRequest, Asset } from '../model.js';
 import { isArchivedStatus } from '../model.js';
 import type { User } from '../access.js';
 import type { ClosureRules } from '../closure.js';
@@ -23,7 +23,7 @@ export type Role = 'tenant_admin' | 'technician' | 'requester';
 interface NewTicket {
   subject: string; description: string; category: string; subcategory?: string; item?: string;
   priority: string; impact?: string; urgency?: string; mode?: string; level?: string; site?: string;
-  notifyEmails?: string; impactDetails?: string; assets?: string;
+  notifyEmails?: string; impactDetails?: string; assets?: string; assetIds?: string[];
   requesterId: string; technicianId?: string | null;
   templateId?: string;
   udf?: Record<string, string>;
@@ -125,6 +125,10 @@ interface State {
   removeSla: (id: string) => void;
   addGroup: (name: string) => void;
   removeGroup: (id: string) => void;
+  addAsset: (a: Partial<Asset>) => string;
+  updateAsset: (id: string, patch: Partial<Asset>) => void;
+  removeAsset: (id: string) => void;
+  setTicketAssets: (ticketId: string, assetIds: string[]) => void;
   addMember: (name: string, email: string, role: Role, external: boolean) => void;
   updateMember: (uid: string, patch: Partial<UiMember>) => void;
   setMembersEnabled: (uids: string[], enabled: boolean) => void;
@@ -340,6 +344,7 @@ export const useStore = create<State>()(
             ...(nt.notifyEmails && nt.notifyEmails.trim() ? { notifyEmails: nt.notifyEmails.trim() } : {}),
             ...(nt.impactDetails && nt.impactDetails.trim() ? { impactDetails: nt.impactDetails.trim() } : {}),
             ...(nt.assets && nt.assets.trim() ? { assets: nt.assets.trim() } : {}),
+            ...(nt.assetIds && nt.assetIds.length ? { assetIds: nt.assetIds } : {}),
             templateId: cat ? 'unified' : (tpl?.id ?? 'tpl-inc'), status: init,
             ...(cat ? { serviceCategoryId: cat.id, serviceCategory: cat.name } : {}),
             // Grupo de soporte de la categoría (una regla de negocio puede sobrescribirlo).
@@ -835,6 +840,31 @@ export const useStore = create<State>()(
         removeGroup: (id) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, groups: t.groups.filter((x) => x.id !== id) })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.removeGroupDoc(t.id, id).catch(errlog); }
+        },
+        // --- Activos / CMDB (módulo D) ---
+        addAsset: (a) => {
+          const t0 = activeT(get()); if (!t0) return '';
+          const nums = (t0.assets ?? []).map((x) => parseInt(x.id.replace(/\D/g, ''), 10) || 0);
+          const id = 'AS-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, '0');
+          const asset: Asset = { name: (a.name ?? '').trim() || 'Activo sin nombre', status: a.status ?? 'in_stock', assignedTo: a.assignedTo ?? null, createdAt: Date.now(), ...a, id };
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: [...(t.assets ?? []), asset] })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.writeAsset(t.id, asset).catch(errlog); }
+          const t = activeT(get()); if (t) logAudit(t, 'asset.create', `${id} · ${asset.name}`);
+          return id;
+        },
+        updateAsset: (id, patch) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: (t.assets ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)) })) }));
+          if (CLOUD) { const t = activeT(get()); const a = (t?.assets ?? []).find((x) => x.id === id); if (t && a) void cloud.writeAsset(t.id, a).catch(errlog); }
+        },
+        removeAsset: (id) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: (t.assets ?? []).filter((x) => x.id !== id) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.removeAssetDoc(t.id, id).catch(errlog); }
+          const t = activeT(get()); if (t) logAudit(t, 'asset.delete', id);
+        },
+        setTicketAssets: (ticketId, assetIds) => {
+          const t = activeT(get()); if (!t) return;
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, assetIds } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { assetIds }).catch(errlog);
         },
         addMember: (name, email, role, external) => {
           const em = email.trim().toLowerCase(); if (!em) return;

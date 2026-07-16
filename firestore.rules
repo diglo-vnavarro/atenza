@@ -172,6 +172,12 @@ service cloud.firestore {
         allow read:  if isMember(tid) || isPlatformAdmin();
         allow write: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       }
+      // --- activos / CMDB: los lee cualquier miembro (los tickets los referencian);
+      // los gestionan técnico/admin (alta/edición/asignación), no solo configuración.
+      match /assets/{docId} {
+        allow read:  if isMember(tid) || isPlatformAdmin();
+        allow write: if isTech(tid) || isPlatformAdmin();
+      }
 
       // --- avisos en pantalla: cada miembro solo lee/actualiza LOS SUYOS ---
       // (la consulta filtra por forUid==uid; el `read` lo exige por documento).
