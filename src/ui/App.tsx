@@ -1027,25 +1027,27 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
     {/* Barra de estado: estado actual (coloreado) + estados a los que se puede ir (clic).
         El estado se guarda por NOMBRE (así lo trajo el histórico de SDP), mientras que
         las keys del ciclo son ids numéricos → resolvemos el estado actual por key O por
-        nombre. Se ofrecen las transiciones configuradas del flujo MÁS los estados
-        terminales (Resuelta/Cerrada/Cancelada), que siempre deben poder alcanzarse. */}
+        nombre. Se RESPETA el flujo configurado siempre que defina transiciones para el
+        estado actual; si no las define (estado fuera del ciclo o sin salidas), se ofrecen
+        todos los estados del ciclo como recuperación para no dejar el ticket atascado. */}
     {(() => {
       let opts: { to: string; label: string }[] = [];
       if (lc) {
         const cur = lc.states.find((s) => s.key === t.status) ?? lc.states.find((s) => s.label === t.status);
-        if (cur && !cur.isTerminal) {
-          const outKeys = new Set(lc.transitions.filter((tr) => tr.from === cur.key).map((tr) => tr.to));
-          lc.states.forEach((s) => { if (s.isTerminal) outKeys.add(s.key); }); // salidas terminales siempre disponibles
-          outKeys.delete(cur.key);
-          const inc = lc.states.filter((s) => outKeys.has(s.key) && !s.isTerminal);
-          const term = lc.states.filter((s) => outKeys.has(s.key) && s.isTerminal);
+        const flowKeys = cur && !cur.isTerminal ? lc.transitions.filter((tr) => tr.from === cur.key).map((tr) => tr.to).filter((k) => k !== cur.key) : [];
+        if (flowKeys.length) {
+          // El flujo define transiciones para este estado → se respeta tal cual.
+          const set = new Set(flowKeys);
+          const inc = lc.states.filter((s) => set.has(s.key) && !s.isTerminal);
+          const term = lc.states.filter((s) => set.has(s.key) && s.isTerminal);
           opts = [...inc, ...term].map((s) => ({ to: s.label, label: s.label }));
-        } else if (!cur) {
-          // El estado actual no existe en este ciclo (dato importado) → permite encaminarlo a cualquiera.
+        } else if (!cur || !cur.isTerminal) {
+          // Sin flujo definido para este estado (fuera del ciclo, o nodo sin salidas):
+          // recuperación → cualquier estado del ciclo (incluidos terminales).
           const inc = lc.states.filter((s) => s.label !== t.status && !s.isTerminal);
           const term = lc.states.filter((s) => s.label !== t.status && s.isTerminal);
           opts = [...inc, ...term].map((s) => ({ to: s.label, label: s.label }));
-        } // cur terminal → sin salidas
+        } // cur terminal (Cerrada/Cancelada/Resuelta) → sin salidas
       } else {
         opts = noFlowNext(t.status).map((s) => ({ to: s, label: s }));
       }
