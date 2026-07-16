@@ -293,27 +293,27 @@ export function App() {
           <div className="side-top">
             <div className="cap">Menú</div>
             {!isReq && <button title="Inicio" className={'modlink' + (activeView === 'home' ? ' on' : '')} onClick={() => setView('home')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 10.5L12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /></svg>
+              <Icon name="home" />
               <span className="ml-l">Inicio</span></button>}
             {!isReq && caps.includes('viewAllTickets') && <button title="Solicitudes" className={'modlink' + (activeView === 'tickets' ? ' on' : '')} onClick={() => setView('tickets')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M8 4v16" /></svg>
+              <Icon name="list" />
               <span className="ml-l">Solicitudes</span><span className="n">{openCount}</span></button>}
             {!isReq && <button title="Asignadas a mí" className={'modlink' + (activeView === 'assigned' ? ' on' : '')} onClick={() => setView('assigned')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>
+              <Icon name="user-check" />
               <span className="ml-l">Asignadas a mí</span><span className="n">{myAssignedCount}</span></button>}
             <button title="Mis solicitudes" className={'modlink' + (activeView === 'requests' ? ' on' : '')} onClick={() => setView('requests')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16v16H4z" /><path d="M8 9h8M8 13h5" /></svg>
+              <Icon name="ticket" />
               <span className="ml-l">Mis solicitudes</span><span className="n">{myReqCount}</span></button>
             <button title="Base de conocimiento" className={'modlink' + (activeView === 'kb' ? ' on' : '')} onClick={() => setView('kb')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 5a2 2 0 012-2h12v18H6a2 2 0 01-2-2z" /><path d="M8 7h8M8 11h6" /></svg>
+              <Icon name="book-open" />
               <span className="ml-l">Base de conocimiento</span></button>
             <button title="Archivo" className={'modlink' + (activeView === 'archivo' ? ' on' : '')} onClick={() => setView('archivo')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 4h18v4H3z" /><path d="M5 8v12h14V8M9 12h6" /></svg>
+              <Icon name="archive" />
               <span className="ml-l">Archivo</span></button>
           </div>
           <div className="side-bottom">
             {canManageConfig && <button title="Administración" className={'modlink' + (activeView === 'admin' ? ' on' : '')} onClick={() => setView('admin')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="3" /><path d="M19 12a7 7 0 00-.1-1.1l2-1.5-2-3.4-2.3 1a7 7 0 00-1.9-1.1L14.3 2h-4l-.4 2.3a7 7 0 00-1.9 1.1l-2.3-1-2 3.4 2 1.5A7 7 0 005.6 12c0 .4 0 .7.1 1.1l-2 1.5 2 3.4 2.3-1c.6.5 1.2.8 1.9 1.1l.4 2.4h4l.4-2.4c.7-.3 1.3-.6 1.9-1.1l2.3 1 2-3.4-2-1.5c.1-.4.1-.7.1-1.1z" /></svg>
+              <Icon name="settings" />
               <span className="ml-l">Administración</span></button>}
           </div>
         </aside>
