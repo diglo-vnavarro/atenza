@@ -353,31 +353,87 @@ export function App() {
 }
 
 // Panel de inicio: KPIs + widgets calculados a partir de los datos reales del tenant.
+// ---- Gráficos SVG (siguen los tokens de la app; sin dependencias) ----
+function Donut({ data, size = 132, thickness = 20 }: { data: { label: string; value: number; color: string }[]; size?: number; thickness?: number }) {
+  const total = data.reduce((a, d) => a + d.value, 0);
+  const r = (size - thickness) / 2; const c = 2 * Math.PI * r; const cx = size / 2;
+  let off = 0;
+  return <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+      <g transform={`rotate(-90 ${cx} ${cx})`}>
+        {total === 0 ? <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--line)" strokeWidth={thickness} />
+          : data.filter((d) => d.value > 0).map((d, i) => { const len = (d.value / total) * c; const seg = <circle key={i} cx={cx} cy={cx} r={r} fill="none" stroke={d.color} strokeWidth={thickness} strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-off} strokeLinecap="butt" />; off += len; return seg; })}
+      </g>
+      <text x={cx} y={cx - 1} textAnchor="middle" fontSize={22} fontWeight={700} fill="var(--ink)" fontFamily="var(--mono)">{total}</text>
+      <text x={cx} y={cx + 15} textAnchor="middle" fontSize={9.5} fill="var(--ink-faint)">TOTAL</text>
+    </svg>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 130, flex: 1 }}>{data.filter((d) => d.value > 0).map((d) => <span key={d.label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: d.color, flexShrink: 0 }} /><span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}</span><b className="mono">{d.value}</b></span>)}
+      {total === 0 && <span className="soft" style={{ fontSize: 12 }}>Sin datos.</span>}</div>
+  </div>;
+}
+function DayBars({ data, color = 'var(--accent)' }: { data: { label: string; value: number }[]; color?: string }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  return <div className="daybars">{data.map((d, i) => <div key={i} className="daybar" title={`${d.label}: ${d.value}`}>
+    <span className="daybar-track"><span className="daybar-fill" style={{ height: `${(d.value / max) * 100}%`, background: color }} /></span>
+    <span className="daybar-l">{d.label}</span>
+  </div>)}</div>;
+}
+function Gauge({ value, max, color = 'var(--warn)' }: { value: number; max: number; color?: string }) {
+  const frac = max ? Math.min(1, value / max) : 0; const R = 48, CX = 60, CY = 58;
+  const pt = (f: number): [number, number] => [CX + R * Math.cos(Math.PI * (1 - f)), CY - R * Math.sin(Math.PI * (1 - f))];
+  const [ex, ey] = pt(frac);
+  return <svg width={120} height={70} viewBox="0 0 120 70">
+    <path d={`M12 58 A48 48 0 0 1 108 58`} fill="none" stroke="var(--line)" strokeWidth={10} strokeLinecap="round" />
+    {frac > 0 && <path d={`M12 58 A48 48 0 ${frac > 0.5 ? 1 : 0} 1 ${ex} ${ey}`} fill="none" stroke={color} strokeWidth={10} strokeLinecap="round" />}
+    <text x={60} y={52} textAnchor="middle" fontSize={24} fontWeight={700} fontFamily="var(--mono)" fill="var(--ink)">{value}</text>
+  </svg>;
+}
+
 function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<typeof buildUser>; go: (v: 'tickets' | 'assigned', f?: 'all' | 'unassigned' | 'mine') => void }) {
   const now = Date.now();
-  const tickets = tenant.tickets.filter((t) => !t.archived); // KPIs sobre lo ACTIVO
+  const tickets = tenant.tickets.filter((t) => !t.archived); // el panel es sobre lo ACTIVO
   const isOverdue = (t: StoredTicket) => !!t.resolveDueAt && t.resolveDueAt < now;
   const unassigned = tickets.filter((t) => !t.technicianId).length;
   const overdue = tickets.filter(isOverdue).length;
   const mine = tickets.filter((t) => t.technicianId === user.uid).length;
+  const withDue = tickets.filter((t) => t.resolveDueAt).length;
+  const nearBreach = tickets.filter((t) => t.resolveDueAt && !isOverdue(t) && (t.resolveDueAt - now) < 2 * 3600000).length;
 
+  // Por técnico: abiertas · en espera (reloj pausado) · vencidas + capacidad.
   const techName = (uid: string) => tenant.members.find((m) => m.uid === uid)?.name ?? '—';
-  const byTech = new Map<string, { open: number; over: number }>();
-  for (const t of tickets) { if (!t.technicianId) continue; const e = byTech.get(t.technicianId) ?? { open: 0, over: 0 }; e.open++; if (isOverdue(t)) e.over++; byTech.set(t.technicianId, e); }
+  const byTech = new Map<string, { open: number; over: number; wait: number }>();
+  for (const t of tickets) { if (!t.technicianId) continue; const e = byTech.get(t.technicianId) ?? { open: 0, over: 0, wait: 0 }; e.open++; if (isOverdue(t)) e.over++; if (statusView(tenant, t).timer === 'stop_timer') e.wait++; byTech.set(t.technicianId, e); }
   const techRows = [...byTech.entries()].map(([uid, v]) => ({ uid, name: techName(uid), ...v })).sort((a, b) => b.open - a.open).slice(0, 8);
 
-  const stateLabel = (t: StoredTicket) => statusView(tenant, t).label;
+  // Por estado.
   const byState = new Map<string, number>();
-  for (const t of tickets) { const l = stateLabel(t); byState.set(l, (byState.get(l) ?? 0) + 1); }
+  for (const t of tickets) { const l = statusView(tenant, t).label; byState.set(l, (byState.get(l) ?? 0) + 1); }
   const stateRows = [...byState.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   const stateMax = Math.max(1, ...stateRows.map((r) => r[1]));
   const STC = ['var(--accent)', '#0891b2', 'var(--warn)', '#be185d', '#0f766e', 'var(--st-closed)'];
 
+  // Cola por grupo de soporte.
   const groupName = (id?: string | null) => tenant.groups.find((g) => g.id === id)?.name ?? 'Sin grupo';
   const byGroup = new Map<string, number>();
   for (const t of tickets) { const g = groupName(t.groupId); byGroup.set(g, (byGroup.get(g) ?? 0) + 1); }
   const groupRows = [...byGroup.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
   const groupMax = Math.max(1, ...groupRows.map((r) => r[1]));
+
+  // Por prioridad (donut, con el color del catálogo de prioridades).
+  const byPrio = new Map<string, { n: number; color: string }>();
+  for (const t of tickets) { const pv = priorityView(tenant, t.priority); const e = byPrio.get(pv.label) ?? { n: 0, color: pv.color }; e.n++; byPrio.set(pv.label, e); }
+  const prioData = [...byPrio.entries()].map(([label, v]) => ({ label, value: v.n, color: v.color })).sort((a, b) => b.value - a.value);
+
+  // Por tipo (Incidencia / Petición).
+  const incN = tickets.filter((t) => t.type === 'incident').length;
+  const typeData = [{ label: 'Incidencias', value: incN, color: 'var(--crit)' }, { label: 'Peticiones', value: tickets.length - incN, color: 'var(--accent)' }];
+
+  // Recibidas en los últimos 14 días (por fecha de creación).
+  const DAY = 86400000; const sod = (ms: number) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const t0 = sod(now) - 13 * DAY;
+  const recv = Array.from({ length: 14 }, (_, i) => ({ day: t0 + i * DAY, value: 0 }));
+  for (const t of tickets) { if (!t.createdAt) continue; const idx = Math.round((sod(t.createdAt) - t0) / DAY); if (idx >= 0 && idx < 14) recv[idx]!.value++; }
+  const recvData = recv.map((r) => ({ label: new Date(r.day).toLocaleDateString('es-ES', { day: '2-digit' }), value: r.value }));
 
   return <>
     <div className="hd"><h1>Panel de servicio</h1><span className="sub">{tenant.name} · {tickets.length} solicitudes activas</span></div>
@@ -390,14 +446,34 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
     <div className="dgrid">
       <div className="card dwide">
         <h2>Solicitudes por técnico <span className="badge"><Icon name="zap" size={11} /> carga vía OrganiZate</span></h2>
-        <table className="dtbl"><thead><tr><th>Técnico</th><th className="num">Abiertas</th><th className="num">Vencidas</th><th className="num">Capacidad</th></tr></thead>
+        <table className="dtbl"><thead><tr><th>Técnico</th><th className="num">Abiertas</th><th className="num">En espera</th><th className="num">Vencidas</th><th className="num">Capacidad</th></tr></thead>
           <tbody>{techRows.map((r) => { const c = tenant.capacity[r.uid] ?? { used: 0, cap: 40 }; const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0; const mem = tenant.members.find((m) => m.uid === r.uid); return <tr key={r.uid}>
             <td><div className="who">{mem ? <Avatar m={mem} /> : <span className="av" style={{ background: 'var(--ink-faint)' }}>?</span>} {r.name}</div></td>
             <td className="num mono">{r.open}</td>
+            <td className="num mono" style={{ color: 'var(--ink-soft)' }}>{r.wait}</td>
             <td className="num"><span style={{ color: r.over ? 'var(--crit)' : 'var(--ink-faint)', fontWeight: 700, fontFamily: 'var(--mono)' }}>{r.over}</span></td>
             <td className="num"><div className="capmini"><span style={{ width: Math.min(p, 100) + '%', background: capColor(c) }} /></div></td>
           </tr>; })}
-          {techRows.length === 0 && <tr><td colSpan={4} className="empty">Sin tickets asignados.</td></tr>}</tbody></table>
+          {techRows.length === 0 && <tr><td colSpan={5} className="empty">Sin tickets asignados.</td></tr>}</tbody></table>
+      </div>
+      <div className="card">
+        <h2>Abiertas por prioridad</h2>
+        <div style={{ marginTop: 8 }}><Donut data={prioData} /></div>
+      </div>
+      <div className="card dwide">
+        <h2>Recibidas · últimos 14 días</h2>
+        <DayBars data={recvData} />
+      </div>
+      <div className="card">
+        <h2>Estado del SLA</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 6, flexWrap: 'wrap' }}>
+          <Gauge value={overdue} max={Math.max(1, withDue)} color="var(--crit)" />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12.5, flex: 1, minWidth: 120 }}>
+            <span style={{ display: 'flex', gap: 6 }}><span className="sdot" style={{ background: 'var(--crit)' }} />Vencidas <b className="mono" style={{ marginLeft: 'auto' }}>{overdue}</b></span>
+            <span style={{ display: 'flex', gap: 6 }}><span className="sdot" style={{ background: 'var(--warn)' }} />Cerca de incumplir (&lt;2 h) <b className="mono" style={{ marginLeft: 'auto' }}>{nearBreach}</b></span>
+            <span style={{ display: 'flex', gap: 6 }}><span className="sdot" style={{ background: 'var(--ok)' }} />En plazo <b className="mono" style={{ marginLeft: 'auto' }}>{Math.max(0, withDue - overdue - nearBreach)}</b></span>
+          </div>
+        </div>
       </div>
       <div className="card">
         <h2>Por estado</h2>
@@ -406,15 +482,19 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
         </div>)}</div>
       </div>
       <div className="card">
+        <h2>Por tipo</h2>
+        <div style={{ marginTop: 8 }}><Donut data={typeData} /></div>
+      </div>
+      <div className="card">
         <h2>Cola por grupo de soporte</h2>
         <div className="drows">{groupRows.map(([l, n]) => <div key={l} className="drow">
           <span className="dl">{l}</span><span className="dbar"><span style={{ width: (n / groupMax * 100) + '%', background: 'var(--accent)' }} /></span><span className="dn mono">{n}</span>
         </div>)}</div>
       </div>
       <div className="card">
-        <h2>Resumen</h2>
+        <h2>Resumen de la instancia</h2>
         <div className="facts" style={{ marginTop: 4 }}>
-          <div><div className="k">Plantillas</div><b style={{ fontSize: 18 }}>{tenant.templates.length}</b></div>
+          <div><div className="k">Categorías</div><b style={{ fontSize: 18 }}>{(tenant.serviceCategories ?? []).length}</b></div>
           <div><div className="k">Flujos</div><b style={{ fontSize: 18 }}>{tenant.lifecycles.length}</b></div>
           <div><div className="k">Grupos</div><b style={{ fontSize: 18 }}>{tenant.groups.length}</b></div>
           <div><div className="k">Personas</div><b style={{ fontSize: 18 }}>{tenant.members.length}</b></div>

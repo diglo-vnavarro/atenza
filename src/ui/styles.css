@@ -163,6 +163,12 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .grp-caret{color:var(--ink-faint); width:12px; font-size:11px;}
 .grp-name{font-size:13px; flex:0 1 auto;}
 .grp-body{padding:2px 12px 14px 32px;}
+/* Gráfico de barras por día (dashboard). */
+.daybars{display:flex; align-items:flex-end; gap:4px; height:132px; margin-top:10px;}
+.daybar{flex:1; display:flex; flex-direction:column; align-items:center; gap:5px; min-width:0; height:100%;}
+.daybar-track{flex:1; width:100%; max-width:26px; display:flex; align-items:flex-end;}
+.daybar-fill{width:100%; border-radius:3px 3px 0 0; min-height:2px;}
+.daybar-l{font-size:9px; color:var(--ink-faint); font-family:var(--mono);}
 /* Barra de estado del ticket: actual (coloreado) + siguientes (clic). */
 .statusflow{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:2px 0 16px;}
 .sf-cur{padding:6px 14px; border-radius:999px; color:#fff; font-weight:700; font-size:12.5px; border:1px solid transparent; box-shadow:0 1px 2px rgba(0,0,0,.12);}
