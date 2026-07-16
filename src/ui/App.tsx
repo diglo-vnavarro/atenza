@@ -8,7 +8,7 @@ import { firebaseEnabled } from '../firebase.js';
 import { useAuth, doSignOut } from '../auth/auth.js';
 import { Login } from './Login.js';
 import { Icon } from './Icon.js';
-import { outgoing, stateOf } from '../lifecycle.js';
+import { stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
 import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
 import { madridHolidayDates } from '../holidays.js';
@@ -960,7 +960,6 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
   const canAssign = canAct && caps.includes('assign');
   const canChangeStatus = canAct && caps.includes('changeStatus');
   const canClose = caps.includes('close');
-  const transition = useStore((s) => s.transition);
   const assign = useStore((s) => s.assign);
   const addComment = useStore((s) => s.addComment);
   const setResolution = useStore((s) => s.setResolution);
@@ -1001,7 +1000,6 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
   const ss = sla ? slaStatus(lc, t.statusHistory ?? [], sla.resolveMins, Date.now(), timerOfTenant(tenant), calOf(tenant)) : null;
   const req = tenant.members.find((m) => m.uid === t.requesterId);
   const tech = tenant.members.find((m) => m.uid === t.technicianId);
-  const nexts = canAct ? outgoing(lc, t.status) : [];
   const statuses = tenant.statuses ?? [];
   const group = tenant.groups.find((g) => g.id === t.groupId);
   const allTechs = tenant.members.filter((m) => m.role === 'technician' || m.role === 'tenant_admin');
@@ -1026,9 +1024,31 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
       {TABS.map(([k, l, n]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}{n > 0 && <span className="tabn">{n}</span>}</button>)}
     </div>
 
-    {/* Barra de estado: estado actual (coloreado) + estados a los que se puede ir (clic). */}
+    {/* Barra de estado: estado actual (coloreado) + estados a los que se puede ir (clic).
+        El estado se guarda por NOMBRE (así lo trajo el histórico de SDP), mientras que
+        las keys del ciclo son ids numéricos → resolvemos el estado actual por key O por
+        nombre. Se ofrecen las transiciones configuradas del flujo MÁS los estados
+        terminales (Resuelta/Cerrada/Cancelada), que siempre deben poder alcanzarse. */}
     {(() => {
-      const opts = lc ? nexts.map((tr) => ({ to: tr.to, label: stateOf(lc, tr.to)?.label ?? tr.to })) : noFlowNext(t.status).map((s) => ({ to: s, label: s }));
+      let opts: { to: string; label: string }[] = [];
+      if (lc) {
+        const cur = lc.states.find((s) => s.key === t.status) ?? lc.states.find((s) => s.label === t.status);
+        if (cur && !cur.isTerminal) {
+          const outKeys = new Set(lc.transitions.filter((tr) => tr.from === cur.key).map((tr) => tr.to));
+          lc.states.forEach((s) => { if (s.isTerminal) outKeys.add(s.key); }); // salidas terminales siempre disponibles
+          outKeys.delete(cur.key);
+          const inc = lc.states.filter((s) => outKeys.has(s.key) && !s.isTerminal);
+          const term = lc.states.filter((s) => outKeys.has(s.key) && s.isTerminal);
+          opts = [...inc, ...term].map((s) => ({ to: s.label, label: s.label }));
+        } else if (!cur) {
+          // El estado actual no existe en este ciclo (dato importado) → permite encaminarlo a cualquiera.
+          const inc = lc.states.filter((s) => s.label !== t.status && !s.isTerminal);
+          const term = lc.states.filter((s) => s.label !== t.status && s.isTerminal);
+          opts = [...inc, ...term].map((s) => ({ to: s.label, label: s.label }));
+        } // cur terminal → sin salidas
+      } else {
+        opts = noFlowNext(t.status).map((s) => ({ to: s, label: s }));
+      }
       return <div className="statusflow">
         <span className="sf-cur" style={{ background: sv.color, borderColor: sv.color }}>{sv.label}{paused ? ' · ⏸' : ''}</span>
         {canAct && canChangeStatus && opts.length > 0 && <span className="sf-arrow">→</span>}
@@ -1036,7 +1056,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
           const closing = isClosingStatus(tenant.statuses, o.to);
           const blocked = (closing && !canClose) || (closing && closeMissing.length > 0);
           const tip = closing && !canClose ? 'No tienes permiso para cerrar/resolver' : blocked ? `Falta: ${closeMissing.join(', ')}` : `Cambiar a «${o.label}»`;
-          return <button key={o.to} className="sf-next" disabled={blocked} title={tip} onClick={() => { setCloseErr(''); lc ? transition(t.id, o.to) : setStatus(t.id, o.to); }}>{o.label}</button>;
+          return <button key={o.to} className="sf-next" disabled={blocked} title={tip} onClick={() => { setCloseErr(''); setStatus(t.id, o.to); }}>{o.label}</button>;
         })}
       </div>;
     })()}
