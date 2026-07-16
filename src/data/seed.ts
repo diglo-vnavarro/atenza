@@ -244,8 +244,9 @@ export interface TenantData {
   /** MODO SIMPLIFICADO (2ª versión): catálogo de categorías de servicio como eje
    *  (1 plantilla + Tipo + Categoría). Convive con las plantillas clásicas. */
   serviceCategories?: ServiceCategoryDef[];
-  /** modo de operación de la instancia. 'classic' = plantillas SDP (por defecto);
-   *  'simplified' = 1 plantilla + categoría-eje. Conmutable; mismo backend. */
+  /** modo de operación (histórico). El modo clásico se retiró: la app opera SIEMPRE
+   *  en 'simplified' (1 plantilla + categoría-eje). Campo conservado por compatibilidad
+   *  de datos; ya no se ramifica sobre él en la UI. */
   operationMode?: 'classic' | 'simplified';
   capacity: Record<string, Capacity>; counter: number;
 }
@@ -503,7 +504,7 @@ export function makeSeed(now: number): DB {
     categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, formRules: DEFAULT_FORM_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES, announcements: DEFAULT_ANNOUNCEMENTS, customFields: DEFAULT_CUSTOM_FIELDS,
     serviceCategoryIcons: { 'Incidencias': '🛠️', 'Solicitudes de servicio': '📥' },
     organizateGroupIds: ['g-n1'],
-    serviceCategories: DEFAULT_SERVICE_CATEGORIES, operationMode: 'classic',
+    serviceCategories: DEFAULT_SERVICE_CATEGORIES, operationMode: 'simplified',
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },

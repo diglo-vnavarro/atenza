@@ -327,9 +327,7 @@ export function App() {
         </main>
       </div>
 
-      {showNew && (tenant.operationMode === 'simplified'
-        ? <NewTicketSimplified tenant={tenant} role={role} user={user} readOnly={readOnly} onClose={() => setShowNew(false)} />
-        : <NewTicket tenant={tenant} role={role} user={user} readOnly={readOnly} onClose={() => setShowNew(false)} />)}
+      {showNew && <NewTicketSimplified tenant={tenant} role={role} user={user} readOnly={readOnly} onClose={() => setShowNew(false)} />}
     </div>
   );
 }
@@ -1007,181 +1005,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
   </div>;
 }
 
-const tplGroup = (t: Template) => t.group ?? (t.type === 'incident' ? 'Incidencias' : 'Solicitudes de servicio');
 
-function NewTicket({ tenant, role, user, readOnly, onClose }: { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; readOnly?: boolean; onClose: () => void }) {
-  const create = useStore((s) => s.createTicket);
-  const [tpl, setTpl] = useState<Template | null>(tenant.templates.length === 1 ? tenant.templates[0]! : null);
-  const [q, setQ] = useState('');
-  const [subject, setSubject] = useState('');
-  const tree = tenant.categoryTree ?? [];
-  const [category, setCategory] = useState(tree[0]?.name ?? tenant.categories[0] ?? 'General');
-  const [subcategory, setSubcategory] = useState('');
-  const [item, setItem] = useState('');
-  const catNode = tree.find((c) => c.name === category) ?? null;
-  const subNode = catNode?.subs.find((s) => s.name === subcategory) ?? null;
-  const pls = tenant.picklists;
-  const [priority, setPriority] = useState(pls?.priority.some((p) => p.name === 'Media') ? 'Media' : pls?.priority[0]?.name ?? 'Media');
-  const [impact, setImpact] = useState('');
-  const [urgency, setUrgency] = useState('');
-  const [mode, setMode] = useState('');
-  const [site, setSite] = useState('');
-  const [description, setDescription] = useState('');
-  const requesters = tenant.members.filter((m) => m.role === 'requester');
-  const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
-  const [udf, setUdf] = useState<Record<string, string>>({});
-  const [open, setOpen] = useState<Record<string, boolean>>({});
-
-  // Matriz de prioridades: al elegir impacto + urgencia, calcula la prioridad
-  // (el técnico puede cambiarla luego a mano).
-  useEffect(() => { if (impact && urgency) { const p = tenant.priorityMatrix?.[impact]?.[urgency]; if (p) setPriority(p); } }, [impact, urgency, tenant.priorityMatrix]);
-
-  // Perfilado de catálogo: el solicitante solo ve tipologías permitidas (visibles
-  // para solicitante Y, si la plantilla restringe por grupos de usuarios, que el
-  // solicitante pertenezca a alguno). Técnico/admin ven todas.
-  const myUG = tenant.members.find((m) => m.uid === user.uid)?.userGroups ?? [];
-  const canSee = (t: Template) => {
-    if (role !== 'requester') return true;
-    if (t.showToRequester === false) return false;
-    if (!t.userGroups || t.userGroups.length === 0) return true;
-    return t.userGroups.some((g) => myUG.includes(g));
-  };
-  const groups = new Map<string, Template[]>();
-  for (const t of tenant.templates) {
-    if (!canSee(t)) continue;
-    if (q && !t.name.toLowerCase().includes(q.toLowerCase())) continue;
-    const g = tplGroup(t); if (!groups.has(g)) groups.set(g, []); groups.get(g)!.push(t);
-  }
-  const grpList = [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-
-  // --- Formulario dinámico: renderiza el layout de la plantilla (fieldDefs) ---
-  const defs = tpl?.fieldDefs ?? [];
-  const hasDefs = defs.length > 0;
-  const visDefs = defs.filter((f) => !(role === 'requester' && f.requesterVisible === false));
-  const hasSubject = visDefs.some((f) => sysRoleOf(f.label) === 'subject');
-  const setU = (id: string, v: string) => setUdf((u) => ({ ...u, [id]: v }));
-
-  // valor actual de un campo (por id de FieldDef), para las reglas del formulario y la validación.
-  const valueOf = (f: FieldDef): string => {
-    switch (sysRoleOf(f.label)) {
-      case 'subject': return subject; case 'description': return description; case 'category': return category;
-      case 'priority': return priority; case 'impact': return impact; case 'urgency': return urgency;
-      case 'mode': return mode; case 'site': return site; case 'requester': return requesterId;
-      default: return udf[f.id] ?? '';
-    }
-  };
-  // Reglas del formulario: se evalúan en cada render (=> reaccionan al cambiar cualquier campo).
-  const frValues: Record<string, string> = {};
-  for (const f of defs) frValues[f.id] = valueOf(f);
-  const effects: FieldEffects = tpl ? evaluateFormRules(tenant.formRules, { templateId: tpl.id, role, values: frValues }) : {};
-  // campos que no se rellenan al crear o quedan ocultos por rol/regla
-  const roleHidden = (f: FieldDef) => { const r = sysRoleOf(f.label); if (r === 'skip' || r === 'subcategory' || r === 'item') return true; if ((r === 'mode' || r === 'requester') && role === 'requester') return true; return false; };
-  const isHidden = (f: FieldDef) => effects[f.id]?.hidden === true || roleHidden(f);
-  const isMandatory = (f: FieldDef) => effects[f.id]?.mandatory ?? !!f.mandatory;
-  const isDisabled = (f: FieldDef) => effects[f.id]?.disabled === true;
-
-  // valida obligatorios visibles (base + los que una regla marque obligatorios)
-  const missingReq = visDefs.some((f) => isMandatory(f) && !isHidden(f) && !valueOf(f).trim());
-  const canSubmit = !!subject.trim() && !!tpl && !missingReq && !readOnly;
-  const submit = () => { if (!canSubmit || !tpl) return; create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, impact: impact || undefined, urgency: urgency || undefined, mode: mode || undefined, site: site || undefined, requesterId, templateId: tpl.id, udf }); onClose(); };
-
-  const reqStar = (f: FieldDef) => isMandatory(f) ? <span className="req" title="Obligatorio">*</span> : null;
-  // clasificación (categoría → subcategoría → artículo) en cascada, un solo bloque
-  const catControl = <Fragment key="__cat">
-    <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-    {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>}
-    {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
-  </Fragment>;
-  const customControl = (f: FieldDef, dis: boolean) => {
-    const v = udf[f.id] ?? ''; const lbl = <>{f.label}{reqStar(f)}</>;
-    switch (f.type) {
-      case 'textarea': return <label key={f.id}>{lbl}<textarea value={v} onChange={(e) => setU(f.id, e.target.value)} rows={3} disabled={dis} /></label>;
-      case 'bool': return <label key={f.id} className="nf-bool"><input type="checkbox" checked={v === 'true'} onChange={(e) => setU(f.id, e.target.checked ? 'true' : 'false')} disabled={dis} /> {f.label}{reqStar(f)}</label>;
-      case 'date': return <label key={f.id}>{lbl}<input type="date" value={v} onChange={(e) => setU(f.id, e.target.value)} disabled={dis} /></label>;
-      case 'number': return <label key={f.id}>{lbl}<input type="number" value={v} onChange={(e) => setU(f.id, e.target.value)} disabled={dis} /></label>;
-      case 'person': return <label key={f.id}>{lbl}<select value={v} onChange={(e) => setU(f.id, e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>;
-      case 'attachment': return <label key={f.id}>{lbl}<span className="soft" style={{ fontSize: 12 }}>Se adjunta tras crear la solicitud</span></label>;
-      default: return <label key={f.id}>{lbl}<input value={v} onChange={(e) => setU(f.id, e.target.value)} disabled={dis} /></label>;
-    }
-  };
-  const control = (f: FieldDef): import('react').ReactNode => {
-    if (isHidden(f)) return null;
-    const dis = isDisabled(f);
-    switch (sysRoleOf(f.label)) {
-      case 'subject': return <label key={f.id} className="nf-span">{f.label}{reqStar(f)}<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" disabled={dis} autoFocus /></label>;
-      case 'description': return <label key={f.id} className="nf-span">{f.label}{reqStar(f)}<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} disabled={dis} /></label>;
-      case 'category': return catControl;
-      case 'priority': return <label key={f.id}>{f.label}{reqStar(f)}<select value={priority} onChange={(e) => setPriority(e.target.value)} disabled={dis}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>;
-      case 'impact': return <label key={f.id}>{f.label}{reqStar(f)}<select value={impact} onChange={(e) => setImpact(e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{(pls?.impact ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
-      case 'urgency': return <label key={f.id}>{f.label}{reqStar(f)}<select value={urgency} onChange={(e) => setUrgency(e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{(pls?.urgency ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
-      case 'mode': return <label key={f.id}>{f.label}{reqStar(f)}<select value={mode} onChange={(e) => setMode(e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{(pls?.mode ?? []).map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>;
-      case 'site': return <label key={f.id}>{f.label}{reqStar(f)}<select value={site} onChange={(e) => setSite(e.target.value)} disabled={dis}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>;
-      case 'requester': return <label key={f.id}>{f.label}{reqStar(f)}<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)} disabled={dis}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>;
-      default: return customControl(f, dis);
-    }
-  };
-  const dynSections = visDefs.reduce<string[]>((a, f) => { const s = secOf(f); if (!a.includes(s)) a.push(s); return a; }, []);
-  const colFieldsOf = (sec: string, col: 1 | 2) => visDefs.filter((f) => secOf(f) === sec && !f.full && (f.col === 2 ? 2 : 1) === col);
-  const fullFieldsOf = (sec: string) => visDefs.filter((f) => secOf(f) === sec && f.full);
-
-  return (
-    <div className="scrim tmodal-scrim" onClick={onClose}>
-      <div className="tmodal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Nueva solicitud">
-        <div className="tmodal-h">
-          <b className="tmodal-title">{tpl ? '＋ Nueva solicitud' : 'Generar una solicitud'}</b>
-          <button className="dx" onClick={onClose} aria-label="Cerrar">×</button>
-        </div>
-        <div className="tmodal-b">
-          {!tpl ? <>
-            <label className="searchbox drawer-search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar plantilla de solicitud" /></label>
-            {grpList.map(([g, tps], i) => { const isOpen = open[g] ?? (i === 0 || !!q); return <div key={g} className={'catgrp' + (isOpen ? ' open' : '')}>
-              <button className="catgrp-h" onClick={() => setOpen((o) => ({ ...o, [g]: !isOpen }))}>
-                <span className={'catgrp-ic' + ((tenant.serviceCategoryIcons ?? {})[g] ? ' emoji' : '')} style={(tenant.serviceCategoryIcons ?? {})[g] ? undefined : { background: 'var(--accent)' }}>{(tenant.serviceCategoryIcons ?? {})[g] ?? g[0]}</span>
-                <span className="catgrp-n">{g}</span><span className="catgrp-c">{tps.length}</span>
-                <svg className="chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4"><path d="M9 6l6 6-6 6" /></svg>
-              </button>
-              {isOpen && <div className="catgrp-items">{tps.map((t) => <button key={t.id} className="catitem" onClick={() => { setTpl(t); setSubject(''); }}>
-                <span className={'tdot ' + (t.type === 'incident' ? 'i' : 's')} /> {t.name}
-                <span className="pill" style={{ marginLeft: 'auto' }}>{t.fields.length} campos</span>
-              </button>)}</div>}
-            </div>; })}
-            {grpList.length === 0 && <div className="empty">Ninguna plantilla coincide con «{q}».</div>}
-          </> : <div className="form nf-form">
-            <button className="backbtn" onClick={() => setTpl(tenant.templates.length === 1 ? tpl : null)}>‹ {tplGroup(tpl)} · {tpl.name}</button>
-            {hasDefs ? <>
-              {!hasSubject && <div className="nf-sec"><label>Asunto<span className="req" title="Obligatorio">*</span><input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label></div>}
-              {dynSections.map((sec) => <div key={sec} className="nf-sec">
-                <div className="nf-sec-h">{sec}</div>
-                <div className="nf-cols">
-                  <div className="nf-col">{colFieldsOf(sec, 1).map(control)}</div>
-                  <div className="nf-col">{colFieldsOf(sec, 2).map(control)}</div>
-                </div>
-                {fullFieldsOf(sec).map(control)}
-              </div>)}
-            </> : <>
-              <label>Asunto<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
-              <label>Descripción<textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} /></label>
-              <label>Categoría<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-              {catNode && catNode.subs.length > 0 && <label>Subcategoría<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((s) => <option key={s.name} value={s.name}>{s.name}</option>)}</select></label>}
-              {subNode && subNode.items.length > 0 && <label>Artículo<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
-              <label>Prioridad<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
-              {pls && pls.impact.length > 0 && <label>Impacto<select value={impact} onChange={(e) => setImpact(e.target.value)}><option value="">— Seleccionar —</option>{pls.impact.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
-              {pls && pls.urgency.length > 0 && <label>Urgencia<select value={urgency} onChange={(e) => setUrgency(e.target.value)}><option value="">— Seleccionar —</option>{pls.urgency.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
-              {role !== 'requester' && pls && pls.mode.length > 0 && <label>Modo<select value={mode} onChange={(e) => setMode(e.target.value)}><option value="">— Seleccionar —</option>{pls.mode.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select></label>}
-              {(tenant.sites ?? []).length > 0 && <label>Sede<select value={site} onChange={(e) => setSite(e.target.value)}><option value="">— Seleccionar —</option>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
-              {role !== 'requester' && <label>Solicitante<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
-            </>}
-            {readOnly && <div className="empty" style={{ fontSize: 12, marginTop: 4 }}>👁 Modo lectura: estás viendo el catálogo que ve este usuario; no puedes crear la solicitud.</div>}
-            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-              <button className="primary" onClick={submit} disabled={!canSubmit}>Crear solicitud</button>
-              <button className="ghost" onClick={onClose}>Cancelar</button>
-            </div>
-          </div>}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Alta en MODO SIMPLIFICADO: 1 plantilla · Tipo (Incidencia/Petición) + Categoría de
 // servicio (filtrada por permisos). Los campos propios de la categoría se muestran en
@@ -1329,24 +1153,6 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   );
 }
 
-// Configuración del MODO DE OPERACIÓN (clásico ↔ simplificado). Mismo backend.
-function ModeAdmin({ tenant }: { tenant: TenantData }) {
-  const setMode = useStore((s) => s.setOperationMode);
-  const mode = tenant.operationMode ?? 'classic';
-  const cats = tenant.serviceCategories ?? [];
-  return <div className="card" style={{ padding: 16 }}>
-    <p className="cfg-lead">Cómo opera esta instancia. Ambos modos usan los <b>mismos datos</b> (tickets, ciclos, miembros); puedes alternar para comparar y decidir. Cambiar de modo no borra nada.</p>
-    <div className="mode-opts">
-      <button className={'mode-opt' + (mode === 'classic' ? ' on' : '')} onClick={() => setMode('classic')}>
-        <b>Clásico</b><span>Muchas plantillas (estilo SDP). <b>{tenant.templates.length}</b> plantillas.</span>
-      </button>
-      <button className={'mode-opt' + (mode === 'simplified' ? ' on' : '')} onClick={() => setMode('simplified')}>
-        <b>Simplificado</b><span>1 plantilla + Tipo + Categoría de servicio. <b>{cats.length}</b> categorías.</span>
-      </button>
-    </div>
-    <div className="banner" style={{ marginTop: 14 }}>Modo actual: <b>{mode === 'simplified' ? 'Simplificado' : 'Clásico'}</b>. En simplificado, «＋ Nueva solicitud» pide <b>Tipo + Categoría</b>, los campos se adaptan a la categoría y esta define el <b>ciclo de vida</b> (y el SLA por tipo: la Incidencia lleva SLA de resolución; la Petición no).</div>
-  </div>;
-}
 
 // Admin de CATEGORÍAS DE SERVICIO (modo simplificado): el eje editable. Cada
 // categoría define tipos permitidos + ciclo por tipo, permisos por grupo y campos.
@@ -1495,16 +1301,16 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
-  ['Configuraciones de instancia', '🏢', [['Modo de operación', 'modo'], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
+  ['Configuraciones de instancia', '🏢', [['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
-  ['Plantillas y formularios', '📄', [['Plantillas y campos', 'plantillas'], ['Categoría de servicio', 'servicios'], ['Categorías (modo simplificado)', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
+  ['Plantillas y formularios', '📄', [['Categorías de servicio', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
   ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', '✉️', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', servicios: 'Categoría de servicio', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', modo: 'Modo de operación', catservicio: 'Categorías de servicio (modo simplificado)' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1797,7 +1603,7 @@ function KbModule({ tenant, canManage, meName }: { tenant: TenantData; canManage
   </div>;
 }
 
-const ADMIN_FIRST = ADMIN_AREAS.flatMap((a) => a[2]).find(([, k]) => k)?.[1] ?? 'plantillas';
+const ADMIN_FIRST = ADMIN_AREAS.flatMap((a) => a[2]).find(([, k]) => k)?.[1] ?? 'catservicio';
 function AdminConfig({ tenant }: { tenant: TenantData }) {
   const [sec, setSec] = useState<string>(ADMIN_FIRST);
   return <div className="adm">
@@ -1809,7 +1615,6 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     </nav>
     <div className="adm-pane">
       <div className="adm-crumb">{ADMIN_TITLE[sec] ?? sec}</div>
-    {sec === 'plantillas' && <CatalogAdmin tenant={tenant} />}
     {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
     {sec === 'estado' && <StatusAdmin tenant={tenant} />}
     {sec === 'valores' && <ValuesAdmin tenant={tenant} />}
@@ -1830,58 +1635,15 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'auditoria' && <AuditAdmin tenant={tenant} />}
     {sec === 'entrante' && <InboundAdmin tenant={tenant} />}
     {sec === 'campos' && <CustomFieldsAdmin tenant={tenant} />}
-    {sec === 'servicios' && <ServiceCatalogAdmin tenant={tenant} nav={setSec} />}
     {sec === 'formreglas' && <FormRulesAdmin tenant={tenant} />}
     {sec === 'sync' && <SyncAdmin tenant={tenant} />}
     {sec === 'organizate' && <OrganizateAdmin tenant={tenant} />}
-    {sec === 'modo' && <ModeAdmin tenant={tenant} />}
     {sec === 'catservicio' && <ServiceCategoriesAdmin tenant={tenant} />}
     </div>
   </div>;
 }
 
 // Paleta de iconos sugeridos para categorías de servicio (IT).
-const ICON_PALETTE = ['🛠️', '📥', '💻', '🖥️', '🖨️', '📧', '🔐', '🔑', '🌐', '📶', '🗄️', '📁', '📦', '⚙️', '🧰', '🎫', '🛡️', '🚨', '☁️', '🔧', '👤', '👥', '📞', '💳', '🏢', '📝'];
-
-// Categoría de servicio: agrupa las plantillas del catálogo de «Nueva solicitud».
-// Se listan las categorías reales (de las plantillas). Cada categoría se despliega
-// para (a) elegir su icono y (b) ver/abrir sus plantillas en el editor.
-function ServiceCatalogAdmin({ tenant, nav }: { tenant: TenantData; nav: (s: string) => void }) {
-  const setServiceIcon = useStore((s) => s.setServiceIcon);
-  const setAdminTemplate = useStore((s) => s.setAdminTemplate);
-  const icons = tenant.serviceCategoryIcons ?? {};
-  const cats = [...new Set(tenant.templates.map((t) => tplGroup(t)))].sort((a, b) => a.localeCompare(b));
-  const tplsOf = (c: string) => tenant.templates.filter((t) => tplGroup(t) === c);
-  const [open, setOpen] = useState<string | null>(cats[0] ?? null);
-  const openEditor = (id: string) => { setAdminTemplate(id); nav('plantillas'); };
-  return <div className="card" style={{ padding: 16 }}>
-    <p className="cfg-lead">Categorías de servicio del catálogo de «Nueva solicitud» (importadas de SDP). Cada plantilla pertenece a una. Despliega una categoría para elegir su <b>icono</b> (se muestra en el catálogo) y abrir sus plantillas en el editor de formularios. Los iconos originales de SDP son imágenes protegidas del servlet y no se pueden reutilizar directamente; aquí eliges uno editable.</p>
-    <div className="svc-cats">{cats.map((c) => {
-      const tpls = tplsOf(c); const isOpen = open === c;
-      return <div key={c} className={'svc-cat' + (isOpen ? ' on' : '')}>
-        <button className="svc-head" onClick={() => setOpen(isOpen ? null : c)}>
-          <span className="svc-ic">{icons[c] || '📁'}</span>
-          <span className="svc-name">{c}</span>
-          <span className="badge">{tpls.length}</span>
-          <span className="svc-chev">{isOpen ? '▾' : '▸'}</span>
-        </button>
-        {isOpen && <div className="svc-body">
-          <div className="svc-icon-row">
-            <span className="soft" style={{ fontSize: 12 }}>Icono:</span>
-            {ICON_PALETTE.map((e) => <button key={e} className={'svc-emo' + (icons[c] === e ? ' sel' : '')} onClick={() => setServiceIcon(c, e)} title={e}>{e}</button>)}
-            <input value={icons[c] ?? ''} onChange={(e) => setServiceIcon(c, e.target.value.slice(0, 2))} placeholder="✎" style={{ width: 40, textAlign: 'center', fontSize: 15 }} maxLength={2} title="Escribe otro emoji" />
-          </div>
-          <div className="svc-tpls">{tpls.map((t) => <div key={t.id} className="svc-tpl">
-            <span className={'chip ' + (t.type === 'incident' ? 'inc' : 'srv')}>{t.type === 'incident' ? 'Incidencia' : 'Solicitud'}</span>
-            <span className="svc-tpl-name">{t.name}</span>
-            <span className="soft" style={{ fontSize: 11 }}>{(t.fieldDefs ?? t.fields).length} campos</span>
-            <button className="ghost sm" onClick={() => openEditor(t.id)}>Abrir editor →</button>
-          </div>)}</div>
-        </div>}
-      </div>;
-    })}</div>
-  </div>;
-}
 
 // Estado de la sincronización SDP → Atenza (el job corre server-side; aquí se ve).
 function SyncAdmin({ tenant }: { tenant: TenantData }) {
@@ -2120,45 +1882,31 @@ function FormRulesAdmin({ tenant }: { tenant: TenantData }) {
   const rules = tenant.formRules ?? [];
   const save = (list: FormRule[]) => setFormRules(list);
   const upd = (id: string, patch: Partial<FormRule>) => save(rules.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-  const simplified = tenant.operationMode === 'simplified';
   const add = () => save([...rules, { id: 'fr-' + Date.now(), name: 'Nueva regla', enabled: false, templateIds: [], serviceCategoryIds: [], scope: 'both', match: 'all', conditions: [], actions: [] }]);
   const del = (id: string) => save(rules.filter((r) => r.id !== id));
-  // campos disponibles = unión de los campos de las plantillas (clásico) o de las
-  // categorías (simplificado) elegidas; vacío = todas.
-  const fieldsFor = (templateIds: string[]): [string, string][] => {
-    const tpls = templateIds.length ? tenant.templates.filter((t) => templateIds.includes(t.id)) : tenant.templates;
-    const map = new Map<string, string>();
-    for (const t of tpls) for (const f of defsOf(t)) if (!map.has(f.id)) map.set(f.id, f.label);
-    return [...map.entries()];
-  };
+  // campos disponibles = unión de los campos de las categorías de servicio elegidas; vacío = todas.
   const fieldsForCats = (catIds: string[]): [string, string][] => {
     const scs = (tenant.serviceCategories ?? []).filter((c) => !catIds.length || catIds.includes(c.id));
     const map = new Map<string, string>();
     for (const c of scs) for (const f of c.fields ?? []) if (!map.has(f.id)) map.set(f.id, f.label);
     return [...map.entries()];
   };
-  const toggleTpl = (r: FormRule, id: string) => upd(r.id, { templateIds: r.templateIds.includes(id) ? r.templateIds.filter((x) => x !== id) : [...r.templateIds, id] });
   const toggleCat = (r: FormRule, id: string) => { const cur = r.serviceCategoryIds ?? []; upd(r.id, { serviceCategoryIds: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] }); };
   return <div className="card" style={{ padding: 16 }}>
-    <p className="cfg-lead">Mientras se rellena el formulario, si se cumplen las condiciones se aplican las acciones sobre los campos (ocultar, hacer obligatorio, deshabilitar…). Se evalúan en vivo al cambiar cualquier campo. Ámbito por {simplified ? <b>categoría de servicio</b> : <b>plantilla(s)</b>} y por vista.</p>
+    <p className="cfg-lead">Mientras se rellena el formulario, si se cumplen las condiciones se aplican las acciones sobre los campos (ocultar, hacer obligatorio, deshabilitar…). Se evalúan en vivo al cambiar cualquier campo. Ámbito por <b>categoría de servicio</b> y por vista.</p>
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {rules.length === 0 && <div className="empty">Sin reglas del formulario.</div>}
-      {rules.map((r) => { const fields = simplified ? fieldsForCats(r.serviceCategoryIds ?? []) : fieldsFor(r.templateIds); return <div key={r.id} className="rule-card">
+      {rules.map((r) => { const fields = fieldsForCats(r.serviceCategoryIds ?? []); return <div key={r.id} className="rule-card">
         <div className="rule-h">
           <label className="switch"><input type="checkbox" checked={r.enabled} onChange={(e) => upd(r.id, { enabled: e.target.checked })} /><span className="track" /></label>
           <input style={{ flex: 1, fontWeight: 600 }} value={r.name} onChange={(e) => upd(r.id, { name: e.target.value })} />
           <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => del(r.id)} aria-label="Eliminar">✕</button>
         </div>
         <div className="rule-body">
-          {simplified
-            ? <div className="rule-row"><span className="rule-lbl">Categorías</span>
-                <div className="fr-tpls">{(tenant.serviceCategories ?? []).map((sc) => <button key={sc.id} className={'chipsel' + ((r.serviceCategoryIds ?? []).includes(sc.id) ? ' on' : '')} onClick={() => toggleCat(r, sc.id)}>{sc.icon ? sc.icon + ' ' : ''}{sc.name}</button>)}
-                  {(r.serviceCategoryIds ?? []).length === 0 && <span className="soft" style={{ fontSize: 12, alignSelf: 'center' }}>todas</span>}</div>
-              </div>
-            : <div className="rule-row"><span className="rule-lbl">Plantillas</span>
-                <div className="fr-tpls">{tenant.templates.map((t) => <button key={t.id} className={'chipsel' + (r.templateIds.includes(t.id) ? ' on' : '')} onClick={() => toggleTpl(r, t.id)}>{t.name}</button>)}
-                  {r.templateIds.length === 0 && <span className="soft" style={{ fontSize: 12, alignSelf: 'center' }}>todas</span>}</div>
-              </div>}
+          <div className="rule-row"><span className="rule-lbl">Categorías</span>
+            <div className="fr-tpls">{(tenant.serviceCategories ?? []).map((sc) => <button key={sc.id} className={'chipsel' + ((r.serviceCategoryIds ?? []).includes(sc.id) ? ' on' : '')} onClick={() => toggleCat(r, sc.id)}>{sc.icon ? sc.icon + ' ' : ''}{sc.name}</button>)}
+              {(r.serviceCategoryIds ?? []).length === 0 && <span className="soft" style={{ fontSize: 12, alignSelf: 'center' }}>todas</span>}</div>
+          </div>
           <div className="rule-row"><span className="rule-lbl">Vista</span>
             <select value={r.scope} onChange={(e) => upd(r.id, { scope: e.target.value as FormScope })}><option value="both">Técnico y solicitante</option><option value="technician">Solo técnico</option><option value="requester">Solo solicitante</option></select>
           </div>
@@ -2522,8 +2270,6 @@ function StateEditor({ s, onUpdate, onDelete }: { lc: import('../model.js').Life
 }
 
 const FIELD_TYPES: [FieldType, string][] = [['text', 'Texto'], ['textarea', 'Texto largo'], ['select', 'Desplegable'], ['bool', 'Sí/No'], ['date', 'Fecha'], ['number', 'Número'], ['person', 'Persona'], ['attachment', 'Adjunto'], ['reference', 'Referencia']];
-const ftLabel = (t: FieldType) => FIELD_TYPES.find((x) => x[0] === t)?.[1] ?? t;
-const defsOf = (tp: Template): FieldDef[] => tp.fieldDefs ?? tp.fields.map((label, i) => ({ id: 'f' + i, label, type: 'text' as FieldType, requesterVisible: true }));
 
 // Clasifica un campo del formulario por su etiqueta hacia un "campo de sistema"
 // (con control estructurado propio) o 'custom' (campo adicional/UDF genérico).
@@ -2550,352 +2296,3 @@ function sysRoleOf(label: string): SysRole {
 const DEF_SEC = 'Detalles de la solicitud';
 const secOf = (f: FieldDef) => f.section || DEF_SEC;
 
-function CatalogAdmin({ tenant }: { tenant: TenantData }) {
-  const addCategory = useStore((s) => s.addCategory);
-  const addTemplate = useStore((s) => s.addTemplate);
-  const importSnapshot = useStore((s) => s.importSnapshot);
-  const [cat, setCat] = useState('');
-  const [tname, setTname] = useState('');
-  const [ttype, setTtype] = useState<'incident' | 'service_request'>('incident');
-  const [tlc, setTlc] = useState(tenant.lifecycles[0]?.id ?? null);
-  const [raw, setRaw] = useState('');
-  const [msg, setMsg] = useState('');
-  const adminTemplateId = useStore((s) => s.adminTemplateId);
-  const setAdminTemplate = useStore((s) => s.setAdminTemplate);
-  const [sel, setSel] = useState<string | null>(adminTemplateId ?? tenant.templates[0]?.id ?? null);
-  useEffect(() => { if (adminTemplateId) { setSel(adminTemplateId); setAdminTemplate(null); } }, [adminTemplateId, setAdminTemplate]);
-  const tpl = tenant.templates.find((t) => t.id === sel) ?? null;
-  const doImport = () => {
-    try {
-      const snap = JSON.parse(raw);
-      importSnapshot(snap);
-      const n = (snap.templates?.length ?? 0) + (snap.categories?.length ?? 0) + (snap.slas?.length ?? 0) + (snap.members?.length ?? 0);
-      setMsg(`✓ Importado: ${snap.categories?.length ?? 0} categorías, ${snap.templates?.length ?? 0} plantillas, ${snap.slas?.length ?? 0} SLAs, ${snap.members?.length ?? 0} personas (${n} elementos).`);
-      setRaw('');
-    } catch (e) { setMsg('✕ JSON no válido: ' + (e as Error).message); }
-  };
-  return <div>
-    <div className="admin-cat">
-      <div className="card tpl-listcard">
-        <h2>Plantillas <span className="badge">{tenant.templates.length}</span></h2>
-        <div className="tpl-list">
-          {tenant.templates.map((tp) => <button key={tp.id} className={'tpl' + (sel === tp.id ? ' sel' : '')} onClick={() => setSel(tp.id)}>
-            <span className={'tdot ' + (tp.type === 'incident' ? 'i' : 's')} />
-            <span style={{ flex: 1, minWidth: 0 }}><span className="tpl-nm">{tp.name}</span><span className="tpl-mt">{tenant.lifecycles.find((l) => l.id === tp.lifecycleId)?.name ?? 'sin flujo'} · {defsOf(tp).length} campos</span></span>
-            {tp.showToRequester === false && <span className="pill">staff</span>}
-          </button>)}
-        </div>
-        <div className="designer">
-          <input style={{ flex: 1, minWidth: 110 }} value={tname} onChange={(e) => setTname(e.target.value)} placeholder="Nueva plantilla…" />
-          <select value={ttype} onChange={(e) => setTtype(e.target.value as 'incident' | 'service_request')}><option value="incident">Incidencia</option><option value="service_request">Solicitud</option></select>
-          <button className="primary" onClick={() => { if (tname.trim()) { addTemplate(tname.trim(), ttype, tlc); setTname(''); } }}>＋</button>
-        </div>
-      </div>
-      <div>{tpl ? <TemplateEditor tenant={tenant} tpl={tpl} onDeleted={() => setSel(tenant.templates.find((t) => t.id !== tpl.id)?.id ?? null)} /> : <div className="card"><div className="empty">Selecciona una plantilla para editarla.</div></div>}</div>
-    </div>
-
-    <div className="work" style={{ marginTop: 16 }}>
-      <div className="card">
-        <h2>Categorías <span className="badge">{tenant.categories.length}</span></h2>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-          {tenant.categories.map((c) => <span key={c} className="pill">{c}</span>)}
-        </div>
-        <div className="designer">
-          <input style={{ flex: 1, minWidth: 120 }} value={cat} onChange={(e) => setCat(e.target.value)} placeholder="Nueva categoría…" />
-          <button className="primary" onClick={() => { if (cat.trim()) { addCategory(cat.trim()); setCat(''); } }}>＋ Categoría</button>
-        </div>
-      </div>
-      <div className="card">
-        <h2>Importar datos de SDP</h2>
-        <div className="banner" style={{ marginTop: 10 }}>Pega el <code>imported-seed.json</code> del importador (API v3). Reemplaza categorías, plantillas, SLAs y grupos de <b>{tenant.name}</b>.</div>
-        <textarea value={raw} onChange={(e) => setRaw(e.target.value)} rows={4} placeholder='{ "categories": [...], "templates": [...] }' style={{ width: '100%', fontFamily: 'var(--mono)', fontSize: 12 }} />
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
-          <button className="primary" onClick={doImport} disabled={!raw.trim()}>Importar</button>
-          {msg && <span style={{ fontSize: 12.5, color: msg.startsWith('✓') ? 'var(--ok)' : 'var(--crit)' }}>{msg}</span>}
-        </div>
-      </div>
-    </div>
-  </div>;
-}
-
-const pvInput = (f: FieldDef) => {
-  if (f.type === 'textarea') return f.label.toLowerCase().startsWith('descrip')
-    ? <div className="pv-rte"><div className="pv-bar"><b>B</b> <i>I</i> <u>U</u><span style={{ opacity: .5 }}> · 🔗 🖼</span></div><div className="pv-area" /></div>
-    : <div className="pv-inp tall" />;
-  if (f.type === 'bool') return <div className="pv-inp">◯ Sí&nbsp;&nbsp;&nbsp;◯ No</div>;
-  if (f.type === 'select' || f.type === 'reference') return <div className="pv-inp">Seleccionar… <span className="chev">▾</span></div>;
-  if (f.type === 'person') return <div className="pv-inp">Seleccionar persona… <span className="chev">▾</span></div>;
-  if (f.type === 'attachment') return <div className="pv-inp">📎 Adjuntar archivo</div>;
-  if (f.type === 'date') return <div className="pv-inp">dd/mm/aaaa</div>;
-  if (f.type === 'number') return <div className="pv-inp mono">0</div>;
-  return <div className="pv-inp" />;
-};
-
-function TemplateEditor({ tenant, tpl, onDeleted }: { tenant: TenantData; tpl: Template; onDeleted: () => void }) {
-  const updateTemplate = useStore((s) => s.updateTemplate);
-  const removeTemplate = useStore((s) => s.removeTemplate);
-  const setTemplateFields = useStore((s) => s.setTemplateFields);
-  const defs = defsOf(tpl);
-  const commit = (next: FieldDef[]) => setTemplateFields(tpl.id, next);
-  const [nf, setNf] = useState('');
-  const [nft, setNft] = useState<FieldType>('text');
-  const [ntask, setNtask] = useState('');
-  const [nsec, setNsec] = useState('');
-  const [ncol, setNcol] = useState<1 | 2>(1);
-  const [drag, setDrag] = useState<string | null>(null);
-  const [over, setOver] = useState<string | null>(null);
-  const [view, setView] = useState<'tech' | 'req' | 'tasks' | 'approvals' | 'checklist'>('tech');
-  const [showPrev, setShowPrev] = useState(false);
-  const [palTab, setPalTab] = useState<'avail' | 'new'>('avail');
-  const [palQ, setPalQ] = useState('');
-  const [palDrag, setPalDrag] = useState<{ kind: 'type' | 'catalog'; value: string } | null>(null);
-  const TYPE_LABEL: Record<string, string> = Object.fromEntries(FIELD_TYPES);
-  // añade un campo nuevo (desde la paleta: tipo o campo del catálogo) a una posición.
-  const addFromPalette = (section: string, col: 1 | 2, full: boolean, beforeId?: string) => {
-    if (!palDrag) return;
-    let nfld: FieldDef;
-    if (palDrag.kind === 'catalog') { const cf = (tenant.customFields ?? []).find((x) => x.id === palDrag.value); if (!cf) return; nfld = { ...cf, id: 'f-' + Date.now(), section, col, full: full || undefined }; }
-    else nfld = { id: 'f-' + Date.now(), label: 'Nuevo ' + (TYPE_LABEL[palDrag.value] ?? 'campo').toLowerCase(), type: palDrag.value as FieldType, requesterVisible: true, section, col, full: full || undefined };
-    const arr = defs.slice();
-    if (beforeId) { let bi = arr.findIndex((x) => x.id === beforeId); if (bi < 0) bi = arr.length; arr.splice(bi, 0, nfld); } else arr.push(nfld);
-    commit(arr); setPalDrag(null); setOver(null);
-  };
-
-  const secOf = (f: FieldDef) => f.section || DEF_SEC;
-  const sections = defs.reduce<string[]>((a, f) => { const s = secOf(f); if (!a.includes(s)) a.push(s); return a; }, []);
-  if (sections.length === 0) sections.push(DEF_SEC);
-  const patch = (id: string, p: Partial<FieldDef>) => commit(defs.map((x) => (x.id === id ? { ...x, ...p } : x)));
-  const del = (id: string) => commit(defs.filter((x) => x.id !== id));
-  const swap = (a: string, b: string) => { const n = defs.slice(); const ia = n.findIndex((x) => x.id === a), ib = n.findIndex((x) => x.id === b); if (ia < 0 || ib < 0) return; [n[ia], n[ib]] = [n[ib]!, n[ia]!]; commit(n); };
-  const colFields = (sec: string, col: 1 | 2) => defs.filter((f) => secOf(f) === sec && !f.full && (f.col === 2 ? 2 : 1) === col);
-  const fullFields = (sec: string) => defs.filter((f) => secOf(f) === sec && f.full);
-  const moveInCol = (f: FieldDef, dir: number) => { const sibs = colFields(secOf(f), f.col === 2 ? 2 : 1); const i = sibs.findIndex((x) => x.id === f.id); const j = i + dir; if (j < 0 || j >= sibs.length) return; swap(f.id, sibs[j]!.id); };
-  const renameSection = (old: string, val: string) => commit(defs.map((x) => (secOf(x) === old ? { ...x, section: val || DEF_SEC } : x)));
-  const delSection = (sec: string) => { if (confirm(`¿Eliminar la sección "${sec}" y sus campos?`)) commit(defs.filter((x) => secOf(x) !== sec)); };
-  const addField = () => { if (!nf.trim()) return; commit([...defs, { id: 'f-' + Date.now(), label: nf.trim(), type: nft, requesterVisible: true, section: nsec.trim() || sections[0] || DEF_SEC, col: ncol }]); setNf(''); };
-  const addSection = () => { const name = prompt('Nombre de la nueva sección:'); if (name && name.trim()) commit([...defs, { id: 'f-' + Date.now(), label: 'Campo', type: 'text', requesterVisible: true, section: name.trim(), col: 1 }]); };
-  // arrastrar-soltar: reubica el campo arrastrado a sección/columna/ancho, insertando
-  // antes de beforeId si se soltó sobre una tarjeta, o al final de la columna si no.
-  const relocate = (dragId: string, section: string, col: 1 | 2, full: boolean, beforeId?: string) => {
-    if (dragId === beforeId) return;
-    const arr = defs.slice();
-    const i = arr.findIndex((x) => x.id === dragId); if (i < 0) return;
-    const [f] = arr.splice(i, 1);
-    const moved: FieldDef = { ...f!, section, col, full: full || undefined };
-    if (beforeId) { let bi = arr.findIndex((x) => x.id === beforeId); if (bi < 0) bi = arr.length; arr.splice(bi, 0, moved); } else arr.push(moved);
-    commit(arr);
-  };
-  const catalog = (tenant.customFields ?? []).filter((cf) => !defs.some((d) => d.label === cf.label));
-
-  const fcard = (f: FieldDef) => <div key={f.id} className="fcard" draggable
-    onDragStart={(e) => { setDrag(f.id); e.dataTransfer.effectAllowed = 'move'; }}
-    onDragEnd={() => { setDrag(null); setOver(null); }}
-    onDragOver={(e) => { if ((drag && drag !== f.id) || palDrag) { e.preventDefault(); e.stopPropagation(); } }}
-    onDrop={(e) => { if (palDrag) { e.preventDefault(); e.stopPropagation(); addFromPalette(secOf(f), f.col === 2 ? 2 : 1, !!f.full, f.id); } else if (drag) { e.preventDefault(); e.stopPropagation(); relocate(drag, secOf(f), f.col === 2 ? 2 : 1, !!f.full, f.id); setDrag(null); setOver(null); } }}>
-    <div className="fcard-top">
-      <span className="fgrip" title="Arrastrar">⠿</span>
-      <input className="fname" value={f.label} onChange={(e) => patch(f.id, { label: e.target.value })} />
-      {f.mandatory && <span className="freq" title="Obligatorio">*</span>}
-      <button className="xbtn" onClick={() => del(f.id)} aria-label="Eliminar campo">✕</button>
-    </div>
-    <div className="fcard-pv">{pvInput(f)}</div>
-    <div className="fcard-tools">
-      <select className="ftype" value={f.type} onChange={(e) => patch(f.id, { type: e.target.value as FieldType })}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-      <button className={'ftag' + (f.mandatory ? ' on' : '')} onClick={() => patch(f.id, { mandatory: !f.mandatory })} title="Obligatorio">Oblig.</button>
-      <button className={'ftag' + (f.requesterVisible !== false ? ' on' : '')} onClick={() => patch(f.id, { requesterVisible: f.requesterVisible === false })} title="Visible al solicitante">Solic.</button>
-      <span style={{ flex: 1 }} />
-      <button className="xbtn" onClick={() => moveInCol(f, -1)} aria-label="Subir">↑</button>
-      <button className="xbtn" onClick={() => moveInCol(f, 1)} aria-label="Bajar">↓</button>
-      {!f.full && <button className="xbtn" onClick={() => patch(f.id, { col: f.col === 2 ? 1 : 2 })} title="Cambiar de columna">{f.col === 2 ? '←' : '→'}</button>}
-      <button className={'xbtn' + (f.full ? ' on' : '')} onClick={() => patch(f.id, { full: !f.full })} title="Ancho completo">⤢</button>
-    </div>
-  </div>;
-
-  // --- Tareas predefinidas de la plantilla ---
-  const taskTpls = tpl.taskTemplates ?? [];
-  const saveTasks = (list: TaskTemplate[]) => updateTemplate(tpl.id, { taskTemplates: list });
-  const addTaskTpl = () => { if (!ntask.trim()) return; saveTasks([...taskTpls, { id: 'tt-' + Date.now(), text: ntask.trim() }]); setNtask(''); };
-  const updTaskTpl = (id: string, patch: Partial<TaskTemplate>) => saveTasks(taskTpls.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const delTaskTpl = (id: string) => saveTasks(taskTpls.filter((x) => x.id !== id));
-  const moveTaskTpl = (i: number, dir: number) => { const j = i + dir; if (j < 0 || j >= taskTpls.length) return; const n = [...taskTpls]; [n[i], n[j]] = [n[j]!, n[i]!]; saveTasks(n); };
-
-  // --- Niveles de aprobación predefinidos de la plantilla ---
-  const apprLevels = tpl.approvalLevels ?? [];
-  const saveAppr = (list: ApprovalLevelDef[]) => updateTemplate(tpl.id, { approvalLevels: list });
-  const addApprLevel = () => saveAppr([...apprLevels, { id: 'al-' + Date.now(), name: `Nivel ${apprLevels.length + 1}`, approverUids: [], rule: 'any' }]);
-  const updApprLevel = (id: string, patch: Partial<ApprovalLevelDef>) => saveAppr(apprLevels.map((x) => (x.id === id ? { ...x, ...patch } : x)));
-  const delApprLevel = (id: string) => saveAppr(apprLevels.filter((x) => x.id !== id));
-  const moveApprLevel = (i: number, dir: number) => { const j = i + dir; if (j < 0 || j >= apprLevels.length) return; const n = [...apprLevels]; [n[i], n[j]] = [n[j]!, n[i]!]; saveAppr(n); };
-  const toggleApprover = (lv: ApprovalLevelDef, uid: string) => updApprLevel(lv.id, { approverUids: lv.approverUids.includes(uid) ? lv.approverUids.filter((x) => x !== uid) : [...lv.approverUids, uid] });
-  const approverPool = tenant.members.filter((m) => m.role !== 'requester');
-
-  // --- Lista de comprobación predefinida de la plantilla ---
-  const checkItems = tpl.checklist ?? [];
-  const [ncheck, setNcheck] = useState('');
-  const saveCheck = (list: ChecklistItemDef[]) => updateTemplate(tpl.id, { checklist: list });
-  const addCheck = () => { if (!ncheck.trim()) return; saveCheck([...checkItems, { id: 'ck-' + Date.now(), text: ncheck.trim() }]); setNcheck(''); };
-  const updCheck = (id: string, text: string) => saveCheck(checkItems.map((x) => (x.id === id ? { ...x, text } : x)));
-  const delCheck = (id: string) => saveCheck(checkItems.filter((x) => x.id !== id));
-  const moveCheck = (i: number, dir: number) => { const j = i + dir; if (j < 0 || j >= checkItems.length) return; const n = [...checkItems]; [n[i], n[j]] = [n[j]!, n[i]!]; saveCheck(n); };
-
-  return <div className="card te">
-    <div className="te-head">
-      <input className="te-name" value={tpl.name} onChange={(e) => updateTemplate(tpl.id, { name: e.target.value })} />
-      <button className="xbtn" style={{ marginLeft: 'auto' }} onClick={() => { if (confirm(`¿Eliminar la plantilla "${tpl.name}"?`)) { removeTemplate(tpl.id); onDeleted(); } }}>🗑 Eliminar</button>
-    </div>
-    <div className="te-meta">
-      <label>Tipo<select value={tpl.type} onChange={(e) => updateTemplate(tpl.id, { type: e.target.value as 'incident' | 'service_request' })}><option value="incident">Incidencia</option><option value="service_request">Solicitud</option></select></label>
-      <label>Flujo<select value={tpl.lifecycleId ?? ''} onChange={(e) => updateTemplate(tpl.id, { lifecycleId: e.target.value || null })}><option value="">— sin flujo —</option>{tenant.lifecycles.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
-      <label>Categoría del catálogo<input value={tpl.group ?? ''} onChange={(e) => updateTemplate(tpl.id, { group: e.target.value })} placeholder="p. ej. Peticiones" /></label>
-      <label className="te-vis"><span>Visible para solicitante</span><button className={'toggle' + (tpl.showToRequester !== false ? ' on' : '')} onClick={() => updateTemplate(tpl.id, { showToRequester: tpl.showToRequester === false })} aria-label="Visible para solicitante" /></label>
-    </div>
-
-    {(tenant.userGroups ?? []).length > 0 && <div style={{ margin: '12px 0 4px' }}>
-      <div className="k">Visible para grupos de usuarios <span style={{ fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>(vacío = la ve cualquier solicitante)</span></div>
-      <ChipMulti options={tenant.userGroups ?? []} selected={tpl.userGroups ?? []} onChange={(ug) => updateTemplate(tpl.id, { userGroups: ug })} />
-    </div>}
-
-    <div className="te-tabs">
-      <button className={view === 'tech' && !showPrev ? 'on' : ''} onClick={() => { setView('tech'); setShowPrev(false); }}>Vista del técnico</button>
-      <button className={view === 'req' && !showPrev ? 'on' : ''} onClick={() => { setView('req'); setShowPrev(false); }}>Vista del solicitante</button>
-      <button className="dim" disabled>Información de recurso<span className="soon">pronto</span></button>
-      <button className={view === 'approvals' && !showPrev ? 'on' : ''} onClick={() => { setView('approvals'); setShowPrev(false); }}>Aprobaciones{(tpl.approvalLevels?.length ?? 0) > 0 && <span className="pill" style={{ marginLeft: 6 }}>{tpl.approvalLevels!.length}</span>}</button>
-      <button className={view === 'tasks' && !showPrev ? 'on' : ''} onClick={() => { setView('tasks'); setShowPrev(false); }}>Tareas{(tpl.taskTemplates?.length ?? 0) > 0 && <span className="pill" style={{ marginLeft: 6 }}>{tpl.taskTemplates!.length}</span>}</button>
-      <button className={view === 'checklist' && !showPrev ? 'on' : ''} onClick={() => { setView('checklist'); setShowPrev(false); }}>Listas de comprobación{(tpl.checklist?.length ?? 0) > 0 && <span className="pill" style={{ marginLeft: 6 }}>{tpl.checklist!.length}</span>}</button>
-      <button className="dim" disabled>Reglas del formulario<span className="soon">pronto</span></button>
-      {view !== 'tasks' && view !== 'approvals' && view !== 'checklist' && <button className="te-prev" onClick={() => setShowPrev(!showPrev)}>{showPrev ? '‹ Volver al editor' : '⤢ Vista preliminar'}</button>}
-    </div>
-
-    {view === 'tasks' ? <div className="tt-editor">
-      <p className="cfg-lead">Tareas que se crean automáticamente como checklist del ticket al generarlo desde esta plantilla (como en SDP). Luego se completan/editan en la pestaña «Tareas» del ticket.</p>
-      <div className="tt-list">
-        {taskTpls.map((tt, i) => <div key={tt.id} className="tt-row">
-          <span className="tt-num">{i + 1}</span>
-          <input className="tt-text" value={tt.text} onChange={(e) => updTaskTpl(tt.id, { text: e.target.value })} placeholder="Descripción de la tarea" />
-          <input className="tt-type" value={tt.type ?? ''} onChange={(e) => updTaskTpl(tt.id, { type: e.target.value || undefined })} placeholder="Tipo (opcional)" />
-          <input className="tt-hours" type="number" min={0} step={0.5} value={tt.estimatedHours ?? ''} onChange={(e) => updTaskTpl(tt.id, { estimatedHours: e.target.value === '' ? undefined : Number(e.target.value) })} placeholder="h" title="Horas estimadas (para la carga en OrganiZate)" />
-          <button className="xbtn" onClick={() => moveTaskTpl(i, -1)} disabled={i === 0} aria-label="Subir">↑</button>
-          <button className="xbtn" onClick={() => moveTaskTpl(i, 1)} disabled={i === taskTpls.length - 1} aria-label="Bajar">↓</button>
-          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => delTaskTpl(tt.id)} aria-label="Eliminar">✕</button>
-        </div>)}
-        {taskTpls.length === 0 && <div className="empty">Sin tareas predefinidas. Añade la primera abajo.</div>}
-      </div>
-      <div className="tt-add">
-        <input value={ntask} onChange={(e) => setNtask(e.target.value)} placeholder="Nueva tarea…" onKeyDown={(e) => { if (e.key === 'Enter') addTaskTpl(); }} />
-        <button className="primary" onClick={addTaskTpl} disabled={!ntask.trim()}>＋ Añadir tarea</button>
-      </div>
-    </div> : view === 'approvals' ? <div className="tt-editor">
-      <p className="cfg-lead">Niveles de aprobación que se crean al generar un ticket desde esta plantilla (como en SDP). Mientras haya aprobaciones pendientes, el ticket arranca en «Pendiente Aprobación». Se resuelven en la pestaña «Aprobaciones» del ticket.</p>
-      <div className="al-list">
-        {apprLevels.map((lv, i) => <div key={lv.id} className="al-card">
-          <div className="al-head">
-            <span className="tt-num">{i + 1}</span>
-            <input className="tt-text" value={lv.name} onChange={(e) => updApprLevel(lv.id, { name: e.target.value })} placeholder="Nombre del nivel" />
-            <select value={lv.rule} onChange={(e) => updApprLevel(lv.id, { rule: e.target.value as 'any' | 'all' })} title="Regla de decisión"><option value="any">Basta con uno</option><option value="all">Deben aprobar todos</option></select>
-            <button className="xbtn" onClick={() => moveApprLevel(i, -1)} disabled={i === 0} aria-label="Subir">↑</button>
-            <button className="xbtn" onClick={() => moveApprLevel(i, 1)} disabled={i === apprLevels.length - 1} aria-label="Bajar">↓</button>
-            <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => delApprLevel(lv.id)} aria-label="Eliminar">✕</button>
-          </div>
-          <div className="al-approvers">
-            <span className="soft" style={{ fontSize: 12 }}>Aprobadores:</span>
-            {approverPool.map((m) => <button key={m.uid} className={'chipsel' + (lv.approverUids.includes(m.uid) ? ' on' : '')} onClick={() => toggleApprover(lv, m.uid)}>{m.name}</button>)}
-            {lv.approverUids.length === 0 && <span className="soft" style={{ fontSize: 11, color: 'var(--crit)' }}>sin aprobadores → el nivel no hará nada</span>}
-          </div>
-        </div>)}
-        {apprLevels.length === 0 && <div className="empty">Sin niveles de aprobación. Esta plantilla no requiere visto bueno.</div>}
-      </div>
-      <button className="primary" style={{ marginTop: 10 }} onClick={addApprLevel}>＋ Añadir nivel de aprobación</button>
-    </div> : view === 'checklist' ? <div className="tt-editor">
-      <p className="cfg-lead">Lista de comprobación que se instancia en el ticket al crearlo (verificación ligera, sin responsable ni horas). Distinta de las Tareas.</p>
-      <label className="te-vis" style={{ marginBottom: 8 }}><span>Bloquear el cierre hasta completar la lista</span><button className={'toggle' + (tpl.checklistGate ? ' on' : '')} onClick={() => updateTemplate(tpl.id, { checklistGate: !tpl.checklistGate })} aria-label="Bloquear cierre" /></label>
-      <div className="tt-list">
-        {checkItems.map((c, i) => <div key={c.id} className="tt-row">
-          <span className="tt-num">✓</span>
-          <input className="tt-text" value={c.text} onChange={(e) => updCheck(c.id, e.target.value)} placeholder="Punto a comprobar" />
-          <button className="xbtn" onClick={() => moveCheck(i, -1)} disabled={i === 0} aria-label="Subir">↑</button>
-          <button className="xbtn" onClick={() => moveCheck(i, 1)} disabled={i === checkItems.length - 1} aria-label="Bajar">↓</button>
-          <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => delCheck(c.id)} aria-label="Eliminar">✕</button>
-        </div>)}
-        {checkItems.length === 0 && <div className="empty">Sin puntos de comprobación.</div>}
-      </div>
-      <div className="tt-add">
-        <input value={ncheck} onChange={(e) => setNcheck(e.target.value)} placeholder="Nuevo punto…" onKeyDown={(e) => { if (e.key === 'Enter') addCheck(); }} />
-        <button className="primary" onClick={addCheck} disabled={!ncheck.trim()}>＋ Añadir punto</button>
-      </div>
-    </div> : <div className="fbx2">
-      <div className="fbx-canvas">
-        {showPrev
-          ? <div className="preview">
-              <div className="pv-head">Vista preliminar · {view === 'tech' ? 'formulario del técnico' : 'formulario del solicitante'}</div>
-              <div className="pv-body">
-                {sections.map((sec) => { const vis = defs.filter((f) => secOf(f) === sec && (view === 'tech' || f.requesterVisible !== false)); if (vis.length === 0) return null; return <div key={sec} className="pv-sec">
-                  <div className="pv-sec-t">{sec}</div>
-                  <div className="pv2">
-                    {([1, 2] as const).map((col) => <div key={col} className="pv2col">
-                      {vis.filter((f) => !f.full && (f.col === 2 ? 2 : 1) === col).map((f) => <div key={f.id} className="pv-field"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}
-                    </div>)}
-                    {vis.filter((f) => f.full).map((f) => <div key={f.id} className="pv-field full"><label>{f.label}{f.mandatory && <span className="pv-req"> *</span>}</label>{pvInput(f)}</div>)}
-                  </div>
-                </div>; })}
-                {defs.filter((f) => view === 'tech' || f.requesterVisible !== false).length === 0 && <div className="empty">Sin campos visibles en esta vista.</div>}
-              </div>
-            </div>
-          : <>
-            {view === 'req' && <div className="banner" style={{ marginBottom: 10 }}>Editando la <b>vista del solicitante</b>: solo se muestran los campos marcados como visibles para el solicitante.</div>}
-            {sections.map((sec) => { const vf = (arr: FieldDef[]) => view === 'tech' ? arr : arr.filter((f) => f.requesterVisible !== false); return <div key={sec} className="fsec">
-              <div className="fsec-h">
-                <span className="fgrip" title="Sección">⠿</span>
-                <input className="fsec-name" value={sec} onChange={(e) => renameSection(sec, e.target.value)} />
-                {sections.length > 1 && <button className="xbtn" onClick={() => delSection(sec)} aria-label="Eliminar sección">🗑</button>}
-              </div>
-              <div className="fcols">
-                {([1, 2] as const).map((col) => { const key = `${sec}|${col}`; return <div key={col}
-                  className={'fcol' + (over === key && (drag || palDrag) ? ' dragover' : '')}
-                  onDragOver={(e) => { if (drag || palDrag) { e.preventDefault(); setOver(key); } }}
-                  onDragLeave={() => setOver((o) => (o === key ? null : o))}
-                  onDrop={(e) => { if (palDrag) { e.preventDefault(); addFromPalette(sec, col, false); } else if (drag) { e.preventDefault(); relocate(drag, sec, col, false); setDrag(null); setOver(null); } }}>
-                  <div className="fcol-h">Columna {col === 1 ? 'izquierda' : 'derecha'}</div>
-                  {vf(colFields(sec, col)).map(fcard)}
-                  {vf(colFields(sec, col)).length === 0 && <div className="fcol-empty">Suelta un campo aquí</div>}
-                </div>; })}
-              </div>
-              <div className={'ffull' + (over === `${sec}|full` && (drag || palDrag) ? ' dragover' : '')}
-                onDragOver={(e) => { if (drag || palDrag) { e.preventDefault(); setOver(`${sec}|full`); } }}
-                onDragLeave={() => setOver((o) => (o === `${sec}|full` ? null : o))}
-                onDrop={(e) => { if (palDrag) { e.preventDefault(); addFromPalette(sec, 1, true); } else if (drag) { e.preventDefault(); relocate(drag, sec, 1, true); setDrag(null); setOver(null); } }}>
-                <div className="fcol-h">Ancho completo</div>
-                {vf(fullFields(sec)).map(fcard)}
-                {vf(fullFields(sec)).length === 0 && <div className="fcol-empty">Suelta aquí para ancho completo</div>}
-              </div>
-            </div>; })}
-            <button className="ghost" style={{ marginTop: 6 }} onClick={addSection}>＋ Nueva sección</button>
-          </>}
-      </div>
-
-      <aside className="fbx-pal">
-        <div className="pal-h">Arrastrar y soltar campos</div>
-        <div className="pal-tabs">
-          <button className={palTab === 'avail' ? 'on' : ''} onClick={() => setPalTab('avail')}>Disponible</button>
-          <button className={palTab === 'new' ? 'on' : ''} onClick={() => setPalTab('new')}>Nuevo</button>
-        </div>
-        {palTab === 'avail' ? <>
-          <input className="pal-q" value={palQ} onChange={(e) => setPalQ(e.target.value)} placeholder="Buscar campo…" />
-          <div className="pal-list">
-            <div className="pal-g">Tipos de campo</div>
-            {FIELD_TYPES.filter(([, l]) => l.toLowerCase().includes(palQ.toLowerCase())).map(([v, l]) => <div key={v} className="pal-item" draggable onDragStart={() => setPalDrag({ kind: 'type', value: v })} onDragEnd={() => { setPalDrag(null); setOver(null); }}><span className="fgrip">⠿</span>{l}</div>)}
-            <div className="pal-g">Campos adicionales del catálogo</div>
-            {catalog.filter((cf) => cf.label.toLowerCase().includes(palQ.toLowerCase())).map((cf) => <div key={cf.id} className="pal-item cf" draggable onDragStart={() => setPalDrag({ kind: 'catalog', value: cf.id })} onDragEnd={() => { setPalDrag(null); setOver(null); }}><span className="fgrip">⠿</span>{cf.label}</div>)}
-            {catalog.length === 0 && <div className="fcol-empty" style={{ fontSize: 11 }}>Todos los campos del catálogo ya están en el formulario. Créalos en «Campos adicionales».</div>}
-          </div>
-        </> : <div className="pal-new">
-          <input value={nf} onChange={(e) => setNf(e.target.value)} placeholder="Etiqueta del campo…" />
-          <select value={nft} onChange={(e) => setNft(e.target.value as FieldType)}>{FIELD_TYPES.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
-          <select value={nsec} onChange={(e) => setNsec(e.target.value)} title="Sección">{sections.map((s) => <option key={s} value={s}>{s}</option>)}</select>
-          <select value={ncol} onChange={(e) => setNcol(Number(e.target.value) as 1 | 2)} title="Columna"><option value={1}>Columna izquierda</option><option value={2}>Columna derecha</option></select>
-          <button className="primary" onClick={addField} disabled={!nf.trim()}>＋ Añadir al formulario</button>
-          <div className="fcol-empty" style={{ fontSize: 11, textAlign: 'left' }}>O arrastra un tipo desde «Disponible» al canvas.</div>
-        </div>}
-      </aside>
-    </div>}
-  </div>;
-}
