@@ -7,6 +7,7 @@ import { useStore, buildUser, tenantsForUser, lifecycleOfTicket, type Role } fro
 import { firebaseEnabled } from '../firebase.js';
 import { useAuth, doSignOut } from '../auth/auth.js';
 import { Login } from './Login.js';
+import { Icon } from './Icon.js';
 import { outgoing, stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
 import { isClosingStatus, closureBlockers, CLOSURE_RULE_LABELS, type ClosureRules } from '../closure.js';
@@ -102,7 +103,7 @@ function RichText({ value, onChange, placeholder, disabled }: { value: string; o
   return <div className={'rte' + (disabled ? ' dis' : '')}>
     <div className="rte-tb">
       {btns.map(([c, l]) => <button key={c} type="button" tabIndex={-1} onMouseDown={(e) => { e.preventDefault(); exec(c); }} title={c}>{l}</button>)}
-      <button type="button" tabIndex={-1} onMouseDown={(e) => { e.preventDefault(); const u = prompt('URL del enlace:'); if (u) exec('createLink', u); }} title="Enlace">🔗</button>
+      <button type="button" tabIndex={-1} onMouseDown={(e) => { e.preventDefault(); const u = prompt('URL del enlace:'); if (u) exec('createLink', u); }} title="Enlace"><Icon name="link" size={14} /></button>
     </div>
     <div ref={ref} className="rte-body" contentEditable={!disabled} suppressContentEditableWarning role="textbox" aria-multiline data-ph={placeholder ?? ''} onInput={() => onChange(ref.current?.innerHTML ?? '')} />
   </div>;
@@ -135,6 +136,9 @@ function statusView(tenant: TenantData, t: StoredTicket): { label: string; timer
 const NOFLOW_STATES = ['Abierta', 'En curso', 'Cerrada', 'Cancelada'];
 const NOFLOW_NEXT: Record<string, string[]> = { 'Abierta': ['En curso', 'Cancelada'], 'En curso': ['Cerrada', 'Cancelada'], 'Cerrada': ['Abierta'], 'Cancelada': ['Abierta'] };
 const noFlowNext = (status: string): string[] => NOFLOW_NEXT[status] ?? NOFLOW_STATES.filter((s) => s !== status);
+// Etiqueta + icono del TIPO de ticket (uniforme en toda la app).
+const typeLabel = (t: string) => (t === 'incident' ? 'Incidencia' : 'Petición');
+const typeIcon = (t: string, size = 13) => <Icon name={t === 'incident' ? 'wrench' : 'inbox'} size={size} />;
 /** Resolutor de temporizador por catálogo para el motor de SLA. */
 const timerOfTenant = (tenant: TenantData) => (name: string) => (tenant.statuses ?? []).find((x) => x.name === name)?.timer;
 /** Calendario laboral del tenant para el SLA por horario (o undefined = 24×7). */
@@ -280,7 +284,7 @@ export function App() {
       </div>
 
       {readOnly && <div className="imp-banner">
-        <span>👁 Estás viendo el portal <b>como {displayMember?.name ?? effectiveUserId}</b> ({role === 'requester' ? 'Solicitante' : role === 'technician' ? 'Técnico' : 'Admin'}) · solo lectura</span>
+        <span><Icon name="eye" size={13} /> Estás viendo el portal <b>como {displayMember?.name ?? effectiveUserId}</b> ({role === 'requester' ? 'Solicitante' : role === 'technician' ? 'Técnico' : 'Admin'}) · solo lectura</span>
         <button className="ghost" onClick={() => { setImpersonate(null); setView('home'); }}>Salir de la representación</button>
       </div>}
 
@@ -316,7 +320,7 @@ export function App() {
 
         <main className="main">
           {visibleAnnouncements(tenant.announcements, !isReq).filter((a) => !dismissedAnn.includes(a.id)).map((a) => <div key={a.id} className="announce">
-            <span className="ann-ic">📣</span>
+            <span className="ann-ic"><Icon name="megaphone" size={16} /></span>
             <div style={{ flex: 1 }}><b>{a.title}</b><div className="ann-b">{a.body}</div></div>
             <button className="xbtn" onClick={() => setDismissedAnn([...dismissedAnn, a.id])} aria-label="Descartar">✕</button>
           </div>)}
@@ -374,7 +378,7 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
     </div>
     <div className="dgrid">
       <div className="card dwide">
-        <h2>Solicitudes por técnico <span className="badge">⚡ carga vía OrganiZate</span></h2>
+        <h2>Solicitudes por técnico <span className="badge"><Icon name="zap" size={11} /> carga vía OrganiZate</span></h2>
         <table className="dtbl"><thead><tr><th>Técnico</th><th className="num">Abiertas</th><th className="num">Vencidas</th><th className="num">Capacidad</th></tr></thead>
           <tbody>{techRows.map((r) => { const c = tenant.capacity[r.uid] ?? { used: 0, cap: 40 }; const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0; const mem = tenant.members.find((m) => m.uid === r.uid); return <tr key={r.uid}>
             <td><div className="who">{mem ? <Avatar m={mem} /> : <span className="av" style={{ background: 'var(--ink-faint)' }}>?</span>} {r.name}</div></td>
@@ -527,7 +531,7 @@ function Workspace({ tenant, role, user, filter, setFilter, scope, caps, readOnl
     {selected && <div className="scrim tmodal-scrim" onClick={() => select(null)}>
       <div className="tmodal fixed" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Solicitud ' + selected.id}>
         <div className="tmodal-h">
-          <span className={'tchip-type ' + (selected.type === 'incident' ? 'inc' : 'pet')}>{selected.type === 'incident' ? '🛠️ Incidencia' : '📥 Petición'}</span>
+          <span className={'tchip-type ' + (selected.type === 'incident' ? 'inc' : 'pet')}>{typeIcon(selected.type)} {typeLabel(selected.type)}</span>
           <b className="tmodal-title"><span className="id">{selected.id}</span> · {selected.subject}</b>
           <button className="dx" onClick={() => select(null)} aria-label="Cerrar">×</button>
         </div>
@@ -662,7 +666,7 @@ function Archive({ tenant, role, caps, meName, meUid, cloud }: { tenant: TenantD
     {sel && <div className="scrim tmodal-scrim" onClick={() => setSel(null)}>
       <div className="tmodal fixed" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Archivo ' + sel.id}>
         <div className="tmodal-h">
-          <span className={'tchip-type ' + (sel.type === 'incident' ? 'inc' : 'pet')}>{sel.type === 'incident' ? '🛠️ Incidencia' : '📥 Petición'}</span>
+          <span className={'tchip-type ' + (sel.type === 'incident' ? 'inc' : 'pet')}>{typeIcon(sel.type)} {typeLabel(sel.type)}</span>
           <b className="tmodal-title"><span className="id">{sel.id}</span> · {sel.subject}</b>
           <span className="pill" style={{ marginLeft: 8 }}>archivado</span>
           <button className="dx" onClick={() => setSel(null)} aria-label="Cerrar">×</button>
@@ -838,7 +842,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
           {closeErr && <div className="closeerr">⚠ {closeErr}</div>}
         </>}
         {canAssign && <>
-        <div className="section-t">Asignar técnico <span className="badge">⚡ carga vía OrganiZate</span>{group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}<button className="linkbtn" style={{ marginLeft: 'auto' }} onClick={() => autoAssign(t.id)} title="Asigna al técnico menos cargado del grupo">⚡ Auto-asignar</button></div>
+        <div className="section-t">Asignar técnico <span className="badge"><Icon name="zap" size={11} /> carga vía OrganiZate</span>{group && <span className="pill" style={{ marginLeft: 6 }}>grupo: {group.name}</span>}<button className="linkbtn" style={{ marginLeft: 'auto' }} onClick={() => autoAssign(t.id)} title="Asigna al técnico menos cargado del grupo">⚡ Auto-asignar</button></div>
         {group && scoped.length === 0 && <div className="empty" style={{ fontSize: 12 }}>El grupo «{group.name}» no tiene técnicos. Añádelos en Administración → Grupos de soporte.</div>}
         {techs.map((m) => {
           const c = tenant.capacity[m.uid] ?? { used: 0, cap: 40 };
@@ -890,8 +894,8 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
             <span style={{ textDecoration: k.done ? 'line-through' : 'none', color: k.done ? 'var(--ink-faint)' : 'var(--ink)' }}>{k.text}</span>
             {(k.type || k.assigneeUid || k.dueAt) && <div className="taskmeta">
               {k.type && <span className="tchip">{k.type}</span>}
-              {k.assigneeUid && <span className="tmeta">👤 {memberName(k.assigneeUid) ?? '—'}</span>}
-              {k.dueAt && <span className="tmeta" style={{ color: !k.done && k.dueAt < Date.now() ? 'var(--crit)' : undefined }}>📅 {fmtDate(k.dueAt)}</span>}
+              {k.assigneeUid && <span className="tmeta"><Icon name="user" size={12} /> {memberName(k.assigneeUid) ?? '—'}</span>}
+              {k.dueAt && <span className="tmeta" style={{ color: !k.done && k.dueAt < Date.now() ? 'var(--crit)' : undefined }}><Icon name="calendar" size={12} /> {fmtDate(k.dueAt)}</span>}
             </div>}
           </div>
           {canAct && <span className="taskmv"><button className="xbtn" disabled={i === 0} onClick={() => moveTask(t.id, k.id, -1)} aria-label="Subir">↑</button><button className="xbtn" disabled={i === tasks.length - 1} onClick={() => moveTask(t.id, k.id, 1)} aria-label="Bajar">↓</button></span>}
@@ -974,7 +978,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
     {tab === 'adjuntos' && <div style={{ marginTop: 4 }}>
       {attachments.length === 0 && <div className="empty">Sin adjuntos.</div>}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>{attachments.map((a) => <div key={a.id} className="atrow">
-        <span className="atname">📎 {(a.url || a.dataUrl) ? <a href={a.url || a.dataUrl} download={a.name} target="_blank" rel="noreferrer">{a.name}</a> : a.name}</span>
+        <span className="atname"><Icon name="paperclip" size={13} /> {(a.url || a.dataUrl) ? <a href={a.url || a.dataUrl} download={a.name} target="_blank" rel="noreferrer">{a.name}</a> : a.name}</span>
         <span className="atmeta">{fmtSize(a.size)} · {a.uploadedByName} · {fmtDate(a.at)}</span>
         {canAct && <button className="xbtn" style={{ color: 'var(--crit)' }} onClick={() => removeAttachment(t.id, a.id)} aria-label="Eliminar">✕</button>}
       </div>)}</div>
@@ -1099,8 +1103,8 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
           <div className="nf-sec">
             <label>Tipo de solicitud
               <div className="seg" style={{ marginTop: 4 }}>
-                <button type="button" className={tipo === 'incident' ? 'on' : ''} onClick={() => setTipo('incident')}>🛠️ Incidencia</button>
-                <button type="button" className={tipo === 'service_request' ? 'on' : ''} onClick={() => setTipo('service_request')}>📥 Petición</button>
+                <button type="button" className={tipo === 'incident' ? 'on' : ''} onClick={() => setTipo('incident')}>{typeIcon('incident')} Incidencia</button>
+                <button type="button" className={tipo === 'service_request' ? 'on' : ''} onClick={() => setTipo('service_request')}>{typeIcon('service_request')} Petición</button>
               </div>
             </label>
             <label>Categoría de servicio
@@ -1112,7 +1116,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
                 </select>
               </span>
             </label>
-            {lcName ? <div className="lc-hint">⚙️ Ciclo de vida: <b>{lcName}</b></div> : cat && <div className="lc-hint">⚙️ Sin flujo (estado libre)</div>}
+            {lcName ? <div className="lc-hint"><Icon name="branch" size={13} /> Ciclo de vida: <b>{lcName}</b></div> : cat && <div className="lc-hint"><Icon name="branch" size={13} /> Sin flujo (estado libre)</div>}
           </div>
           <div className="nf-sec">
             <div className="nf-sec-h">Datos de la solicitud</div>
@@ -1145,7 +1149,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
                 <input type="file" multiple style={{ display: 'none' }} onChange={(e) => { setFiles((fs) => [...fs, ...Array.from(e.target.files ?? [])]); e.target.value = ''; }} />
               </label>
             </div>
-            {files.length > 0 && <div className="dz-list">{files.map((f, i) => <span key={i} className="dz-file">📎 {f.name} <span className="soft">({fmtSize(f.size)})</span><button className="xbtn" onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))} aria-label="Quitar">✕</button></span>)}</div>}
+            {files.length > 0 && <div className="dz-list">{files.map((f, i) => <span key={i} className="dz-file"><Icon name="paperclip" size={12} /> {f.name} <span className="soft">({fmtSize(f.size)})</span><button className="xbtn" onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))} aria-label="Quitar">✕</button></span>)}</div>}
           </div>
           <div className="nf-sec">
             <div className="nf-sec-h">Más detalles</div>
@@ -1153,7 +1157,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
             <label>{fcap('Activos / elementos afectados')}<input type="text" value={assets} onChange={(e) => setAssets(e.target.value)} placeholder="Equipo, aplicación, servicio…" /></label>
             <label>{fcap('Correos a notificar')}<input type="text" value={notifyEmails} onChange={(e) => setNotifyEmails(e.target.value)} placeholder="correo1@dominio.com, correo2@dominio.com…" /></label>
           </div>
-          {readOnly && <div className="empty" style={{ fontSize: 12 }}>👁 Modo lectura: no puedes crear la solicitud.</div>}
+          {readOnly && <div className="empty" style={{ fontSize: 12 }}><Icon name="eye" size={13} /> Modo lectura: no puedes crear la solicitud.</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
             <button className="primary" onClick={submit} disabled={!canSubmit}>Crear solicitud</button>
             <button className="ghost" onClick={onClose}>Cancelar</button>
@@ -1201,7 +1205,7 @@ function ServiceCategoriesAdmin({ tenant }: { tenant: TenantData }) {
         </div>
         <div className="rule-row"><span className="rule-lbl">Tipos y ciclo</span></div>
         {(['incident', 'service_request'] as const).map((tp) => { const en = !!c[tp]; return <div key={tp} className="rule-row cond">
-          <label className="chipsel" style={{ cursor: 'pointer' }}><input type="checkbox" checked={en} onChange={(e) => setType(c, tp, e.target.checked)} style={{ marginRight: 5 }} />{tp === 'incident' ? '🛠️ Incidencia' : '📥 Petición'}</label>
+          <label className="chipsel" style={{ cursor: 'pointer' }}><input type="checkbox" checked={en} onChange={(e) => setType(c, tp, e.target.checked)} style={{ marginRight: 5 }} />{typeIcon(tp)} {typeLabel(tp)}</label>
           {en && <select value={c[tp]!.lifecycleId ?? ''} onChange={(e) => replace(c.id, { ...c, [tp]: { lifecycleId: e.target.value || null } })}>
             <option value="">— sin flujo (estado libre) —</option>{lcOpts(tp).map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
           </select>}
@@ -1262,7 +1266,7 @@ function Bell({ tenant, meUid }: { tenant: TenantData; meUid: string }) {
   const mine = (tenant.notifications ?? []).filter((n) => n.forUid === meUid);
   const unread = mine.filter((n) => !n.read).length;
   return <div className="bellwrap">
-    <button className="iconbtn" title="Avisos" aria-label="Avisos" onClick={() => setOpen((o) => !o)}>🔔{unread > 0 && <span className="belldot">{unread > 9 ? '9+' : unread}</span>}</button>
+    <button className="iconbtn" title="Avisos" aria-label="Avisos" onClick={() => setOpen((o) => !o)}><Icon name="bell" size={17} />{unread > 0 && <span className="belldot">{unread > 9 ? '9+' : unread}</span>}</button>
     {open && <>
       <div className="bell-scrim" onClick={() => setOpen(false)} />
       <div className="bell-pop">
@@ -1312,14 +1316,14 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
-  ['Configuraciones de instancia', '🏢', [['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
-  ['Usuarios y permisos', '👥', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
-  ['Personalización', '🎨', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
-  ['Plantillas y formularios', '📄', [['Categorías de servicio', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
-  ['Autoservicio y anuncios', '📣', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
-  ['Automatización', '⚙️', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
-  ['Configuración del correo', '✉️', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
-  ['Gobierno y auditoría', '🛡️', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
+  ['Configuraciones de instancia', 'server', [['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
+  ['Usuarios y permisos', 'users', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
+  ['Personalización', 'sliders', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
+  ['Plantillas y formularios', 'file-text', [['Categorías de servicio', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
+  ['Autoservicio y anuncios', 'megaphone', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
+  ['Automatización', 'settings', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
+  ['Configuración del correo', 'mail', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
+  ['Gobierno y auditoría', 'shield', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
 const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
 
@@ -1503,7 +1507,7 @@ function CalendarAdmin({ tenant }: { tenant: TenantData }) {
         <button className="primary" onClick={() => { if (nh && !holidays.includes(nh)) { setHol([...holidays, nh]); setNh(''); } }}>＋ Festivo</button>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' }}>
           <input type="number" value={ny} onChange={(e) => setNy(e.target.value)} style={{ width: 78 }} title="Año" />
-          <button className="ghost" onClick={loadMadrid} title="Añade los festivos oficiales de Madrid (nacionales + Comunidad + capital) de ese año">🏛️ Cargar festivos de Madrid</button>
+          <button className="ghost" onClick={loadMadrid} title="Añade los festivos oficiales de Madrid (nacionales + Comunidad + capital) de ese año"><Icon name="landmark" size={14} /> Cargar festivos de Madrid</button>
         </span>
       </div>
       <p className="soft" style={{ fontSize: 12, marginTop: 8 }}>Festivos de Madrid como referencia (nacionales + Comunidad de Madrid + Madrid capital), con Semana Santa calculada. El SLA no cuenta estos días.</p>
@@ -1620,7 +1624,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
   return <div className="adm">
     <nav className="adm-nav">
       {ADMIN_AREAS.map((a) => <Fragment key={a[0]}>
-        <div className="adm-g"><span className="adm-ic">{a[1]}</span>{a[0]}</div>
+        <div className="adm-g"><span className="adm-ic"><Icon name={a[1]} size={15} /></span>{a[0]}</div>
         {a[2].map(([l, k]) => <button key={l} className={'adm-i' + (k ? '' : ' dim') + (k && k === sec ? ' on' : '')} disabled={!k} onClick={() => k && setSec(k)}>{l}{!k && <span className="soon">pronto</span>}</button>)}
       </Fragment>)}
     </nav>
@@ -2033,7 +2037,7 @@ function SlaAdmin({ tenant }: { tenant: TenantData }) {
           <input value={s.name} onChange={(e) => updateSla(s.id, { name: e.target.value })} style={{ fontSize: 13, fontWeight: 600 }} />
           <input type="number" min={0} value={s.responseMins} onChange={(e) => updateSla(s.id, { responseMins: +e.target.value })} className="mono" style={{ fontSize: 12, width: 84 }} title={fmtMins(s.responseMins)} />
           <input type="number" min={0} value={s.resolveMins} onChange={(e) => updateSla(s.id, { resolveMins: +e.target.value })} className="mono" style={{ fontSize: 12, width: 84 }} title={fmtMins(s.resolveMins)} />
-          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeSla(s.id)}>🗑</button>
+          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeSla(s.id)}><Icon name="trash" size={14} /></button>
         </Fragment>)}
       </div>
       <div className="designer">
@@ -2052,7 +2056,7 @@ function SlaAdmin({ tenant }: { tenant: TenantData }) {
               <span style={{ color: 'var(--ink-faint)', width: 10 }}>{open ? '▾' : '▸'}</span>{g.name}
               <span className="pill" style={{ marginLeft: 'auto' }}>{techs.length} {techs.length === 1 ? 'técnico' : 'técnicos'}</span>
             </button>
-            <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeGroup(g.id)}>🗑</button>
+            <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeGroup(g.id)}><Icon name="trash" size={14} /></button>
           </div>
           {open && <div style={{ padding: '4px 0 8px 26px', display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {techs.length === 0 ? <span className="empty" style={{ fontSize: 12 }}>Sin técnicos asignados.</span>
@@ -2099,8 +2103,8 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
           <select value={m.status} onChange={(e) => updateMember(m.uid, { status: e.target.value as UiMember['status'] })} style={{ fontSize: 12 }}>
             {['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
           </select>
-          <button className="ghost" title="Ver el portal como este usuario (solo lectura)" onClick={() => setImpersonate(m.uid)}>👁 Ver como</button>
-          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeMember(m.uid)}>🗑</button>
+          <button className="ghost" title="Ver el portal como este usuario (solo lectura)" onClick={() => setImpersonate(m.uid)}><Icon name="eye" size={13} /> Ver como</button>
+          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeMember(m.uid)}><Icon name="trash" size={14} /></button>
         </div>
         {openUg === m.uid && <div style={{ padding: '2px 0 10px 26px' }}><div className="k">Grupos de usuarios</div><ChipMulti options={ugOptions} selected={m.userGroups ?? []} onChange={(ug) => updateMember(m.uid, { userGroups: ug })} /></div>}
       </Fragment>)}
@@ -2159,7 +2163,7 @@ function GraphEditor({ tenant }: { tenant: TenantData }) {
       <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--ink-soft)' }}>
         <input type="checkbox" checked={lc.published} onChange={(e) => setPublished(e.target.checked)} /> Publicado
       </label>
-      <button className="ghost" style={{ color: 'var(--crit)', marginLeft: 'auto' }} disabled={tenant.lifecycles.length <= 1} onClick={() => removeLifecycle()}>🗑 Borrar flujo</button>
+      <button className="ghost" style={{ color: 'var(--crit)', marginLeft: 'auto' }} disabled={tenant.lifecycles.length <= 1} onClick={() => removeLifecycle()}><Icon name="trash" size={14} /> Borrar flujo</button>
     </div>
     <div className="banner">Editor gráfico <b>real</b>: crea flujos, arrastra los estados, conéctalos y edítalos. Cada estado tiene su categoría de temporizador (En curso consume SLA · Detener temporizador lo pausa · Completado). Todo se guarda y gobierna las transiciones válidas y el SLA de los tickets.</div>
     <FlowCanvas key={lc.id ?? 'x'} lc={lc} />
