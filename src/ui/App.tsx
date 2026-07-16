@@ -130,6 +130,11 @@ function statusView(tenant: TenantData, t: StoredTicket): { label: string; timer
   if (st) return { label: st.label, timer: st.category, color: CAT[st.category][1] };
   return { label: t.status, color: 'var(--ink-faint)' };
 }
+// Flujo por DEFECTO para categorías SIN ciclo de vida: Abierta → En curso →
+// Cerrada/Cancelada. Devuelve los estados alcanzables desde el actual.
+const NOFLOW_STATES = ['Abierta', 'En curso', 'Cerrada', 'Cancelada'];
+const NOFLOW_NEXT: Record<string, string[]> = { 'Abierta': ['En curso', 'Cancelada'], 'En curso': ['Cerrada', 'Cancelada'], 'Cerrada': ['Abierta'], 'Cancelada': ['Abierta'] };
+const noFlowNext = (status: string): string[] => NOFLOW_NEXT[status] ?? NOFLOW_STATES.filter((s) => s !== status);
 /** Resolutor de temporizador por catálogo para el motor de SLA. */
 const timerOfTenant = (tenant: TenantData) => (name: string) => (tenant.statuses ?? []).find((x) => x.name === name)?.timer;
 /** Calendario laboral del tenant para el SLA por horario (o undefined = 24×7). */
@@ -738,6 +743,21 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
       {TABS.map(([k, l, n]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}{n > 0 && <span className="tabn">{n}</span>}</button>)}
     </div>
 
+    {/* Barra de estado: estado actual (coloreado) + estados a los que se puede ir (clic). */}
+    {(() => {
+      const opts = lc ? nexts.map((tr) => ({ to: tr.to, label: stateOf(lc, tr.to)?.label ?? tr.to })) : noFlowNext(t.status).map((s) => ({ to: s, label: s }));
+      return <div className="statusflow">
+        <span className="sf-cur" style={{ background: sv.color, borderColor: sv.color }}>{sv.label}{paused ? ' · ⏸' : ''}</span>
+        {canAct && canChangeStatus && opts.length > 0 && <span className="sf-arrow">→</span>}
+        {canAct && canChangeStatus && opts.map((o) => {
+          const closing = isClosingStatus(tenant.statuses, o.to);
+          const blocked = (closing && !canClose) || (closing && closeMissing.length > 0);
+          const tip = closing && !canClose ? 'No tienes permiso para cerrar/resolver' : blocked ? `Falta: ${closeMissing.join(', ')}` : `Cambiar a «${o.label}»`;
+          return <button key={o.to} className="sf-next" disabled={blocked} title={tip} onClick={() => { setCloseErr(''); lc ? transition(t.id, o.to) : setStatus(t.id, o.to); }}>{o.label}</button>;
+        })}
+      </div>;
+    })()}
+
     {tab === 'detalles' && <>
       <div className="facts">
         <div><div className="k">Prioridad</div>{badge(priorityView(tenant, t.priority).label, priorityView(tenant, t.priority).color)}</div>
@@ -802,17 +822,8 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
             </div>
           : null)}
       {canAct && <>
-        {nexts.length > 0 && canChangeStatus && <>
-          <div className="section-t">Mover a <span className="pill">según flujo</span></div>
-          <div className="trbtns">{nexts.map((tr) => {
-            const closing = isClosingStatus(tenant.statuses, tr.to);
-            const noClose = closing && !canClose;
-            const blocked = noClose || (closing && closeMissing.length > 0);
-            return <button key={tr.id} className="trbtn" disabled={blocked} title={noClose ? 'No tienes permiso para cerrar/resolver' : blocked ? `Falta: ${closeMissing.join(', ')}` : ''} onClick={() => { setCloseErr(''); transition(t.id, tr.to); }}>{stateOf(lc!, tr.to)?.label} →</button>;
-          })}</div>
-        </>}
         {statuses.length > 0 && canChangeStatus && <>
-          <div className="section-t">Cambiar estado</div>
+          <div className="section-t">Saltar a otro estado <span className="pill">fuera de flujo</span></div>
           <select className="statussel" value={statuses.some((s) => s.name === t.status) ? t.status : ''} onChange={(e) => {
             const to = e.target.value; if (!to) return;
             if (isClosingStatus(tenant.statuses, to) && !canClose) { setCloseErr('No tienes permiso para cerrar/resolver.'); return; }

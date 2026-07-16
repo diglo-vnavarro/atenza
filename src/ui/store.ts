@@ -301,7 +301,9 @@ export const useStore = create<State>()(
           const type: 'incident' | 'service_request' = nt.type ?? tpl?.type ?? 'incident';
           const lcId = cat ? ((type === 'incident' ? cat.incident?.lifecycleId : cat.service_request?.lifecycleId) ?? null) : (tpl?.lifecycleId ?? null);
           const lc = lcId ? t.lifecycles.find((l) => l.id === lcId) ?? null : null;
-          const init = lc ? initialState(lc)?.key ?? 'open' : 'open';
+          // Con ciclo: primer estado del flujo. Sin ciclo: nace «Abierta» (flujo por
+          // defecto Abierta → En curso → Cerrada/Cancelada, gestionado en la UI).
+          const init = lc ? initialState(lc)?.key ?? 'open' : 'Abierta';
           const now = Date.now(); const id = genId(t);
           const draft = {
             id, type, subject: nt.subject, description: nt.description,
