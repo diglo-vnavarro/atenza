@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification, ReplyTemplate, Attachment } from '../model.js';
+import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification, ReplyTemplate, Attachment, AccessRequest } from '../model.js';
 import { isArchivedStatus } from '../model.js';
 import type { User } from '../access.js';
 import type { ClosureRules } from '../closure.js';
@@ -43,8 +43,12 @@ interface State {
   selectedTicketId: string | null;
   cloudReady: boolean;
   hasAccess: boolean;
+  accessRequests: AccessRequest[];
   layouts: Record<string, Record<string, { x: number; y: number }>>;
   startCloud: (uid: string) => Promise<void>;
+  requestAccess: (email: string, name?: string, note?: string) => Promise<void>;
+  approveAccess: (uid: string, tenantId: string, role: Role) => Promise<void>;
+  rejectAccess: (uid: string) => Promise<void>;
   setUser: (uid: string) => void;
   setImpersonate: (uid: string | null) => void;
   setTenant: (id: string) => void;
@@ -263,6 +267,7 @@ export const useStore = create<State>()(
         selectedTicketId: null,
         cloudReady: false,
         hasAccess: false,
+        accessRequests: [],
         layouts: {},
 
         startCloud: async (uid) => {
@@ -271,7 +276,7 @@ export const useStore = create<State>()(
             cloud.isPlatformAdmin(uid).catch(() => false),
             cloud.getUserTenantIds(uid).catch(() => [] as string[]),
           ]);
-          set({ db: { tenants: [], platformAdmins: pa ? [uid] : [] }, currentUserId: uid, cloudReady: true, hasAccess: pa || tids.length > 0, activeTenantId: tids[0] ?? '' });
+          set({ db: { tenants: [], platformAdmins: pa ? [uid] : [] }, currentUserId: uid, cloudReady: true, hasAccess: pa || tids.length > 0, activeTenantId: tids[0] ?? '', accessRequests: [] });
           for (const tid of tids) {
             const role = await cloud.getMemberRole(tid, uid).catch(() => null);
             const filter = role === 'requester' ? uid : null;
@@ -280,7 +285,29 @@ export const useStore = create<State>()(
             }, uid);
             unsubs.push(un);
           }
+          // Superadmin: cola de solicitudes de acceso (para la bandeja de aprobaciones + campana).
+          if (pa) { const un = await cloud.subscribeAccessRequests((rs) => set({ accessRequests: rs })).catch(() => (() => {})); unsubs.push(un); }
         },
+
+        // Solicitar acceso (usuario sin ficha, en la pantalla «Sin acceso»).
+        requestAccess: async (email, name, note) => {
+          const uid = get().currentUserId; if (!uid) return;
+          if (CLOUD) await cloud.requestAccess(uid, email, name, note).catch(errlog);
+        },
+        // Aprobar: crea el miembro en el tenant + userTenants + borra la solicitud.
+        approveAccess: async (uid, tenantId, role) => {
+          const req = get().accessRequests.find((r) => r.uid === uid); if (!req) return;
+          const t = get().db.tenants.find((x) => x.id === tenantId);
+          const corp = t?.members[0]?.email.split('@')[1] ?? 'digloservicer.com';
+          const palette = ['#4f46e5', '#0f766e', '#b45309', '#0369a1', '#be185d', '#7c3aed'];
+          const member: UiMember = {
+            uid, name: req.name || req.email, email: req.email, role, status: 'active',
+            external: !req.email.toLowerCase().endsWith('@' + corp.toLowerCase()),
+            color: palette[(t?.members.length ?? 0) % palette.length]!, caps: memberCaps({ role }, t?.roles), enabled: true,
+          };
+          if (CLOUD) { await cloud.writeMember(tenantId, member).catch(errlog); await cloud.addUserTenant(uid, tenantId).catch(errlog); await cloud.deleteAccessRequest(uid).catch(errlog); }
+        },
+        rejectAccess: async (uid) => { if (CLOUD) await cloud.deleteAccessRequest(uid).catch(errlog); },
 
         setUser: (uid) => {
           const db = get().db; const u = buildUser(db, uid); const ts = tenantsForUser(db, u);

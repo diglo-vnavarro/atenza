@@ -15,7 +15,7 @@
 // El store llama a estas funciones solo en modo nube (firebaseEnabled).
 // ============================================================================
 import { getFirebaseApp } from '../firebase.js';
-import type { Lifecycle, Template, Sla, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef } from '../model.js';
+import type { Lifecycle, Template, Sla, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, AccessRequest } from '../model.js';
 import type { ClosureRules } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import type { FormRule } from '../formrules.js';
@@ -78,6 +78,22 @@ export async function getUserTenantIds(uid: string): Promise<string[]> {
 export async function isPlatformAdmin(uid: string): Promise<boolean> {
   const { m, db } = await fs();
   return (await m.getDoc(m.doc(db, 'platformAdmins', uid))).exists();
+}
+
+/** Crea/actualiza la solicitud de acceso del usuario actual (sin ficha aún). */
+export async function requestAccess(uid: string, email: string, name?: string, note?: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, 'accessRequests', uid), { uid, email, name: name ?? '', note: note ?? '', at: Date.now() });
+}
+/** Borra una solicitud de acceso (aprobar-tras-crear-miembro, o rechazar). */
+export async function deleteAccessRequest(uid: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.deleteDoc(m.doc(db, 'accessRequests', uid));
+}
+/** Suscribe la cola de solicitudes de acceso (solo la ve el superadmin por reglas). */
+export async function subscribeAccessRequests(onData: (rs: AccessRequest[]) => void): Promise<Unsub> {
+  const { m, db } = await fs();
+  return m.onSnapshot(m.collection(db, 'accessRequests'), (s) => onData(s.docs.map((d) => d.data() as AccessRequest)), () => onData([]));
 }
 
 export type Unsub = () => void;

@@ -17,6 +17,17 @@ export type Role = 'tenant_admin' | 'technician' | 'requester';
 
 export type MemberStatus = 'active' | 'invited' | 'disabled';
 
+/** Solicitud de ACCESO de alguien que entró sin ficha (no invitado). Vive en la
+ *  colección top-level accessRequests/{uid}; el admin la aprueba (crea el miembro)
+ *  o la rechaza. Alimenta la bandeja de aprobaciones + la alerta de la campana. */
+export interface AccessRequest {
+  uid: string;
+  email: string;
+  name?: string;
+  at: number;
+  note?: string;
+}
+
 export type TicketType = 'incident' | 'service_request';
 
 /** Estados TERMINALES que archivan el ticket (sale de la bandeja en vivo → Archivo). */

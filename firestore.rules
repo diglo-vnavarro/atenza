@@ -63,6 +63,18 @@ service cloud.firestore {
       allow write: if isPlatformAdmin();
     }
 
+    // Solicitudes de ACCESO (alguien entra sin ficha). Cada usuario crea/lee/borra
+    // SOLO la suya (uid == doc id); el superadmin las lee todas y las resuelve
+    // (aprobar = crea el miembro + userTenants; rechazar = borra). Sin filtrado de
+    // dominio: es una petición, la aprobación es el control.
+    match /accessRequests/{u} {
+      allow create: if signedIn() && u == uid() && request.resource.data.uid == uid();
+      allow get:    if signedIn() && (u == uid() || isPlatformAdmin());
+      allow list:   if isPlatformAdmin();
+      allow delete: if signedIn() && (u == uid() || isPlatformAdmin());
+      allow update: if false;
+    }
+
     // Cola de correo de la extensión Trigger Email. CANDADO DE FASE DE PRUEBAS:
     // solo se pueden encolar emails dirigidos al usuario de pruebas — ni un
     // cliente mal comportado puede enviar a terceros. La lee la extensión (admin).

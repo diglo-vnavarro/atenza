@@ -203,6 +203,10 @@ export function App() {
   const cloudReady = useStore((s) => s.cloudReady);
   const hasAccess = useStore((s) => s.hasAccess);
   const startCloud = useStore((s) => s.startCloud);
+  const requestAccess = useStore((s) => s.requestAccess);
+  const accessRequests = useStore((s) => s.accessRequests);
+  const setAdminSec = useStore((s) => s.setAdminSec);
+  const [accessRequested, setAccessRequested] = useState(false);
   const authUser = useAuth((s) => s.user);
   const authReady = useAuth((s) => s.ready);
   useEffect(() => { void useAuth.getState().init(); }, []);
@@ -243,8 +247,15 @@ export function App() {
   if (firebaseEnabled && !hasAccess) return (
     <div className="login-wrap"><div className="login-card" style={{ textAlign: 'center' }}>
       <div className="brand" style={{ justifyContent: 'center', fontSize: 20 }}><span className="glyph">A</span> Atenza</div>
-      <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>Sin acceso todavía.<br /><b>{authUser?.email}</b> no pertenece a ninguna instancia. Pide a un administrador que te invite.</p>
-      <button className="ghost" onClick={() => doSignOut()}>Salir</button>
+      {accessRequested
+        ? <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>✅ Solicitud enviada. Un administrador la revisará y te dará acceso; vuelve a entrar más tarde.</p>
+        : <>
+          <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>Sin acceso todavía.<br /><b>{authUser?.email}</b> no pertenece a ninguna instancia.</p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="primary" onClick={async () => { await requestAccess(authUser?.email ?? ''); setAccessRequested(true); }}>Solicitar acceso</button>
+            <button className="ghost" onClick={() => doSignOut()}>Salir</button>
+          </div>
+        </>}
     </div></div>
   );
   if (firebaseEnabled && !tenant) return card('Sincronizando datos…');
@@ -270,7 +281,7 @@ export function App() {
         <GlobalSearch tenant={tenant} onOpen={(id) => { select(id); setView(isReq ? 'requests' : 'tickets'); }} />
         <div className="spring" />
         <button className="newtop" onClick={() => setShowNew(true)} title={readOnly ? 'Ver el catálogo que ve este usuario (solo lectura)' : ''}>＋ Nueva solicitud</button>
-        <Bell tenant={tenant} meUid={effectiveUserId} />
+        <Bell tenant={tenant} meUid={effectiveUserId} accessCount={user.platformAdmin ? accessRequests.length : 0} onReviewAccess={() => { setAdminSec('accesos'); setView('admin'); }} />
         <button className="iconbtn" onClick={toggleTheme} title="Tema" aria-label="Cambiar tema">◐</button>
         {firebaseEnabled ? <>
           <span className="who-mini">{displayMember?.name ?? authUser?.email}</span>
@@ -1258,21 +1269,26 @@ function ServiceCategoriesAdmin({ tenant }: { tenant: TenantData }) {
 }
 
 // Campana de avisos en pantalla (los del usuario actual).
-function Bell({ tenant, meUid }: { tenant: TenantData; meUid: string }) {
+function Bell({ tenant, meUid, accessCount = 0, onReviewAccess }: { tenant: TenantData; meUid: string; accessCount?: number; onReviewAccess?: () => void }) {
   const markRead = useStore((s) => s.markNotifRead);
   const markAll = useStore((s) => s.markAllNotifsRead);
   const select = useStore((s) => s.select);
   const [open, setOpen] = useState(false);
   const mine = (tenant.notifications ?? []).filter((n) => n.forUid === meUid);
   const unread = mine.filter((n) => !n.read).length;
+  const total = unread + accessCount; // el badge suma avisos + solicitudes de acceso pendientes
   return <div className="bellwrap">
-    <button className="iconbtn" title="Avisos" aria-label="Avisos" onClick={() => setOpen((o) => !o)}><Icon name="bell" size={17} />{unread > 0 && <span className="belldot">{unread > 9 ? '9+' : unread}</span>}</button>
+    <button className="iconbtn" title="Avisos" aria-label="Avisos" onClick={() => setOpen((o) => !o)}><Icon name="bell" size={17} />{total > 0 && <span className="belldot">{total > 9 ? '9+' : total}</span>}</button>
     {open && <>
       <div className="bell-scrim" onClick={() => setOpen(false)} />
       <div className="bell-pop">
         <div className="bell-h"><b>Avisos</b>{unread > 0 && <button className="linkbtn" onClick={() => markAll()}>Marcar todo leído</button>}</div>
         <div className="bell-list">
-          {mine.length === 0 && <div className="empty">Sin avisos.</div>}
+          {accessCount > 0 && <button className="bell-item unread" style={{ background: 'var(--accent-soft)' }} onClick={() => { setOpen(false); onReviewAccess?.(); }}>
+            <div className="bell-txt"><Icon name="user-check" size={13} /> {accessCount} solicitud{accessCount > 1 ? 'es' : ''} de acceso pendiente{accessCount > 1 ? 's' : ''}</div>
+            <div className="bell-sub">Revisar en Solicitudes de acceso →</div>
+          </button>}
+          {mine.length === 0 && accessCount === 0 && <div className="empty">Sin avisos.</div>}
           {mine.slice(0, 30).map((n) => <button key={n.id} className={'bell-item' + (n.read ? '' : ' unread')} onClick={() => { markRead(n.id); select(n.ticketId); setOpen(false); }}>
             <div className="bell-txt">{n.text}</div>
             <div className="bell-sub">{n.subject}</div>
@@ -1317,7 +1333,7 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', 'server', [['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
-  ['Usuarios y permisos', 'users', [['Usuarios', 'miembros'], ['Roles', 'roles'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
+  ['Usuarios y permisos', 'users', [['Usuarios', 'miembros'], ['Solicitudes de acceso', 'accesos'], ['Roles', 'roles'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', 'sliders', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
   ['Plantillas y formularios', 'file-text', [['Categorías de servicio', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
   ['Autoservicio y anuncios', 'megaphone', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
@@ -1325,7 +1341,7 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuración del correo', 'mail', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', 'shield', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1620,7 +1636,11 @@ function KbModule({ tenant, canManage, meName }: { tenant: TenantData; canManage
 
 const ADMIN_FIRST = ADMIN_AREAS.flatMap((a) => a[2]).find(([, k]) => k)?.[1] ?? 'catservicio';
 function AdminConfig({ tenant }: { tenant: TenantData }) {
-  const [sec, setSec] = useState<string>(ADMIN_FIRST);
+  // Sección activa en el store (adminSec) para poder navegar desde fuera (p. ej. la
+  // campana → «Solicitudes de acceso»). Cae a la primera sección si está vacío/inválido.
+  const secRaw = useStore((s) => s.adminSec);
+  const setSec = useStore((s) => s.setAdminSec);
+  const sec = secRaw && ADMIN_TITLE[secRaw] ? secRaw : ADMIN_FIRST;
   return <div className="adm">
     <nav className="adm-nav">
       {ADMIN_AREAS.map((a) => <Fragment key={a[0]}>
@@ -1641,6 +1661,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}
     {sec === 'miembros' && <MembersAdmin tenant={tenant} />}
+    {sec === 'accesos' && <AccessRequestsAdmin tenant={tenant} />}
     {sec === 'cierre' && <ClosureAdmin tenant={tenant} />}
     {sec === 'respuestas' && <ReplyTemplatesAdmin tenant={tenant} />}
     {sec === 'reglas' && <BusinessRulesAdmin tenant={tenant} />}
@@ -2041,6 +2062,31 @@ function SlaAdmin({ tenant }: { tenant: TenantData }) {
 const ROLE_LABEL: Record<Role, string> = { tenant_admin: 'Admin', technician: 'Técnico', requester: 'Solicitante' };
 const STATUS_LABEL: Record<string, string> = { active: 'Activo', invited: 'Invitado', disabled: 'Deshabilitado' };
 const STATUS_COLOR: Record<string, string> = { active: 'var(--ok)', invited: 'var(--warn)', disabled: 'var(--ink-faint)' };
+
+// Bandeja de APROBACIONES de acceso: personas que entraron sin ficha y solicitaron
+// acceso. Aprobar crea el usuario en el tenant + le da acceso; rechazar la descarta.
+function AccessRequestsAdmin({ tenant }: { tenant: TenantData }) {
+  const reqs = useStore((s) => s.accessRequests);
+  const tenants = useStore((s) => s.db.tenants);
+  const approve = useStore((s) => s.approveAccess);
+  const reject = useStore((s) => s.rejectAccess);
+  const [sel, setSel] = useState<Record<string, { tid: string; role: Role }>>({});
+  const cfg = (uid: string) => sel[uid] ?? { tid: tenant.id, role: 'technician' as Role };
+  return <div className="card" style={{ padding: 16 }}>
+    <p className="cfg-lead">Personas que han iniciado sesión y solicitado acceso sin tener ficha. Al <b>aprobar</b> se crea el usuario en la instancia elegida con el rol indicado y obtiene acceso; al <b>rechazar</b> se descarta la solicitud.</p>
+    {reqs.length === 0 && <div className="empty" style={{ padding: 24 }}>No hay solicitudes de acceso pendientes.</div>}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {reqs.slice().sort((a, b) => b.at - a.at).map((r) => { const c = cfg(r.uid); return <div key={r.uid} className="lcstate" style={{ flexWrap: 'wrap', gap: 8 }}>
+        <span className="av" style={{ background: 'var(--accent)' }}>{(r.name || r.email)[0]?.toUpperCase()}</span>
+        <span style={{ flex: 1, minWidth: 160 }}><b style={{ fontSize: 13 }}>{r.name || r.email}</b><span style={{ display: 'block', fontSize: 11.5, color: 'var(--ink-faint)' }}>{r.email} · {fmtDate(r.at)}</span></span>
+        <select value={c.tid} onChange={(e) => setSel({ ...sel, [r.uid]: { ...c, tid: e.target.value } })} title="Instancia">{tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select>
+        <select value={c.role} onChange={(e) => setSel({ ...sel, [r.uid]: { ...c, role: e.target.value as Role } })} title="Rol">{(['tenant_admin', 'technician', 'requester'] as Role[]).map((x) => <option key={x} value={x}>{ROLE_LABEL[x]}</option>)}</select>
+        <button className="primary" onClick={() => approve(r.uid, c.tid, c.role)}>Aprobar</button>
+        <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => reject(r.uid)}>Rechazar</button>
+      </div>; })}
+    </div>
+  </div>;
+}
 
 // USUARIOS: listado filtrable (texto · grupo de soporte · rol · estado) + ficha
 // editable al seleccionar. Integra el «traspaso a Atenza» (enabled) — la pantalla
