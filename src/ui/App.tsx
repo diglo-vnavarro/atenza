@@ -2213,9 +2213,19 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
           <label className="te-vis"><span>Traspasado a Atenza (trabaja aquí, no en SDP)</span><button className={'toggle' + (sel.enabled ? ' on' : '')} onClick={() => updateMember(sel.uid, { enabled: !sel.enabled })} aria-label="En Atenza" /></label>
           <label className="te-vis"><span>Usuario externo (fuera del dominio {corp})</span><button className={'toggle' + (sel.external ? ' on' : '')} onClick={() => updateMember(sel.uid, { external: !sel.external })} aria-label="Externo" /></label>
           <div><div className="k" style={{ marginBottom: 4 }}>Grupos de soporte</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{groups.length === 0 ? <span className="soft" style={{ fontSize: 12 }}>No hay grupos de soporte.</span> : groups.map((g) => <button key={g.id} className={'chipsel' + ((sel.groupIds ?? []).includes(g.id) ? ' on' : '')} onClick={() => toggleGroup(sel, g.id)}>{g.name}</button>)}</div>
+            {(() => { const assigned = groups.filter((g) => (sel.groupIds ?? []).includes(g.id)); const avail = groups.filter((g) => !(sel.groupIds ?? []).includes(g.id)).slice().sort((a, b) => a.name.localeCompare(b.name, 'es')); return <>
+              {assigned.length === 0 ? <span className="soft" style={{ fontSize: 12 }}>Sin asignar grupos de soporte.</span>
+                : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{assigned.map((g) => <span key={g.id} className="pill">{g.name}<button className="xbtn" style={{ marginLeft: 4 }} onClick={() => toggleGroup(sel, g.id)} aria-label="Quitar">✕</button></span>)}</div>}
+              {avail.length > 0 && <select value="" style={{ marginTop: 6, maxWidth: 260 }} onChange={(e) => { if (e.target.value) toggleGroup(sel, e.target.value); }}><option value="">＋ Añadir grupo de soporte…</option>{avail.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>}
+            </>; })()}
           </div>
-          {ugOptions.length > 0 && <div><div className="k" style={{ marginBottom: 4 }}>Grupos de usuarios (perfilado de catálogo)</div><ChipMulti options={ugOptions} selected={sel.userGroups ?? []} onChange={(ug) => updateMember(sel.uid, { userGroups: ug })} /></div>}
+          <div><div className="k" style={{ marginBottom: 4 }}>Grupos de usuarios (perfilado de catálogo)</div>
+            {(() => { const assigned = sel.userGroups ?? []; const avail = ugOptions.filter((g) => !assigned.includes(g)).slice().sort((a, b) => a.localeCompare(b, 'es')); return <>
+              {assigned.length === 0 ? <span className="soft" style={{ fontSize: 12 }}>Sin asignar grupos de usuarios.</span>
+                : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{assigned.map((g) => <span key={g} className="pill">{g}<button className="xbtn" style={{ marginLeft: 4 }} onClick={() => updateMember(sel.uid, { userGroups: assigned.filter((x) => x !== g) })} aria-label="Quitar">✕</button></span>)}</div>}
+              {avail.length > 0 && <select value="" style={{ marginTop: 6, maxWidth: 260 }} onChange={(e) => { if (e.target.value) updateMember(sel.uid, { userGroups: [...assigned, e.target.value] }); }}><option value="">＋ Añadir grupo de usuarios…</option>{avail.map((g) => <option key={g} value={g}>{g}</option>)}</select>}
+            </>; })()}
+          </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 6, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
             <button className="ghost" onClick={() => { setImpersonate(sel.uid); }}><Icon name="eye" size={13} /> Ver como este usuario</button>
             <button className="ghost" style={{ color: 'var(--crit)', marginLeft: 'auto' }} onClick={() => { if (confirm(`¿Eliminar a ${sel.name}?`)) { removeMember(sel.uid); setSelId(null); } }}><Icon name="trash" size={14} /> Eliminar</button>
