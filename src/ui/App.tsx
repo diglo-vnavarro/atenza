@@ -791,15 +791,15 @@ function AssetsModule({ tenant, canManage, onOpenTicket }: { tenant: TenantData;
             <label>{fcap('Nº de serie')}<input value={sel.serial ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { serial: e.target.value })} /></label>
           </div>
           <div className="nf-cols">
-            <label>{fcap('Tipo')}<select value={sel.productType ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { productType: e.target.value })}><option value="">—</option>{ASSET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></label>
+            <label>{fcap('Tipo')}<select value={sel.productType ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { productType: e.target.value })}><option value="">—</option>{ASSET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}{sel.productType && !ASSET_TYPES.includes(sel.productType) && <option value={sel.productType}>{sel.productType}</option>}</select></label>
             <label>{fcap('Estado')}<select value={sel.status} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { status: e.target.value as AssetStatus })}>{ASSET_STATUS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
           </div>
           <div className="nf-cols">
             <label>{fcap('Asignado a')}<select value={sel.assignedTo ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { assignedTo: e.target.value || null })}><option value="">— Sin asignar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>
-            <label>{fcap('Sede')}<select value={sel.site ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { site: e.target.value })}><option value="">—</option>{(tenant.sites ?? []).map((s) => <option key={s} value={s}>{s}</option>)}</select></label>
+            <label>{fcap('Sede')}<select value={sel.site ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { site: e.target.value })}><option value="">—</option>{(tenant.sites ?? []).map((s) => <option key={s} value={s}>{s}</option>)}{sel.site && !(tenant.sites ?? []).includes(sel.site) && <option value={sel.site}>{sel.site}</option>}</select></label>
           </div>
           <div className="nf-cols">
-            <label>{fcap('Departamento')}<select value={sel.department ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { department: e.target.value })}><option value="">—</option>{(tenant.departments ?? []).map((d) => <option key={d} value={d}>{d}</option>)}</select></label>
+            <label>{fcap('Departamento')}<select value={sel.department ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { department: e.target.value })}><option value="">—</option>{(tenant.departments ?? []).map((d) => <option key={d} value={d}>{d}</option>)}{sel.department && !(tenant.departments ?? []).includes(sel.department) && <option value={sel.department}>{sel.department}</option>}</select></label>
             <label>{fcap('Coste (€)')}<input type="number" value={sel.cost ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { cost: e.target.value ? Number(e.target.value) : null })} /></label>
           </div>
           <div className="nf-cols">

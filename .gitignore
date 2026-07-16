@@ -18,4 +18,5 @@ infra/terraform/.terraform.lock.hcl
 importer/imported-tickets.json
 importer/imported-categories.json
 importer/imported-masterdata.json
+importer/imported-assets.json
 importer/identity-map.json

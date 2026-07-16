@@ -844,7 +844,9 @@ export const useStore = create<State>()(
         // --- Activos / CMDB (módulo D) ---
         addAsset: (a) => {
           const t0 = activeT(get()); if (!t0) return '';
-          const nums = (t0.assets ?? []).map((x) => parseInt(x.id.replace(/\D/g, ''), 10) || 0);
+          // Solo cuenta los ids con forma AS-#### (los importados usan otro prefijo,
+          // p. ej. SDP-…, y no deben inflar la numeración manual).
+          const nums = (t0.assets ?? []).map((x) => { const m = /^AS-(\d+)$/.exec(x.id); return m ? parseInt(m[1]!, 10) : 0; });
           const id = 'AS-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, '0');
           const asset: Asset = { name: (a.name ?? '').trim() || 'Activo sin nombre', status: a.status ?? 'in_stock', assignedTo: a.assignedTo ?? null, createdAt: Date.now(), ...a, id };
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: [...(t.assets ?? []), asset] })) }));
