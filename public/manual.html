@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Manual de uso de Atenza (mesa de servicio) para el equipo de IT — la nueva lógica y sus diferencias con ServiceDesk Plus.">
+<meta name="theme-color" content="#2f6bff">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Atenza · Manual de uso</title>
+<style>
+  :root{
+    --bg:#f6f8fb; --surface:#ffffff; --raise:#fbfcfe; --sink:#eef1f6;
+    --ink:#14181f; --body:#3a424e; --muted:#6b7482; --line:#e3e7ee; --line-2:#d3d9e2;
+    --accent:#2f6bff; --accent-deep:#1e4fd6; --accent-weak:#eaf0fe;
+    --ok:#0f7a52; --ok-bg:#e4f6ee; --warn:#b4690e; --warn-bg:#fdf1de; --crit:#c62b3f; --crit-bg:#fde8ea;
+    --mono:ui-monospace,"SFMono-Regular","Cascadia Code",Menlo,Consolas,monospace;
+    --ui:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --shadow:0 1px 2px rgba(16,22,38,.04),0 8px 24px rgba(16,22,38,.06);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0e1116; --surface:#161a21; --raise:#1b2029; --sink:#1e242e;
+      --ink:#e8ebf0; --body:#c2c9d4; --muted:#8b93a1; --line:#252b34; --line-2:#333b46;
+      --accent:#5b8bff; --accent-deep:#7ba2ff; --accent-weak:#182238;
+      --ok:#4ecb93; --ok-bg:#123027; --warn:#e0a44a; --warn-bg:#332614; --crit:#f0788a; --crit-bg:#331a20;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 10px 30px rgba(0,0,0,.35);
+    }
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--ui);line-height:1.62;font-size:15px;-webkit-font-smoothing:antialiased}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.88em;background:var(--sink);padding:.1em .4em;border-radius:5px;color:var(--ink)}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 24px;display:grid;grid-template-columns:230px 1fr;gap:40px;align-items:start}
+  /* header */
+  header{background:linear-gradient(120deg,var(--accent-deep),var(--accent));color:#fff;padding:40px 0 34px}
+  header .wrap{display:block;max-width:1140px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{width:44px;height:44px;border-radius:11px;background:rgba(255,255,255,.16);display:grid;place-items:center;flex-shrink:0}
+  .logo svg{width:30px;height:30px}
+  header h1{margin:0;font-size:26px;font-weight:760;letter-spacing:-.02em}
+  header p{margin:4px 0 0;opacity:.9;font-size:14.5px}
+  .hmeta{margin-top:18px;display:flex;gap:8px;flex-wrap:wrap}
+  .hmeta span{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:4px 11px;font-size:12.5px}
+  /* nav */
+  nav{position:sticky;top:20px;font-size:13.5px;padding-top:34px}
+  nav .cap{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin:0 0 8px}
+  nav a{display:block;color:var(--body);padding:5px 10px;border-radius:7px;border-left:2px solid transparent}
+  nav a:hover{background:var(--sink);text-decoration:none;color:var(--ink)}
+  main{padding:34px 0 80px;min-width:0;max-width:74ch}
+  section{margin-bottom:38px;scroll-margin-top:20px}
+  h2{font-size:21px;color:var(--ink);font-weight:720;letter-spacing:-.01em;margin:0 0 6px;padding-top:6px}
+  h2 .n{color:var(--accent);font-family:var(--mono);font-size:16px;margin-right:8px}
+  h3{font-size:16px;color:var(--ink);font-weight:680;margin:22px 0 6px}
+  p{margin:0 0 12px}
+  ul,ol{margin:0 0 12px;padding-left:22px}
+  li{margin:4px 0}
+  .lead{font-size:16.5px;color:var(--body)}
+  /* cards & callouts */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 18px;box-shadow:var(--shadow);margin:0 0 14px}
+  .callout{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--raise);border-radius:10px;padding:12px 15px;margin:14px 0;font-size:14px}
+  .callout.new{border-left-color:var(--accent)}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+  .callout.tip{border-left-color:var(--ok);background:var(--ok-bg)}
+  .callout b{color:var(--ink)}
+  .callout .tag{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:8px;color:var(--accent)}
+  .callout.warn .tag{color:var(--warn)} .callout.tip .tag{color:var(--ok)}
+  /* tables */
+  .tbl{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0 14px;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .tbl th,.tbl td{text-align:left;padding:10px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  .tbl thead th{background:var(--sink);color:var(--ink);font-weight:680;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  .tbl tr:last-child td{border-bottom:none}
+  .tbl .sdp{color:var(--muted)}
+  .tbl .atz{color:var(--ink);font-weight:560}
+  .wrapx{overflow-x:auto}
+  /* badges / chips / kbd */
+  .badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid transparent}
+  .b-ok{color:var(--ok);background:var(--ok-bg);border-color:color-mix(in srgb,var(--ok) 25%,transparent)}
+  .b-accent{color:var(--accent);background:var(--accent-weak);border-color:color-mix(in srgb,var(--accent) 25%,transparent)}
+  .b-warn{color:var(--warn);background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 25%,transparent)}
+  .b-crit{color:var(--crit);background:var(--crit-bg);border-color:color-mix(in srgb,var(--crit) 25%,transparent)}
+  kbd{font-family:var(--ui);font-size:12px;background:var(--surface);border:1px solid var(--line-2);border-bottom-width:2px;border-radius:6px;padding:1px 7px;color:var(--ink);font-weight:600}
+  .steps{counter-reset:s;list-style:none;padding-left:0}
+  .steps>li{counter-increment:s;position:relative;padding-left:34px;margin:10px 0}
+  .steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:23px;height:23px;background:var(--accent);color:#fff;border-radius:50%;display:grid;place-items:center;font-size:12.5px;font-weight:700}
+  footer{border-top:1px solid var(--line);color:var(--muted);font-size:13px;padding:22px 0 40px}
+  @media (max-width:860px){ .wrap{grid-template-columns:1fr;gap:0} nav{position:static;padding-top:0;margin-top:8px;border-bottom:1px solid var(--line);padding-bottom:14px} main{max-width:100%} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <span class="logo"><svg viewBox="0 0 48 48"><path d="M14 35 L24 13 L34 35" fill="none" stroke="#fff" stroke-width="4.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.2 28 H29.8" fill="none" stroke="#fff" stroke-width="4.3" stroke-linecap="round"/></svg></span>
+      <div>
+        <h1>Atenza · Manual de uso</h1>
+        <p>La mesa de servicio de Diglo IT — cómo trabajar con la nueva lógica y en qué se diferencia de ServiceDesk&nbsp;Plus.</p>
+      </div>
+    </div>
+    <div class="hmeta"><span>Para el equipo de IT</span><span>Versión piloto</span><span>Instancia: Diglo ITSM</span></div>
+  </div>
+</header>
+
+<div class="wrap">
+  <nav>
+    <p class="cap">Contenido</p>
+    <a href="#intro">1 · Qué es Atenza</a>
+    <a href="#acceso">2 · Acceso y roles</a>
+    <a href="#cambios">3 · Novedades frente a SDP</a>
+    <a href="#solicitudes">4 · Trabajar con solicitudes</a>
+    <a href="#estados">5 · Estados y ciclo de vida</a>
+    <a href="#vistas">6 · Vistas y archivo</a>
+    <a href="#panel">7 · Panel de inicio</a>
+    <a href="#activos">8 · Activos (CMDB)</a>
+    <a href="#admin">9 · Administración</a>
+    <a href="#glosario">10 · Glosario SDP → Atenza</a>
+    <a href="#faq">11 · Preguntas frecuentes</a>
+  </nav>
+
+  <main>
+    <section id="intro">
+      <h2><span class="n">1</span>Qué es Atenza</h2>
+      <p class="lead">Atenza es nuestra mesa de servicio propia. Sustituye a ServiceDesk Plus (SDP) y se ha diseñado <b>a la medida de cómo trabajamos</b>, no como una copia de SDP.</p>
+      <p>Mantiene lo esencial de una herramienta ITSM (solicitudes, SLA, grupos de soporte, base de conocimiento, activos), pero simplifica el día a día y añade cosas que en SDP no teníamos: un <b>panel personalizable por persona</b>, integración con <b>OrganiZate</b> para ver la carga real de cada técnico y un <b>inventario de activos editable</b> enlazado a los tickets.</p>
+      <div class="callout tip"><span class="tag">En una frase</span> Menos formularios y plantillas, más flujo guiado: eliges <b>categoría de servicio + tipo</b>, y el sistema aplica el ciclo, el SLA y el grupo por ti.</div>
+    </section>
+
+    <section id="acceso">
+      <h2><span class="n">2</span>Acceso y roles</h2>
+      <p>Se entra desde el navegador con <b>tu cuenta de Google de Diglo</b> o con correo y contraseña. No hace falta instalar nada.</p>
+      <h3>Cómo se concede el acceso</h3>
+      <p>El acceso es <b>por aprobación</b>: para poder entrar tienes que tener una ficha de usuario activa en la instancia. Si aún no la tienes, la pantalla de inicio ofrece <b>«Solicitar acceso»</b>; le llega un aviso al administrador (campana con alerta) y, al aprobarla, quedas dentro.</p>
+      <div class="callout"><span class="tag">Nota</span> Ya no hay alta automática al hacer login. Si un compañero «no puede entrar», casi siempre es que le falta la ficha o la aprobación — no es un fallo de la app.</div>
+      <h3>Roles</h3>
+      <table class="tbl">
+        <thead><tr><th>Rol</th><th>Para quién</th><th>Qué puede hacer</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge b-accent">Administrador</span></td><td>Responsables de la mesa</td><td>Todo: configuración, usuarios, categorías, SLA, reglas, activos.</td></tr>
+          <tr><td><span class="badge b-ok">Técnico</span></td><td>Equipo de soporte</td><td>Gestionar solicitudes (asignar, cambiar estado, cerrar), activos y base de conocimiento.</td></tr>
+          <tr><td><span class="badge b-warn">Solicitante</span></td><td>Resto de la organización</td><td>Crear y seguir sus propias solicitudes.</td></tr>
+        </tbody>
+      </table>
+      <p>Las capacidades son <b>granulares por rol</b>: un administrador puede definir roles a medida (p. ej. un técnico que ve todo pero no puede cerrar).</p>
+    </section>
+
+    <section id="cambios">
+      <h2><span class="n">3</span>Novedades frente a SDP</h2>
+      <p>Lo más importante de este manual: dónde Atenza <b>se separa a propósito</b> de cómo funcionaba SDP.</p>
+      <div class="wrapx">
+      <table class="tbl">
+        <thead><tr><th>Área</th><th>Antes (SDP)</th><th>Ahora (Atenza)</th></tr></thead>
+        <tbody>
+          <tr><td>Crear solicitud</td><td class="sdp">Elegir una plantilla concreta entre muchas.</td><td class="atz">Elegir <b>Categoría de servicio + Tipo</b> (Incidencia / Petición). Un solo formulario.</td></tr>
+          <tr><td>Cambio de estado</td><td class="sdp">Desplegable de estados.</td><td class="atz"><b>Barra de estados por clic</b> arriba del ticket: el actual coloreado y los siguientes en blanco. Respeta el flujo configurado.</td></tr>
+          <tr><td>Estado inicial</td><td class="sdp">Variable según plantilla.</td><td class="atz">Nace en <b>«Abierta»</b> (o el primer estado del ciclo si la categoría tiene flujo).</td></tr>
+          <tr><td>Activos afectados</td><td class="sdp">Campo de texto libre.</td><td class="atz"><b>Selector del inventario</b>: eliges activos reales; quedan enlazados en ambos sentidos.</td></tr>
+          <tr><td>Asignación de técnico</td><td class="sdp">Cualquier técnico.</td><td class="atz">El combo muestra <b>solo los técnicos del grupo de soporte</b> de la categoría.</td></tr>
+          <tr><td>Archivado</td><td class="sdp">Manual / por antigüedad.</td><td class="atz"><b>Solo por estado terminal</b> (Cerrada / Cancelada / Resuelta). Lo abierto nunca se archiva por edad.</td></tr>
+          <tr><td>Panel de inicio</td><td class="sdp">Fijo, igual para todos.</td><td class="atz"><b>Modular por usuario</b>: mueve tarjetas, cambia su ancho, añade visuales; incluye <b>evolución temporal</b>.</td></tr>
+          <tr><td>Activos</td><td class="sdp">Módulo de SDP.</td><td class="atz"><b>CMDB propio editable</b>: alta/edición/borrado, asignación a usuario y vínculo con tickets.</td></tr>
+          <tr><td>Capacidad del equipo</td><td class="sdp">—</td><td class="atz">Carga de cada técnico <b>vía OrganiZate</b> en el panel.</td></tr>
+          <tr><td>Acceso de usuarios</td><td class="sdp">Provisión manual.</td><td class="atz">Solicitud + <b>aprobación</b> con alerta al administrador.</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section id="solicitudes">
+      <h2><span class="n">4</span>Trabajar con solicitudes</h2>
+      <h3>Crear una solicitud</h3>
+      <ol class="steps">
+        <li>Pulsa <kbd>＋ Nueva solicitud</kbd> (arriba a la izquierda).</li>
+        <li>Elige la <b>Categoría de servicio</b> y el <b>Tipo</b> (Incidencia o Petición). Eso decide el ciclo de vida, el SLA y el grupo de soporte.</li>
+        <li>Rellena asunto, descripción y los campos de la categoría (prioridad, impacto, <b>Sede</b> — por defecto «Base Site», <b>Correos a notificar</b>, <b>Activos afectados</b>…).</li>
+        <li>Crea. El ticket queda en <b>Abierta</b> (o el primer estado del flujo) y, si la categoría lo define, se asigna al grupo correspondiente.</li>
+      </ol>
+      <h3>La ficha del ticket</h3>
+      <p>Se abre en una ventana amplia con pestañas: <b>Detalles</b>, <b>Resolución</b>, <b>Histórico</b>, <b>Tareas</b>, <b>Tiempo</b>, <b>Aprobaciones</b>, <b>Adjuntos</b> y <b>Conversaciones</b>. Arriba del todo está siempre la barra de estados.</p>
+      <div class="callout"><span class="tag">Activos afectados</span> En Detalles verás un selector para vincular uno o varios activos del inventario. Desde la ficha del activo (módulo Activos) podrás ver y abrir sus tickets.</div>
+    </section>
+
+    <section id="estados">
+      <h2><span class="n">5</span>Estados y ciclo de vida</h2>
+      <p>El cambio de estado es <b>por clic</b>, no por desplegable. En la barra superior del ticket:</p>
+      <ul>
+        <li>El <b>estado actual</b> aparece coloreado (y con <kbd>⏸</kbd> si su temporizador de SLA está en pausa).</li>
+        <li>A la derecha, en blanco, los <b>estados a los que puedes ir</b>. Un clic cambia el estado.</li>
+      </ul>
+      <h3>Se respeta el flujo</h3>
+      <p>Los estados ofrecidos son <b>exactamente los que define el ciclo de vida</b> de la categoría. Por ejemplo, desde «Pendiente de terceros» el flujo puede llevar a «Pendiente Banco», «Pendiente Usuario» o «Trabajando»; para cerrar, primero pasas a «Trabajando».</p>
+      <p>Si un ticket está en un estado que su ciclo no reconoce (datos antiguos importados de SDP), Atenza ofrece <b>todos los estados del ciclo</b> como recuperación, para que nunca se quede bloqueado.</p>
+      <div class="callout warn"><span class="tag">Cierre</span> Al pasar a <b>Resuelta</b> o <b>Cerrada</b>, si faltan requisitos de cierre (p. ej. el <b>texto de resolución</b>), el botón aparece desactivado hasta que los completes. <b>Cancelada</b> no exige resolución.</div>
+      <p>Las categorías sin ciclo de vida usan el flujo por defecto <b>Abierta → En curso → Cerrada / Cancelada</b>.</p>
+    </section>
+
+    <section id="vistas">
+      <h2><span class="n">6</span>Vistas y archivo</h2>
+      <table class="tbl">
+        <thead><tr><th>Vista</th><th>Qué muestra</th></tr></thead>
+        <tbody>
+          <tr><td><b>Solicitudes</b></td><td>La cola completa (técnicos/admin). Pestañas <b>Todas / Sin asignar / Mías</b> y buscador por id, asunto, solicitante o técnico.</td></tr>
+          <tr><td><b>Asignadas a mí</b></td><td>Tus tickets, con filtro <b>Pendientes / Todas / Archivadas</b>.</td></tr>
+          <tr><td><b>Mis solicitudes</b></td><td>Las que has creado tú (vista de solicitante).</td></tr>
+          <tr><td><b>Archivo</b></td><td>Solo tickets en estado terminal. Búsqueda por múltiples campos; se cargan bajo demanda para no ralentizar la bandeja.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout"><span class="tag">Clave</span> Un ticket <b>abierto nunca se archiva por antigüedad</b>. Solo salen de la bandeja en vivo los que están <b>Cerrada, Cancelada o Resuelta</b>.</div>
+    </section>
+
+    <section id="panel">
+      <h2><span class="n">7</span>Panel de inicio</h2>
+      <p>El panel (Inicio) es <b>personalizable por usuario</b> y se guarda para ti.</p>
+      <ol class="steps">
+        <li>Pulsa <kbd>Personalizar</kbd>.</li>
+        <li><b>Arrastra</b> las tarjetas para reordenarlas.</li>
+        <li>Ajusta su <b>ancho</b> (1 a 4 columnas) con el selector de cada tarjeta.</li>
+        <li><b>Añade o quita</b> visuales desde «＋ Añadir visual». Pulsa <kbd>Hecho</kbd> al terminar.</li>
+      </ol>
+      <p>Visuales disponibles: indicadores (abiertas / sin asignar / vencidas / mías), <b>solicitudes por técnico con su capacidad (OrganiZate)</b>, <b>evolución de tickets</b> (entrantes vs. cerradas, con periodo días/semanas/meses), por prioridad, por tipo, por estado, cola por grupo, estado del SLA y resumen de la instancia.</p>
+    </section>
+
+    <section id="activos">
+      <h2><span class="n">8</span>Activos (CMDB)</h2>
+      <p>Módulo nuevo, <b>vivo y editable</b>, accesible desde la barra lateral (equipo de IT). Contiene el inventario importado de SDP.</p>
+      <ul>
+        <li><b>Listado</b> filtrable (texto, tipo, estado, persona) y ordenable por columnas, con contadores por estado que también filtran.</li>
+        <li><b>Ficha</b> con todos los datos: nombre, etiqueta, tipo, nº de serie, estado, <b>usuario asignado</b>, sede, departamento, fabricante/modelo, compra, garantía, coste y notas.</li>
+        <li><b>Alta / edición / borrado</b> en línea: cada cambio se guarda al momento. Botón <kbd>＋ Nuevo activo</kbd> para crear.</li>
+        <li><b>Vínculo con tickets</b>: desde la ficha del activo ves sus tickets y los abres; desde el ticket enlazas los activos afectados.</li>
+      </ul>
+      <div class="callout tip"><span class="tag">Estados del activo</span> <span class="badge b-ok">En uso</span> <span class="badge b-accent">En stock</span> <span class="badge b-warn">En reparación</span> <span class="badge">Retirado</span> <span class="badge b-crit">Extraviado</span></div>
+    </section>
+
+    <section id="admin">
+      <h2><span class="n">9</span>Administración</h2>
+      <p>Zona para administradores. Reúne la configuración de la instancia:</p>
+      <ul>
+        <li><b>Usuarios</b>: listado filtrable y ordenable, ficha por usuario, invitaciones y <b>solicitudes de acceso</b> (con alerta en la campana). Traspaso a Atenza integrado en la ficha.</li>
+        <li><b>Grupos de soporte</b> y <b>Grupos de usuarios</b>: miembros por desplegable de selección múltiple.</li>
+        <li><b>Categorías de servicio</b>: el eje del sistema (tipo admitido, ciclo por tipo, grupo, campos propios).</li>
+        <li><b>Estados</b>, <b>SLA</b>, <b>Reglas de negocio</b> y <b>de formulario</b>, <b>Datos maestros</b> (sedes y departamentos) y <b>Roles</b>.</li>
+      </ul>
+    </section>
+
+    <section id="glosario">
+      <h2><span class="n">10</span>Glosario SDP → Atenza</h2>
+      <div class="wrapx">
+      <table class="tbl">
+        <thead><tr><th>ServiceDesk Plus</th><th>Atenza</th></tr></thead>
+        <tbody>
+          <tr><td class="sdp">Request</td><td class="atz">Solicitud / Ticket</td></tr>
+          <tr><td class="sdp">Requester</td><td class="atz">Solicitante</td></tr>
+          <tr><td class="sdp">Technician</td><td class="atz">Técnico</td></tr>
+          <tr><td class="sdp">Request Template</td><td class="atz">Categoría de servicio + Tipo</td></tr>
+          <tr><td class="sdp">Status</td><td class="atz">Estado (barra por clic)</td></tr>
+          <tr><td class="sdp">Group</td><td class="atz">Grupo de soporte</td></tr>
+          <tr><td class="sdp">Site</td><td class="atz">Sede</td></tr>
+          <tr><td class="sdp">Asset</td><td class="atz">Activo (módulo CMDB)</td></tr>
+          <tr><td class="sdp">Solutions</td><td class="atz">Base de conocimiento</td></tr>
+          <tr><td class="sdp">Emails to notify</td><td class="atz">Correos a notificar</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2><span class="n">11</span>Preguntas frecuentes</h2>
+      <h3>No me cargan las solicitudes nuevas</h3>
+      <p>Comprueba que estás en la vista correcta. Si el catálogo de creación no muestra categorías, revisa con un administrador que tu usuario tenga el grupo/permiso adecuado.</p>
+      <h3>Un compañero no puede entrar</h3>
+      <p>Necesita ficha de usuario activa. Que use <b>«Solicitar acceso»</b> en la pantalla de inicio; un administrador lo aprueba desde <b>Administración → Usuarios → Solicitudes de acceso</b>.</p>
+      <h3>No puedo cerrar un ticket</h3>
+      <p>El botón de cierre se desactiva si faltan requisitos (típicamente el <b>texto de resolución</b>). Complétalos en la pestaña Resolución.</p>
+      <h3>No veo el botón para ir a un estado</h3>
+      <p>Solo se ofrecen los estados que permite el flujo de la categoría. Para llegar a un estado no contiguo, pasa antes por el estado intermedio que sí permite el flujo.</p>
+    </section>
+
+    <footer>
+      Atenza · Mesa de servicio de Diglo IT — manual interno. ¿Falta algo o encuentras un error? Avisa al equipo de la mesa de servicio.
+    </footer>
+  </main>
+</div>
+
+</body>
+</html>
