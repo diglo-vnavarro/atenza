@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, Background, BackgroundVariant, Controls, MiniMap, Handle, Position, MarkerType, Panel,
   useNodesState, useEdgesState, type Node, type Edge, type Connection, type NodeProps, type ReactFlowInstance,
@@ -353,40 +353,177 @@ export function App() {
 }
 
 // Panel de inicio: KPIs + widgets calculados a partir de los datos reales del tenant.
-// ---- Gráficos SVG (siguen los tokens de la app; sin dependencias) ----
-function Donut({ data, size = 132, thickness = 20 }: { data: { label: string; value: number; color: string }[]; size?: number; thickness?: number }) {
+// ---- Gráficos SVG modernos (siguen los tokens de la app; sin dependencias) ----
+type CSS = import('react').CSSProperties;
+
+// Aro de anillo con separación entre segmentos, total al centro y leyenda con %.
+function Donut({ data, size = 128, thickness = 15 }: { data: { label: string; value: number; color: string }[]; size?: number; thickness?: number }) {
   const total = data.reduce((a, d) => a + d.value, 0);
   const r = (size - thickness) / 2; const c = 2 * Math.PI * r; const cx = size / 2;
+  const gap = total > 1 ? 3 : 0; // hueco de superficie entre segmentos
+  const parts = data.filter((d) => d.value > 0);
   let off = 0;
-  return <div style={{ display: 'flex', gap: 18, alignItems: 'center', flexWrap: 'wrap' }}>
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ flexShrink: 0 }}>
+  return <div className="donut">
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="donut-svg">
+      <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--sink)" strokeWidth={thickness} />
       <g transform={`rotate(-90 ${cx} ${cx})`}>
-        {total === 0 ? <circle cx={cx} cy={cx} r={r} fill="none" stroke="var(--line)" strokeWidth={thickness} />
-          : data.filter((d) => d.value > 0).map((d, i) => { const len = (d.value / total) * c; const seg = <circle key={i} cx={cx} cy={cx} r={r} fill="none" stroke={d.color} strokeWidth={thickness} strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-off} strokeLinecap="butt" />; off += len; return seg; })}
+        {parts.map((d, i) => { const len = (d.value / total) * c; const draw = Math.max(0.001, len - gap); const seg = <circle key={i} cx={cx} cy={cx} r={r} fill="none" stroke={d.color} strokeWidth={thickness} strokeDasharray={`${draw} ${c - draw}`} strokeDashoffset={-off} strokeLinecap="round" />; off += len; return seg; })}
       </g>
-      <text x={cx} y={cx - 1} textAnchor="middle" fontSize={22} fontWeight={700} fill="var(--ink)" fontFamily="var(--mono)">{total}</text>
-      <text x={cx} y={cx + 15} textAnchor="middle" fontSize={9.5} fill="var(--ink-faint)">TOTAL</text>
+      <text x={cx} y={cx - 2} textAnchor="middle" fontSize={26} fontWeight={760} fill="var(--ink)" fontFamily="var(--mono)" letterSpacing="-0.03em">{total}</text>
+      <text x={cx} y={cx + 15} textAnchor="middle" fontSize={9} fill="var(--ink-faint)" letterSpacing="0.08em">TOTAL</text>
     </svg>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 130, flex: 1 }}>{data.filter((d) => d.value > 0).map((d) => <span key={d.label} style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5 }}><span style={{ width: 10, height: 10, borderRadius: 3, background: d.color, flexShrink: 0 }} /><span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.label}</span><b className="mono">{d.value}</b></span>)}
+    <div className="donut-legend">{parts.map((d) => <div key={d.label} className="lg-row" title={`${d.label}: ${d.value}`}>
+      <span className="lg-dot" style={{ background: d.color }} /><span className="lg-lbl">{d.label}</span>
+      <b className="mono">{d.value}</b><span className="lg-pct">{Math.round((d.value / total) * 100)}%</span>
+    </div>)}
       {total === 0 && <span className="soft" style={{ fontSize: 12 }}>Sin datos.</span>}</div>
   </div>;
 }
-function DayBars({ data, color = 'var(--accent)' }: { data: { label: string; value: number }[]; color?: string }) {
-  const max = Math.max(1, ...data.map((d) => d.value));
-  return <div className="daybars">{data.map((d, i) => <div key={i} className="daybar" title={`${d.label}: ${d.value}`}>
-    <span className="daybar-track"><span className="daybar-fill" style={{ height: `${(d.value / max) * 100}%`, background: color }} /></span>
-    <span className="daybar-l">{d.label}</span>
+
+// Barras horizontales con extremo redondeado y valor al final.
+function BarList({ rows, color }: { rows: { label: string; value: number; color?: string }[]; color?: string }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  if (rows.length === 0) return <div className="empty" style={{ padding: '18px 16px' }}>Sin datos.</div>;
+  return <div className="barlist">{rows.map((r) => <div key={r.label} className="bl-row" title={`${r.label}: ${r.value}`}>
+    <span className="bl-lbl">{r.label}</span>
+    <span className="bl-track"><span className="bl-fill" style={{ width: (r.value / max * 100) + '%', background: r.color ?? color ?? 'var(--accent)' }} /></span>
+    <b className="bl-n mono">{r.value}</b>
   </div>)}</div>;
 }
-function Gauge({ value, max, color = 'var(--warn)' }: { value: number; max: number; color?: string }) {
-  const frac = max ? Math.min(1, value / max) : 0; const R = 48, CX = 60, CY = 58;
+
+// Columnas verticales (recibidas por día) con extremo redondeado y hover.
+function MiniBars({ data, color = 'var(--accent)' }: { data: { label: string; value: number; full?: string }[]; color?: string }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  return <div className="minibars">{data.map((d, i) => <div key={i} className="mb-col" title={`${d.full ?? d.label}: ${d.value}`}>
+    <span className="mb-v">{d.value || ''}</span>
+    <span className="mb-track"><span className="mb-fill" style={{ height: `${Math.max(d.value === 0 ? 0 : 6, (d.value / max) * 100)}%`, background: color }} /></span>
+    <span className="mb-l">{d.label}</span>
+  </div>)}</div>;
+}
+
+// Semicírculo de proporción (p. ej. vencidas sobre el total con SLA).
+function Gauge({ value, max, color = 'var(--warn)', caption }: { value: number; max: number; color?: string; caption?: string }) {
+  const frac = max ? Math.min(1, value / max) : 0; const R = 46, CX = 62, CY = 60;
   const pt = (f: number): [number, number] => [CX + R * Math.cos(Math.PI * (1 - f)), CY - R * Math.sin(Math.PI * (1 - f))];
   const [ex, ey] = pt(frac);
-  return <svg width={120} height={70} viewBox="0 0 120 70">
-    <path d={`M12 58 A48 48 0 0 1 108 58`} fill="none" stroke="var(--line)" strokeWidth={10} strokeLinecap="round" />
-    {frac > 0 && <path d={`M12 58 A48 48 0 ${frac > 0.5 ? 1 : 0} 1 ${ex} ${ey}`} fill="none" stroke={color} strokeWidth={10} strokeLinecap="round" />}
-    <text x={60} y={52} textAnchor="middle" fontSize={24} fontWeight={700} fontFamily="var(--mono)" fill="var(--ink)">{value}</text>
+  return <svg width={124} height={78} viewBox="0 0 124 78" style={{ flexShrink: 0 }}>
+    <path d="M16 60 A46 46 0 0 1 108 60" fill="none" stroke="var(--sink)" strokeWidth={11} strokeLinecap="round" />
+    {frac > 0 && <path d={`M16 60 A46 46 0 ${frac > 0.5 ? 1 : 0} 1 ${ex} ${ey}`} fill="none" stroke={color} strokeWidth={11} strokeLinecap="round" />}
+    <text x={62} y={52} textAnchor="middle" fontSize={26} fontWeight={760} fontFamily="var(--mono)" fill="var(--ink)" letterSpacing="-0.03em">{value}</text>
+    {caption && <text x={62} y={72} textAnchor="middle" fontSize={9.5} fill="var(--ink-faint)" letterSpacing="0.05em">{caption}</text>}
   </svg>;
+}
+
+// Serie temporal: líneas + relleno de área, rejilla tenue, extremo destacado y
+// capa de hover (línea guía + tooltip). Sin doble eje (una sola escala Y).
+function AreaTimeline({ labels, series, height = 216 }: { labels: string[]; series: { name: string; color: string; values: number[] }[]; height?: number }) {
+  const [hi, setHi] = useState<number | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const n = labels.length;
+  const W = 720, H = height, padL = 30, padR = 14, padT = 14, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const rawMax = Math.max(1, ...series.flatMap((s) => s.values));
+  // techo “bonito”: 1·10ⁿ, 2·10ⁿ o 5·10ⁿ
+  const niceMax = (m: number) => { const p = Math.pow(10, Math.floor(Math.log10(m))); const f = m / p; const step = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10; return step * p; };
+  const max = niceMax(rawMax);
+  const x = (i: number) => padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  const y = (v: number) => padT + (1 - v / max) * plotH;
+  const ticks = [0, 0.5, 1].map((f) => Math.round(max * f));
+  const linePath = (vals: number[]) => vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const areaPath = (vals: number[]) => `${linePath(vals)} L${x(n - 1).toFixed(1)} ${(padT + plotH).toFixed(1)} L${x(0).toFixed(1)} ${(padT + plotH).toFixed(1)} Z`;
+  const onMove = (e: import('react').MouseEvent) => { const el = wrapRef.current; if (!el) return; const rect = el.getBoundingClientRect(); const f = (e.clientX - rect.left) / rect.width; setHi(Math.max(0, Math.min(n - 1, Math.round(f * (n - 1))))); };
+  const empty = series.every((s) => s.values.every((v) => v === 0));
+  // etiquetas del eje X: primera, media y última (evita solape)
+  const xIdx = n <= 1 ? [0] : [...new Set([0, Math.floor((n - 1) / 2), n - 1])];
+  return <div className="areawrap">
+    <div className="area-legend">{series.map((s) => <span key={s.name} className="al-item"><span className="al-line" style={{ background: s.color }} />{s.name}<b className="mono">{s.values.reduce((a, b) => a + b, 0)}</b></span>)}</div>
+    <div className="area-plot" ref={wrapRef} onMouseMove={onMove} onMouseLeave={() => setHi(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block' }}>
+        <defs>{series.map((s, i) => <linearGradient key={i} id={`atg${i}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={s.color} stopOpacity={0.22} /><stop offset="100%" stopColor={s.color} stopOpacity={0} /></linearGradient>)}</defs>
+        {ticks.map((t, i) => { const yy = y(t); return <g key={i}><line x1={padL} y1={yy} x2={W - padR} y2={yy} stroke="var(--line)" strokeWidth={1} strokeDasharray={i === 0 ? '' : '3 4'} opacity={i === 0 ? 1 : 0.7} /><text x={padL - 6} y={yy + 3} textAnchor="end" fontSize={10} fill="var(--ink-faint)" fontFamily="var(--mono)">{t}</text></g>; })}
+        {xIdx.map((i) => <text key={i} x={x(i)} y={H - 8} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'} fontSize={10} fill="var(--ink-faint)">{labels[i]}</text>)}
+        {!empty && series.map((s, i) => <path key={i} d={areaPath(s.values)} fill={`url(#atg${i})`} />)}
+        {!empty && series.map((s, i) => <path key={i} d={linePath(s.values)} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />)}
+        {!empty && series.map((s, i) => <circle key={i} cx={x(n - 1)} cy={y(s.values[n - 1] ?? 0)} r={3.4} fill="var(--surface)" stroke={s.color} strokeWidth={2} />)}
+        {hi != null && !empty && <line x1={x(hi)} y1={padT} x2={x(hi)} y2={padT + plotH} stroke="var(--ink-faint)" strokeWidth={1} strokeDasharray="3 3" />}
+        {hi != null && !empty && series.map((s, i) => <circle key={i} cx={x(hi)} cy={y(s.values[hi] ?? 0)} r={4} fill={s.color} stroke="var(--surface)" strokeWidth={2} />)}
+      </svg>
+      {empty && <div className="area-empty">Sin datos en el periodo.</div>}
+      {hi != null && !empty && <div className="area-tip" style={{ left: `${(x(hi) / W) * 100}%`, transform: `translateX(${hi > n / 2 ? '-100%' : '0'}) translateX(${hi > n / 2 ? -8 : 8}px)` } as CSS}>
+        <div className="at-h">{labels[hi]}</div>
+        {series.map((s) => <div key={s.name} className="at-r"><span className="al-line" style={{ background: s.color }} />{s.name}<b className="mono">{s.values[hi] ?? 0}</b></div>)}
+      </div>}
+    </div>
+  </div>;
+}
+
+// ---- Panel modular: catálogo de visuales, layout por usuario (localStorage) ----
+type WType = 'kpis' | 'evolucion' | 'tecnico' | 'recibidas' | 'prioridad' | 'tipo' | 'estado' | 'grupo' | 'sla' | 'resumen';
+interface DashW { id: string; type: WType; span: 1 | 2 | 3 | 4 }
+const W_META: Record<WType, { title: string; span: 1 | 2 | 3 | 4; icon: string; desc: string }> = {
+  kpis: { title: 'Indicadores', span: 4, icon: 'sliders', desc: 'Abiertas · sin asignar · vencidas · mías' },
+  evolucion: { title: 'Evolución de tickets', span: 4, icon: 'zap', desc: 'Entrantes vs. cerradas en el tiempo' },
+  tecnico: { title: 'Solicitudes por técnico', span: 2, icon: 'users', desc: 'Carga y capacidad por persona' },
+  recibidas: { title: 'Recibidas · últimos 14 días', span: 2, icon: 'calendar', desc: 'Entradas diarias recientes' },
+  prioridad: { title: 'Abiertas por prioridad', span: 1, icon: 'list', desc: 'Reparto por prioridad' },
+  tipo: { title: 'Por tipo', span: 1, icon: 'ticket', desc: 'Incidencias vs. peticiones' },
+  estado: { title: 'Por estado', span: 2, icon: 'list', desc: 'Reparto por estado actual' },
+  grupo: { title: 'Cola por grupo de soporte', span: 2, icon: 'inbox', desc: 'Carga por grupo' },
+  sla: { title: 'Estado del SLA', span: 1, icon: 'shield', desc: 'Vencidas / cerca / en plazo' },
+  resumen: { title: 'Resumen de la instancia', span: 1, icon: 'server', desc: 'Conteos de configuración' },
+};
+const DEFAULT_LAYOUT = (): DashW[] => [
+  { id: 'w-kpis', type: 'kpis', span: 4 },
+  { id: 'w-evo', type: 'evolucion', span: 4 },
+  { id: 'w-tec', type: 'tecnico', span: 2 },
+  { id: 'w-rec', type: 'recibidas', span: 2 },
+  { id: 'w-pri', type: 'prioridad', span: 1 },
+  { id: 'w-tip', type: 'tipo', span: 1 },
+  { id: 'w-sla', type: 'sla', span: 1 },
+  { id: 'w-res', type: 'resumen', span: 1 },
+  { id: 'w-est', type: 'estado', span: 2 },
+  { id: 'w-gru', type: 'grupo', span: 2 },
+];
+const DASH_KEY = (uid: string) => `atenza-dash-v2-${uid}`;
+function useDashLayout(uid: string) {
+  const key = DASH_KEY(uid);
+  const read = (): DashW[] => { try { const s = localStorage.getItem(key); if (s) { const p = JSON.parse(s) as DashW[]; if (Array.isArray(p) && p.length) return p; } } catch { /* ignora */ } return DEFAULT_LAYOUT(); };
+  const [layout, setLayout] = useState<DashW[]>(read);
+  useEffect(() => { setLayout(read()); /* recarga al cambiar de usuario */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  useEffect(() => { try { localStorage.setItem(key, JSON.stringify(layout)); } catch { /* ignora */ } }, [key, layout]);
+  return [layout, setLayout] as const;
+}
+
+// ---- Serie temporal: cubos por periodo y cierre de ticket ----
+type Period = 'dias' | 'semanas' | 'meses';
+interface Bucket { start: number; end: number; label: string }
+function makeBuckets(period: Period, now: number): Bucket[] {
+  const DAY = 86400000; const sod = (ms: number) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  if (period === 'dias') { const start = sod(now) - 29 * DAY; return Array.from({ length: 30 }, (_, i) => { const s = start + i * DAY; return { start: s, end: s + DAY, label: new Date(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) }; }); }
+  if (period === 'semanas') { const dow = (new Date(sod(now)).getDay() + 6) % 7; const thisMon = sod(now) - dow * DAY; const start = thisMon - 11 * 7 * DAY; return Array.from({ length: 12 }, (_, i) => { const s = start + i * 7 * DAY; return { start: s, end: s + 7 * DAY, label: new Date(s).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }) }; }); }
+  const d = new Date(now); const out: Bucket[] = [];
+  for (let k = 11; k >= 0; k--) { const s = new Date(d.getFullYear(), d.getMonth() - k, 1).getTime(); const e = new Date(d.getFullYear(), d.getMonth() - k + 1, 1).getTime(); out.push({ start: s, end: e, label: new Date(s).toLocaleDateString('es-ES', { month: 'short' }) }); }
+  return out;
+}
+const bucketIdx = (b: Bucket[], ms: number) => { for (let i = 0; i < b.length; i++) if (ms >= b[i]!.start && ms < b[i]!.end) return i; return -1; };
+const closedAtOf = (t: StoredTicket): number | undefined => { const h = t.statusHistory; return h && h.length ? h[h.length - 1]?.from : undefined; };
+
+function DashCard({ w, edit, over, bare, dragH, onSpan, onRemove, headExtra, children }: { w: DashW; edit: boolean; over: boolean; bare?: boolean; dragH: Record<string, unknown>; onSpan: (s: 1 | 2 | 3 | 4) => void; onRemove: () => void; headExtra?: import('react').ReactNode; children: import('react').ReactNode }) {
+  const meta = W_META[w.type];
+  const showHead = edit || !bare;
+  return <div className={'dcard' + (bare ? ' plain' : '') + (over ? ' over' : '') + (edit ? ' editing' : '')} style={{ gridColumn: `span ${w.span}` } as CSS} draggable={edit} {...dragH}>
+    {showHead && <div className="dcard-h">
+      {edit && <span className="dc-grip" title="Arrastra para reordenar">⠿</span>}
+      <Icon name={meta.icon} size={14} /><span className="dc-t">{meta.title}</span>
+      <div className="dc-tools">
+        {headExtra}
+        {edit && <div className="spanpick" title="Ancho en columnas">{([1, 2, 3, 4] as const).map((s) => <button key={s} className={w.span === s ? 'on' : ''} onClick={() => onSpan(s)}>{s}</button>)}</div>}
+        {edit && <button className="dc-x" onClick={onRemove} title="Quitar visual"><Icon name="trash" size={13} /></button>}
+      </div>
+    </div>}
+    <div className={bare ? 'dcard-bare' : 'dcard-b'}>{children}</div>
+  </div>;
 }
 
 function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<typeof buildUser>; go: (v: 'tickets' | 'assigned', f?: 'all' | 'unassigned' | 'mine') => void }) {
@@ -408,16 +545,14 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   // Por estado.
   const byState = new Map<string, number>();
   for (const t of tickets) { const l = statusView(tenant, t).label; byState.set(l, (byState.get(l) ?? 0) + 1); }
-  const stateRows = [...byState.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const stateMax = Math.max(1, ...stateRows.map((r) => r[1]));
   const STC = ['var(--accent)', '#0891b2', 'var(--warn)', '#be185d', '#0f766e', 'var(--st-closed)'];
+  const stateRows = [...byState.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value], i) => ({ label, value, color: STC[i % STC.length] }));
 
   // Cola por grupo de soporte.
   const groupName = (id?: string | null) => tenant.groups.find((g) => g.id === id)?.name ?? 'Sin grupo';
   const byGroup = new Map<string, number>();
   for (const t of tickets) { const g = groupName(t.groupId); byGroup.set(g, (byGroup.get(g) ?? 0) + 1); }
-  const groupRows = [...byGroup.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
-  const groupMax = Math.max(1, ...groupRows.map((r) => r[1]));
+  const groupRows = [...byGroup.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value]) => ({ label, value }));
 
   // Por prioridad (donut, con el color del catálogo de prioridades).
   const byPrio = new Map<string, { n: number; color: string }>();
@@ -433,74 +568,127 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   const t0 = sod(now) - 13 * DAY;
   const recv = Array.from({ length: 14 }, (_, i) => ({ day: t0 + i * DAY, value: 0 }));
   for (const t of tickets) { if (!t.createdAt) continue; const idx = Math.round((sod(t.createdAt) - t0) / DAY); if (idx >= 0 && idx < 14) recv[idx]!.value++; }
-  const recvData = recv.map((r) => ({ label: new Date(r.day).toLocaleDateString('es-ES', { day: '2-digit' }), value: r.value }));
+  const recvData = recv.map((r) => ({ label: new Date(r.day).toLocaleDateString('es-ES', { day: '2-digit' }), full: new Date(r.day).toLocaleDateString('es-ES', { weekday: 'short', day: '2-digit', month: 'short' }), value: r.value }));
 
+  // Layout modular por usuario + modo edición.
+  const [layout, setLayout] = useDashLayout(user.uid);
+  const [edit, setEdit] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const seq = useRef(0);
+  const dragId = useRef<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const setSpan = (id: string, s: 1 | 2 | 3 | 4) => setLayout((p) => p.map((w) => w.id === id ? { ...w, span: s } : w));
+  const removeW = (id: string) => setLayout((p) => p.filter((w) => w.id !== id));
+  const addW = (type: WType) => { setLayout((p) => [...p, { id: `w-${type}-${Date.now()}-${seq.current++}`, type, span: W_META[type].span }]); setAddOpen(false); };
+  const moveBefore = (src: string | null, dst: string) => { if (!src || src === dst) return; setLayout((p) => { const a = [...p]; const si = a.findIndex((w) => w.id === src); if (si < 0) return p; const [m] = a.splice(si, 1); const di = a.findIndex((w) => w.id === dst); a.splice(di, 0, m!); return a; }); };
+  const dragH = (id: string): Record<string, unknown> => edit ? {
+    onDragStart: (e: import('react').DragEvent) => { dragId.current = id; e.dataTransfer.effectAllowed = 'move'; },
+    onDragOver: (e: import('react').DragEvent) => { e.preventDefault(); if (overId !== id) setOverId(id); },
+    onDrop: (e: import('react').DragEvent) => { e.preventDefault(); moveBefore(dragId.current, id); dragId.current = null; setOverId(null); },
+    onDragEnd: () => { dragId.current = null; setOverId(null); },
+  } : {};
+
+  // Evolución: carga acotada del histórico (archivo) + activos, por periodo.
+  const [period, setPeriod] = useState<Period>('semanas');
+  const [arc, setArc] = useState<{ period: Period; rows: StoredTicket[]; truncated: boolean } | null>(null);
+  const [arcLoading, setArcLoading] = useState(false);
+  const hasEvo = layout.some((w) => w.type === 'evolucion');
+  useEffect(() => {
+    if (!hasEvo) return; if (arc && arc.period === period) return;
+    let cancel = false; setArcLoading(true);
+    (async () => {
+      const from = makeBuckets(period, Date.now())[0]!.start;
+      let rows: StoredTicket[] = []; let truncated = false;
+      try {
+        if (firebaseEnabled) {
+          let after: ArchiveCursor = undefined; const CAP = 40;
+          for (let p = 0; p < CAP; p++) { const r = await queryArchive(tenant.id, { from, pageSize: 200, after }); rows.push(...r.tickets); after = r.last; if (r.tickets.length < 200) break; if (p === CAP - 1) truncated = true; }
+        } else { rows = tenant.tickets.filter((t) => t.archived && (t.createdAt ?? 0) >= from); }
+        if (!cancel) setArc({ period, rows, truncated });
+      } finally { if (!cancel) setArcLoading(false); }
+    })();
+    return () => { cancel = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasEvo, period, tenant.id]);
+  const evo = useMemo(() => {
+    const buckets = makeBuckets(period, now);
+    const entrantes = new Array(buckets.length).fill(0) as number[];
+    const cerradas = new Array(buckets.length).fill(0) as number[];
+    for (const t of tickets) { if (t.createdAt == null) continue; const i = bucketIdx(buckets, t.createdAt); if (i >= 0) entrantes[i]!++; }
+    const rows = arc && arc.period === period ? arc.rows : [];
+    for (const t of rows) { if (t.createdAt != null) { const i = bucketIdx(buckets, t.createdAt); if (i >= 0) entrantes[i]!++; } const c = closedAtOf(t); if (c != null) { const j = bucketIdx(buckets, c); if (j >= 0) cerradas[j]!++; } }
+    return { labels: buckets.map((b) => b.label), entrantes, cerradas };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, arc, tenant.tickets]);
+
+  const inPlazo = Math.max(0, withDue - overdue - nearBreach);
+  const periodSeg = <div className="seg xs" onDragStart={(e) => e.preventDefault()}>{([['dias', 'Días'], ['semanas', 'Semanas'], ['meses', 'Meses']] as [Period, string][]).map(([k, l]) => <button key={k} draggable={false} className={period === k ? 'on' : ''} onClick={() => setPeriod(k)}>{l}</button>)}</div>;
+
+  const body = (type: WType): import('react').ReactNode => {
+    switch (type) {
+      case 'kpis': return <div className="kpis">
+        <button className="kpi" onClick={() => go('tickets', 'all')}><div className="kl">Abiertas</div><div className="kv">{tickets.length}</div><div className="kstrip" style={{ background: 'var(--accent)' }} /></button>
+        <button className="kpi" onClick={() => go('tickets', 'unassigned')}><div className="kl">Sin asignar</div><div className="kv" style={{ color: 'var(--warn)' }}>{unassigned}</div><div className="kstrip" style={{ background: 'var(--warn)' }} /></button>
+        <button className="kpi" onClick={() => go('tickets', 'all')}><div className="kl">Vencidas (SLA)</div><div className="kv" style={{ color: 'var(--crit)' }}>{overdue}</div><div className="kstrip" style={{ background: 'var(--crit)' }} /></button>
+        <button className="kpi" onClick={() => go('assigned')}><div className="kl">Asignadas a mí</div><div className="kv">{mine}</div><div className="kstrip" style={{ background: 'var(--ok)' }} /></button>
+      </div>;
+      case 'evolucion': return (arcLoading && (!arc || arc.period !== period))
+        ? <div className="area-empty" style={{ position: 'static', padding: '48px 0' }}>Cargando histórico…</div>
+        : <><AreaTimeline labels={evo.labels} series={[{ name: 'Entrantes', color: 'var(--accent)', values: evo.entrantes }, { name: 'Cerradas', color: 'var(--ok)', values: evo.cerradas }]} />
+          <div className="lc-hint" style={{ marginTop: 4 }}>Entrantes por fecha de creación · Cerradas por fecha de cierre.{arc?.truncated ? ' Muestra acotada del histórico en periodos largos.' : ''}</div></>;
+      case 'tecnico': return <table className="dtbl"><thead><tr><th>Técnico</th><th className="num">Abiertas</th><th className="num">En espera</th><th className="num">Vencidas</th><th className="num">Capacidad</th></tr></thead>
+        <tbody>{techRows.map((r) => { const c = tenant.capacity[r.uid] ?? { used: 0, cap: 40 }; const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0; const mem = tenant.members.find((m) => m.uid === r.uid); return <tr key={r.uid}>
+          <td><div className="who">{mem ? <Avatar m={mem} /> : <span className="av" style={{ background: 'var(--ink-faint)' }}>?</span>} {r.name}</div></td>
+          <td className="num mono">{r.open}</td>
+          <td className="num mono" style={{ color: 'var(--ink-soft)' }}>{r.wait}</td>
+          <td className="num"><span style={{ color: r.over ? 'var(--crit)' : 'var(--ink-faint)', fontWeight: 700, fontFamily: 'var(--mono)' }}>{r.over}</span></td>
+          <td className="num"><div className="capmini"><span style={{ width: Math.min(p, 100) + '%', background: capColor(c) }} /></div></td>
+        </tr>; })}
+        {techRows.length === 0 && <tr><td colSpan={5} className="empty">Sin tickets asignados.</td></tr>}</tbody></table>;
+      case 'recibidas': return <MiniBars data={recvData} />;
+      case 'prioridad': return <Donut data={prioData} />;
+      case 'tipo': return <Donut data={typeData} />;
+      case 'estado': return <BarList rows={stateRows} />;
+      case 'grupo': return <BarList rows={groupRows} color="var(--accent)" />;
+      case 'sla': return <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <Gauge value={overdue} max={Math.max(1, withDue)} color="var(--crit)" caption="vencidas" />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12.5, flex: 1, minWidth: 118 }}>
+          <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span className="sdot" style={{ background: 'var(--crit)' }} />Vencidas <b className="mono" style={{ marginLeft: 'auto' }}>{overdue}</b></span>
+          <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span className="sdot" style={{ background: 'var(--warn)' }} />Cerca (&lt;2 h) <b className="mono" style={{ marginLeft: 'auto' }}>{nearBreach}</b></span>
+          <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span className="sdot" style={{ background: 'var(--ok)' }} />En plazo <b className="mono" style={{ marginLeft: 'auto' }}>{inPlazo}</b></span>
+        </div>
+      </div>;
+      case 'resumen': return <div className="facts">
+        <div><div className="k">Categorías</div><b style={{ fontSize: 18 }}>{(tenant.serviceCategories ?? []).length}</b></div>
+        <div><div className="k">Flujos</div><b style={{ fontSize: 18 }}>{tenant.lifecycles.length}</b></div>
+        <div><div className="k">Grupos</div><b style={{ fontSize: 18 }}>{tenant.groups.length}</b></div>
+        <div><div className="k">Personas</div><b style={{ fontSize: 18 }}>{tenant.members.length}</b></div>
+      </div>;
+    }
+  };
+
+  const inLayout = new Set(layout.map((w) => w.type));
   return <>
-    <div className="hd"><h1>Panel de servicio</h1><span className="sub">{tenant.name} · {tickets.length} solicitudes activas</span></div>
-    <div className="kpis">
-      <button className="kpi" onClick={() => go('tickets', 'all')}><div className="kl">Abiertas</div><div className="kv">{tickets.length}</div><div className="kstrip" style={{ background: 'var(--accent)' }} /></button>
-      <button className="kpi" onClick={() => go('tickets', 'unassigned')}><div className="kl">Sin asignar</div><div className="kv" style={{ color: 'var(--warn)' }}>{unassigned}</div><div className="kstrip" style={{ background: 'var(--warn)' }} /></button>
-      <button className="kpi" onClick={() => go('tickets', 'all')}><div className="kl">Vencidas (SLA)</div><div className="kv" style={{ color: 'var(--crit)' }}>{overdue}</div><div className="kstrip" style={{ background: 'var(--crit)' }} /></button>
-      <button className="kpi" onClick={() => go('assigned')}><div className="kl">Asignadas a mí</div><div className="kv">{mine}</div><div className="kstrip" style={{ background: 'var(--ok)' }} /></button>
-    </div>
-    <div className="dgrid">
-      <div className="card dwide">
-        <h2>Solicitudes por técnico <span className="badge"><Icon name="zap" size={11} /> carga vía OrganiZate</span></h2>
-        <table className="dtbl"><thead><tr><th>Técnico</th><th className="num">Abiertas</th><th className="num">En espera</th><th className="num">Vencidas</th><th className="num">Capacidad</th></tr></thead>
-          <tbody>{techRows.map((r) => { const c = tenant.capacity[r.uid] ?? { used: 0, cap: 40 }; const p = c.cap ? Math.round((c.used / c.cap) * 100) : 0; const mem = tenant.members.find((m) => m.uid === r.uid); return <tr key={r.uid}>
-            <td><div className="who">{mem ? <Avatar m={mem} /> : <span className="av" style={{ background: 'var(--ink-faint)' }}>?</span>} {r.name}</div></td>
-            <td className="num mono">{r.open}</td>
-            <td className="num mono" style={{ color: 'var(--ink-soft)' }}>{r.wait}</td>
-            <td className="num"><span style={{ color: r.over ? 'var(--crit)' : 'var(--ink-faint)', fontWeight: 700, fontFamily: 'var(--mono)' }}>{r.over}</span></td>
-            <td className="num"><div className="capmini"><span style={{ width: Math.min(p, 100) + '%', background: capColor(c) }} /></div></td>
-          </tr>; })}
-          {techRows.length === 0 && <tr><td colSpan={5} className="empty">Sin tickets asignados.</td></tr>}</tbody></table>
-      </div>
-      <div className="card">
-        <h2>Abiertas por prioridad</h2>
-        <div style={{ marginTop: 8 }}><Donut data={prioData} /></div>
-      </div>
-      <div className="card dwide">
-        <h2>Recibidas · últimos 14 días</h2>
-        <DayBars data={recvData} />
-      </div>
-      <div className="card">
-        <h2>Estado del SLA</h2>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 6, flexWrap: 'wrap' }}>
-          <Gauge value={overdue} max={Math.max(1, withDue)} color="var(--crit)" />
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12.5, flex: 1, minWidth: 120 }}>
-            <span style={{ display: 'flex', gap: 6 }}><span className="sdot" style={{ background: 'var(--crit)' }} />Vencidas <b className="mono" style={{ marginLeft: 'auto' }}>{overdue}</b></span>
-            <span style={{ display: 'flex', gap: 6 }}><span className="sdot" style={{ background: 'var(--warn)' }} />Cerca de incumplir (&lt;2 h) <b className="mono" style={{ marginLeft: 'auto' }}>{nearBreach}</b></span>
-            <span style={{ display: 'flex', gap: 6 }}><span className="sdot" style={{ background: 'var(--ok)' }} />En plazo <b className="mono" style={{ marginLeft: 'auto' }}>{Math.max(0, withDue - overdue - nearBreach)}</b></span>
-          </div>
-        </div>
-      </div>
-      <div className="card">
-        <h2>Por estado</h2>
-        <div className="drows">{stateRows.map(([l, n], i) => <div key={l} className="drow">
-          <span className="dl">{l}</span><span className="dbar"><span style={{ width: (n / stateMax * 100) + '%', background: STC[i % STC.length] }} /></span><span className="dn mono">{n}</span>
-        </div>)}</div>
-      </div>
-      <div className="card">
-        <h2>Por tipo</h2>
-        <div style={{ marginTop: 8 }}><Donut data={typeData} /></div>
-      </div>
-      <div className="card">
-        <h2>Cola por grupo de soporte</h2>
-        <div className="drows">{groupRows.map(([l, n]) => <div key={l} className="drow">
-          <span className="dl">{l}</span><span className="dbar"><span style={{ width: (n / groupMax * 100) + '%', background: 'var(--accent)' }} /></span><span className="dn mono">{n}</span>
-        </div>)}</div>
-      </div>
-      <div className="card">
-        <h2>Resumen de la instancia</h2>
-        <div className="facts" style={{ marginTop: 4 }}>
-          <div><div className="k">Categorías</div><b style={{ fontSize: 18 }}>{(tenant.serviceCategories ?? []).length}</b></div>
-          <div><div className="k">Flujos</div><b style={{ fontSize: 18 }}>{tenant.lifecycles.length}</b></div>
-          <div><div className="k">Grupos</div><b style={{ fontSize: 18 }}>{tenant.groups.length}</b></div>
-          <div><div className="k">Personas</div><b style={{ fontSize: 18 }}>{tenant.members.length}</b></div>
-        </div>
+    <div className="hd">
+      <h1>Panel de servicio</h1>
+      <span className="sub">{tenant.name} · {tickets.length} solicitudes activas</span>
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center', position: 'relative' }}>
+        {edit && <div className="addwrap">
+          <button className="ghost sm" onClick={() => setAddOpen((o) => !o)}>＋ Añadir visual</button>
+          {addOpen && <div className="addmenu">{(Object.keys(W_META) as WType[]).map((t) => <button key={t} className="addopt" onClick={() => addW(t)}>
+            <Icon name={W_META[t].icon} size={14} /><span><b>{W_META[t].title}</b>{inLayout.has(t) ? <span className="addused"> · ya en el panel</span> : ''}<span className="addesc">{W_META[t].desc}</span></span>
+          </button>)}</div>}
+        </div>}
+        {edit && <button className="ghost sm" onClick={() => { if (confirm('¿Restablecer el panel por defecto?')) setLayout(DEFAULT_LAYOUT()); }}>Restablecer</button>}
+        <button className={'seg-solo' + (edit ? ' on' : '')} onClick={() => { setEdit((e) => !e); setAddOpen(false); }}><Icon name="sliders" size={14} /> {edit ? 'Hecho' : 'Personalizar'}</button>
       </div>
     </div>
+    {edit && <div className="edithint"><Icon name="eye" size={13} /> Arrastra las tarjetas para reordenar · ajusta el ancho (1–4 columnas) · añade o quita visuales. El diseño se guarda para tu usuario.</div>}
+    {layout.length === 0
+      ? <div className="empty" style={{ padding: 40 }}>Panel vacío. Pulsa «Personalizar» → «Añadir visual».</div>
+      : <div className="dgrid2">
+        {layout.map((w) => <DashCard key={w.id} w={w} edit={edit} over={overId === w.id} bare={w.type === 'kpis'} dragH={dragH(w.id)} onSpan={(s) => setSpan(w.id, s)} onRemove={() => removeW(w.id)} headExtra={w.type === 'evolucion' ? periodSeg : undefined}>{body(w.type)}</DashCard>)}
+      </div>}
   </>;
 }
 
