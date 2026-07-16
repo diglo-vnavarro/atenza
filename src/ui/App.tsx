@@ -1317,7 +1317,7 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', 'server', [['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
-  ['Usuarios y permisos', 'users', [['Roles', 'roles'], ['Usuarios', 'miembros'], ['Traspaso a Atenza', 'traspaso'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
+  ['Usuarios y permisos', 'users', [['Usuarios', 'miembros'], ['Roles', 'roles'], ['Grupos de usuarios', 'maestros'], ['Grupos de soporte', 'sla'], ['Acceso específico', null]]],
   ['Personalización', 'sliders', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
   ['Plantillas y formularios', 'file-text', [['Categorías de servicio', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
   ['Autoservicio y anuncios', 'megaphone', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
@@ -1325,7 +1325,7 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuración del correo', 'mail', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', 'shield', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios y miembros', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', traspaso: 'Traspaso a Atenza · habilitación escalonada', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
+const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -1643,7 +1643,6 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'miembros' && <MembersAdmin tenant={tenant} />}
     {sec === 'cierre' && <ClosureAdmin tenant={tenant} />}
     {sec === 'respuestas' && <ReplyTemplatesAdmin tenant={tenant} />}
-    {sec === 'traspaso' && <EnablementAdmin tenant={tenant} />}
     {sec === 'reglas' && <BusinessRulesAdmin tenant={tenant} />}
     {sec === 'webhooks' && <WebhooksAdmin tenant={tenant} />}
     {sec === 'anuncios' && <AnnouncementsAdmin tenant={tenant} />}
@@ -1950,39 +1949,6 @@ function FormRulesAdmin({ tenant }: { tenant: TenantData }) {
   </div>;
 }
 
-function EnablementAdmin({ tenant }: { tenant: TenantData }) {
-  const setMembersEnabled = useStore((s) => s.setMembersEnabled);
-  const updateMember = useStore((s) => s.updateMember);
-  const [q, setQ] = useState('');
-  const [grp, setGrp] = useState('');
-  const members = tenant.members;
-  const enabled = members.filter((m) => m.enabled).length;
-  const pct = members.length ? Math.round((enabled / members.length) * 100) : 0;
-  const groupMembers = (gid: string) => members.filter((m) => (m.groupIds ?? []).includes(gid));
-  const shown = members.filter((m) => !q || (m.name + ' ' + m.email).toLowerCase().includes(q.toLowerCase()));
-  return <div className="card" style={{ padding: 16 }}>
-    <p className="cfg-lead">Marca quién trabaja ya en Atenza. Durante la convivencia el resto sigue en SDP; esta habilitación prepara el corte escalonado (por persona o por grupo de soporte). No cambia dónde llega el correo — eso es el hito de correo entrante, por instancia.</p>
-    <div className="enab-bar"><span style={{ width: pct + '%' }} /></div>
-    <div style={{ fontSize: 13, margin: '6px 0 16px', color: 'var(--ink-soft)' }}><b style={{ color: 'var(--ink)' }}>{enabled}</b> / {members.length} habilitados en Atenza · {pct}%</div>
-
-    <div className="enab-bulk">
-      <span style={{ fontSize: 12, color: 'var(--ink-soft)' }}>Habilitar por grupo de soporte:</span>
-      <select value={grp} onChange={(e) => setGrp(e.target.value)}><option value="">Grupo…</option>{tenant.groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({groupMembers(g.id).length})</option>)}</select>
-      <button className="primary" disabled={!grp} onClick={() => setMembersEnabled(groupMembers(grp).map((m) => m.uid), true)}>Habilitar grupo</button>
-      <button className="xbtn" disabled={!grp} onClick={() => setMembersEnabled(groupMembers(grp).map((m) => m.uid), false)}>Deshabilitar grupo</button>
-    </div>
-
-    <input style={{ width: '100%', margin: '12px 0 8px' }} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Buscar persona…" />
-    <div style={{ maxHeight: 420, overflow: 'auto' }}><table className="mgmt"><thead><tr><th>Persona</th><th>Rol</th><th>Grupos</th><th style={{ textAlign: 'right' }}>En Atenza</th></tr></thead>
-      <tbody>{shown.map((m) => <tr key={m.uid}>
-        <td><div className="who"><Avatar m={m} /><span><span className="nm">{m.name}</span><span style={{ display: 'block', fontSize: 11, color: 'var(--ink-faint)' }}>{m.email}</span></span></div></td>
-        <td style={{ fontSize: 12 }}>{m.roleName ?? m.role}</td>
-        <td style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{(m.groupIds ?? []).map((gid) => tenant.groups.find((g) => g.id === gid)?.name).filter(Boolean).join(', ') || '—'}</td>
-        <td style={{ textAlign: 'right' }}><label className="switch"><input type="checkbox" checked={!!m.enabled} onChange={(e) => updateMember(m.uid, { enabled: e.target.checked })} /><span className="track" /></label></td>
-      </tr>)}</tbody></table></div>
-  </div>;
-}
-
 function ClosureAdmin({ tenant }: { tenant: TenantData }) {
   const setClosureRules = useStore((s) => s.setClosureRules);
   const rules: ClosureRules = tenant.closureRules ?? {};
@@ -2072,51 +2038,114 @@ function SlaAdmin({ tenant }: { tenant: TenantData }) {
   </div>;
 }
 
+const ROLE_LABEL: Record<Role, string> = { tenant_admin: 'Admin', technician: 'Técnico', requester: 'Solicitante' };
+const STATUS_LABEL: Record<string, string> = { active: 'Activo', invited: 'Invitado', disabled: 'Deshabilitado' };
+const STATUS_COLOR: Record<string, string> = { active: 'var(--ok)', invited: 'var(--warn)', disabled: 'var(--ink-faint)' };
+
+// USUARIOS: listado filtrable (texto · grupo de soporte · rol · estado) + ficha
+// editable al seleccionar. Integra el «traspaso a Atenza» (enabled) — la pantalla
+// separada de Traspaso se retira. Invitar = pre-crea la ficha (status invitado); la
+// Cloud Function de auto-alta la vincula al primer login por email.
 function MembersAdmin({ tenant }: { tenant: TenantData }) {
   const addMember = useStore((s) => s.addMember);
   const updateMember = useStore((s) => s.updateMember);
   const removeMember = useStore((s) => s.removeMember);
+  const setMembersEnabled = useStore((s) => s.setMembersEnabled);
   const setImpersonate = useStore((s) => s.setImpersonate);
-  const [name, setName] = useState(''); const [email, setEmail] = useState('');
-  const [role, setRole] = useState<Role>('technician');
-  const [openUg, setOpenUg] = useState<string | null>(null);
+  const [q, setQ] = useState(''); const [fGroup, setFGroup] = useState(''); const [fRole, setFRole] = useState(''); const [fStatus, setFStatus] = useState('');
+  const [selId, setSelId] = useState<string | null>(null);
+  const [invite, setInvite] = useState(false); const [inName, setInName] = useState(''); const [inEmail, setInEmail] = useState(''); const [inRole, setInRole] = useState<Role>('technician');
+  const [bulkGrp, setBulkGrp] = useState('');
   const ugOptions = tenant.userGroups ?? [];
-  const roleLabel: Record<Role, string> = { tenant_admin: 'Admin', technician: 'Técnico', requester: 'Solicitante' };
-  const statusLabel: Record<string, string> = { active: 'Activo', invited: 'Invitado', disabled: 'Deshabilitado' };
+  const groups = tenant.groups ?? [];
   const corp = tenant.members[0]?.email.split('@')[1] ?? 'digloservicer.com';
-  return <div className="card"><h2>Miembros <span className="badge">{tenant.members.length}</span></h2>
-    <div className="banner" style={{ marginTop: 4 }}>Gestiona el acceso a esta instancia. El <b>onboarding real</b> (invitaciones por correo) se activará en producción; aquí defines rol, estado y quién es externo.</div>
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 12 }}>
-      {tenant.members.map((m) => <Fragment key={m.uid}>
-        <div className="lcstate">
-          <span className="sdot" style={{ background: m.color }} />
-          <span style={{ flex: 1, minWidth: 0 }}><b style={{ fontSize: 13 }}>{m.name}</b> <span style={{ color: 'var(--ink-soft)', fontSize: 12 }}>{m.email}</span>{m.external && <span className="pill" style={{ marginLeft: 6 }}>externo</span>}</span>
-          {ugOptions.length > 0 && <button className="ghost" style={{ fontSize: 11.5 }} onClick={() => setOpenUg(openUg === m.uid ? null : m.uid)}>grupos ({(m.userGroups ?? []).length})</button>}
-          {(tenant.roles ?? []).length > 0
-            ? <select value={m.roleName ?? ''} onChange={(e) => { const rd = (tenant.roles ?? []).find((r) => r.name === e.target.value); if (rd) updateMember(m.uid, { roleName: rd.name, role: rd.base }); }} style={{ fontSize: 12 }} title={'Nivel: ' + roleLabel[m.role]}>
-                <option value="">{roleLabel[m.role]} (base)</option>
-                {(tenant.roles ?? []).map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}
-              </select>
-            : <select value={m.role} onChange={(e) => updateMember(m.uid, { role: e.target.value as Role })} style={{ fontSize: 12 }}>
-                {(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
-              </select>}
-          <select value={m.status} onChange={(e) => updateMember(m.uid, { status: e.target.value as UiMember['status'] })} style={{ fontSize: 12 }}>
-            {['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{statusLabel[s]}</option>)}
-          </select>
-          <button className="ghost" title="Ver el portal como este usuario (solo lectura)" onClick={() => setImpersonate(m.uid)}><Icon name="eye" size={13} /> Ver como</button>
-          <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => removeMember(m.uid)}><Icon name="trash" size={14} /></button>
-        </div>
-        {openUg === m.uid && <div style={{ padding: '2px 0 10px 26px' }}><div className="k">Grupos de usuarios</div><ChipMulti options={ugOptions} selected={m.userGroups ?? []} onChange={(ug) => updateMember(m.uid, { userGroups: ug })} /></div>}
-      </Fragment>)}
+  const gName = (id: string) => groups.find((g) => g.id === id)?.name ?? id;
+  const enabledCount = tenant.members.filter((m) => m.enabled).length;
+
+  const ql = q.trim().toLowerCase();
+  const list = tenant.members.filter((m) =>
+    (!ql || `${m.name} ${m.email}`.toLowerCase().includes(ql)) &&
+    (!fGroup || (m.groupIds ?? []).includes(fGroup)) &&
+    (!fRole || m.role === fRole) &&
+    (!fStatus || m.status === fStatus));
+  const sel = tenant.members.find((m) => m.uid === selId) ?? null;
+  const toggleGroup = (m: UiMember, gid: string) => { const cur = m.groupIds ?? []; updateMember(m.uid, { groupIds: cur.includes(gid) ? cur.filter((x) => x !== gid) : [...cur, gid] }); };
+
+  return <div className="card" style={{ padding: 16 }}>
+    <div className="hd" style={{ marginBottom: 4 }}>
+      <h2 style={{ margin: 0 }}>Usuarios <span className="badge">{tenant.members.length}</span></h2>
+      <span className="sub">{enabledCount} en Atenza · {tenant.members.length - enabledCount} aún en SDP</span>
+      <button className="primary" style={{ marginLeft: 'auto' }} onClick={() => setInvite(true)}>＋ Invitar usuario</button>
     </div>
-    <div className="designer">
-      <input style={{ flex: 1, minWidth: 100 }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre…" />
-      <input style={{ flex: 1, minWidth: 120 }} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@…" />
-      <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
-        {(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{roleLabel[r]}</option>)}
-      </select>
-      <button className="primary" onClick={() => { if (email.trim()) { const ext = !email.trim().toLowerCase().endsWith('@' + corp.toLowerCase()); addMember(name.trim(), email.trim(), role, ext); setName(''); setEmail(''); } }}>＋ Miembro</button>
+    <div className="card fbar" style={{ marginTop: 10 }}>
+      <label className="searchbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre o correo…" /></label>
+      <select value={fGroup} onChange={(e) => setFGroup(e.target.value)}><option value="">Grupo: todos</option>{groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
+      <select value={fRole} onChange={(e) => setFRole(e.target.value)}><option value="">Tipo: todos</option>{(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>
+      <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}><option value="">Estado: todos</option>{['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}</select>
+      {(q || fGroup || fRole || fStatus) && <button className="ghost sm" onClick={() => { setQ(''); setFGroup(''); setFRole(''); setFStatus(''); }}>Limpiar</button>}
+      <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+        <span className="soft" style={{ fontSize: 12 }}>Traspasar grupo:</span>
+        <select value={bulkGrp} onChange={(e) => setBulkGrp(e.target.value)}><option value="">Grupo…</option>{groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>
+        <button className="ghost sm" disabled={!bulkGrp} onClick={() => setMembersEnabled(tenant.members.filter((m) => (m.groupIds ?? []).includes(bulkGrp)).map((m) => m.uid), true)}>Habilitar</button>
+      </span>
     </div>
+    <div className="card" style={{ overflow: 'hidden', marginTop: 12 }}>
+      <table className="mgmt">
+        <thead><tr><th>Usuario</th><th>Tipo</th><th>Grupos de soporte</th><th>Estado</th><th style={{ textAlign: 'center' }}>En Atenza</th></tr></thead>
+        <tbody>{list.map((m) => <tr key={m.uid} className="mrow" onClick={() => setSelId(m.uid)}>
+          <td><div className="who"><Avatar m={m} /><span><span className="nm">{m.name}</span><span style={{ display: 'block', fontSize: 11, color: 'var(--ink-faint)' }}>{m.email}{m.external ? ' · externo' : ''}</span></span></div></td>
+          <td style={{ fontSize: 12 }}>{m.roleName ?? ROLE_LABEL[m.role]}</td>
+          <td style={{ fontSize: 11, color: 'var(--ink-faint)' }}>{(m.groupIds ?? []).map(gName).join(', ') || '—'}</td>
+          <td><span className="pill" style={{ color: STATUS_COLOR[m.status], borderColor: STATUS_COLOR[m.status] }}>{STATUS_LABEL[m.status]}</span></td>
+          <td style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}><label className="switch"><input type="checkbox" checked={!!m.enabled} onChange={(e) => updateMember(m.uid, { enabled: e.target.checked })} /><span className="track" /></label></td>
+        </tr>)}</tbody>
+      </table>
+      {list.length === 0 && <div className="empty" style={{ padding: 24 }}>Sin usuarios con estos filtros.</div>}
+    </div>
+
+    {/* Ficha del usuario */}
+    {sel && <div className="scrim tmodal-scrim" onClick={() => setSelId(null)}>
+      <div className="tmodal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={'Usuario ' + sel.name}>
+        <div className="tmodal-h"><Avatar m={sel} /><b className="tmodal-title">{sel.name}</b><button className="dx" onClick={() => setSelId(null)} aria-label="Cerrar">×</button></div>
+        <div className="tmodal-b"><div className="form">
+          <label>{fcap('Nombre')}<input value={sel.name} onChange={(e) => updateMember(sel.uid, { name: e.target.value })} /></label>
+          <label>{fcap('Correo')}<input value={sel.email} disabled title="El correo identifica al usuario; no se edita aquí" /></label>
+          <div className="nf-cols">
+            <label>{fcap('Tipo / rol')}{(tenant.roles ?? []).length > 0
+              ? <select value={sel.roleName ?? ''} onChange={(e) => { const rd = (tenant.roles ?? []).find((r) => r.name === e.target.value); if (rd) updateMember(sel.uid, { roleName: rd.name, role: rd.base }); else updateMember(sel.uid, { roleName: undefined }); }}><option value="">{ROLE_LABEL[sel.role]} (base)</option>{(tenant.roles ?? []).map((r) => <option key={r.name} value={r.name}>{r.name}</option>)}</select>
+              : <select value={sel.role} onChange={(e) => updateMember(sel.uid, { role: e.target.value as Role })}>{(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>}</label>
+            <label>{fcap('Estado')}<select value={sel.status} onChange={(e) => updateMember(sel.uid, { status: e.target.value as UiMember['status'] })}>{['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}</select></label>
+          </div>
+          <label className="te-vis"><span>Traspasado a Atenza (trabaja aquí, no en SDP)</span><button className={'toggle' + (sel.enabled ? ' on' : '')} onClick={() => updateMember(sel.uid, { enabled: !sel.enabled })} aria-label="En Atenza" /></label>
+          <label className="te-vis"><span>Usuario externo (fuera del dominio {corp})</span><button className={'toggle' + (sel.external ? ' on' : '')} onClick={() => updateMember(sel.uid, { external: !sel.external })} aria-label="Externo" /></label>
+          <div><div className="k" style={{ marginBottom: 4 }}>Grupos de soporte</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>{groups.length === 0 ? <span className="soft" style={{ fontSize: 12 }}>No hay grupos de soporte.</span> : groups.map((g) => <button key={g.id} className={'chipsel' + ((sel.groupIds ?? []).includes(g.id) ? ' on' : '')} onClick={() => toggleGroup(sel, g.id)}>{g.name}</button>)}</div>
+          </div>
+          {ugOptions.length > 0 && <div><div className="k" style={{ marginBottom: 4 }}>Grupos de usuarios (perfilado de catálogo)</div><ChipMulti options={ugOptions} selected={sel.userGroups ?? []} onChange={(ug) => updateMember(sel.uid, { userGroups: ug })} /></div>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 6, borderTop: '1px solid var(--line)', paddingTop: 12 }}>
+            <button className="ghost" onClick={() => { setImpersonate(sel.uid); }}><Icon name="eye" size={13} /> Ver como este usuario</button>
+            <button className="ghost" style={{ color: 'var(--crit)', marginLeft: 'auto' }} onClick={() => { if (confirm(`¿Eliminar a ${sel.name}?`)) { removeMember(sel.uid); setSelId(null); } }}><Icon name="trash" size={14} /> Eliminar</button>
+          </div>
+        </div></div>
+      </div>
+    </div>}
+
+    {/* Invitar usuario */}
+    {invite && <div className="scrim tmodal-scrim" onClick={() => setInvite(false)}>
+      <div className="tmodal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Invitar usuario">
+        <div className="tmodal-h"><b className="tmodal-title">Invitar usuario</b><button className="dx" onClick={() => setInvite(false)} aria-label="Cerrar">×</button></div>
+        <div className="tmodal-b"><div className="form">
+          <p className="cfg-lead">Se crea la ficha en estado <b>Invitado</b>. Cuando la persona entre con ese correo (Google/email), obtiene acceso automáticamente.</p>
+          <label>{fcap('Nombre')}<input value={inName} onChange={(e) => setInName(e.target.value)} placeholder="Nombre y apellidos…" /></label>
+          <label>{fcap('Correo', true)}<input value={inEmail} onChange={(e) => setInEmail(e.target.value)} placeholder="correo@dominio.com" /></label>
+          <label>{fcap('Tipo / rol')}<select value={inRole} onChange={(e) => setInRole(e.target.value as Role)}>{(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select></label>
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            <button className="primary" disabled={!inEmail.trim()} onClick={() => { const em = inEmail.trim(); const ext = !em.toLowerCase().endsWith('@' + corp.toLowerCase()); addMember(inName.trim(), em, inRole, ext); setInName(''); setInEmail(''); setInvite(false); }}>Invitar</button>
+            <button className="ghost" onClick={() => setInvite(false)}>Cancelar</button>
+          </div>
+        </div></div>
+      </div>
+    </div>}
   </div>;
 }
 
