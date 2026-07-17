@@ -481,31 +481,27 @@ function AreaTimeline({ labels, series, height = 216 }: { labels: string[]; seri
 
 // ---- Panel modular: catálogo de visuales, layout por usuario (localStorage) ----
 type WType = 'kpis' | 'evolucion' | 'tecnico' | 'recibidas' | 'prioridad' | 'tipo' | 'estado' | 'grupo' | 'sla' | 'resumen';
-interface DashW { id: string; type: WType; span: 1 | 2 | 3 | 4 }
-const W_META: Record<WType, { title: string; span: 1 | 2 | 3 | 4; icon: string; desc: string }> = {
-  kpis: { title: 'Indicadores', span: 4, icon: 'sliders', desc: 'Abiertas · sin asignar · vencidas · mías' },
-  evolucion: { title: 'Evolución de tickets', span: 4, icon: 'zap', desc: 'Entrantes vs. cerradas en el tiempo' },
-  tecnico: { title: 'Solicitudes por técnico', span: 2, icon: 'users', desc: 'Carga y capacidad por persona' },
-  recibidas: { title: 'Recibidas · últimos 14 días', span: 2, icon: 'calendar', desc: 'Entradas diarias recientes' },
-  prioridad: { title: 'Abiertas por prioridad', span: 1, icon: 'list', desc: 'Reparto por prioridad' },
-  tipo: { title: 'Por tipo', span: 1, icon: 'ticket', desc: 'Incidencias vs. peticiones' },
-  estado: { title: 'Por estado', span: 2, icon: 'list', desc: 'Reparto por estado actual' },
-  grupo: { title: 'Cola por grupo de soporte', span: 2, icon: 'inbox', desc: 'Carga por grupo' },
-  sla: { title: 'Estado del SLA', span: 1, icon: 'shield', desc: 'Vencidas / cerca / en plazo' },
-  resumen: { title: 'Resumen de la instancia', span: 1, icon: 'server', desc: 'Conteos de configuración' },
+type Span = 1 | 2 | 3 | 4;
+type HLevel = 1 | 2 | 3 | 4 | 5 | 6;
+interface DashW { id: string; type: WType; span: Span; h?: HLevel }
+const W_META: Record<WType, { title: string; span: Span; h: HLevel; icon: string; desc: string }> = {
+  kpis: { title: 'Indicadores', span: 4, h: 1, icon: 'sliders', desc: 'Abiertas · sin asignar · vencidas · mías' },
+  evolucion: { title: 'Evolución de tickets', span: 4, h: 5, icon: 'zap', desc: 'Entrantes vs. cerradas en el tiempo' },
+  tecnico: { title: 'Solicitudes por técnico', span: 2, h: 6, icon: 'users', desc: 'Carga y capacidad por persona' },
+  recibidas: { title: 'Recibidas · últimos 14 días', span: 2, h: 3, icon: 'calendar', desc: 'Entradas diarias recientes' },
+  prioridad: { title: 'Abiertas por prioridad', span: 1, h: 3, icon: 'list', desc: 'Reparto por prioridad' },
+  tipo: { title: 'Por tipo', span: 1, h: 2, icon: 'ticket', desc: 'Incidencias vs. peticiones' },
+  estado: { title: 'Por estado', span: 2, h: 3, icon: 'list', desc: 'Reparto por estado actual' },
+  grupo: { title: 'Cola por grupo de soporte', span: 2, h: 3, icon: 'inbox', desc: 'Carga por grupo' },
+  sla: { title: 'Estado del SLA', span: 1, h: 2, icon: 'shield', desc: 'Vencidas / cerca / en plazo' },
+  resumen: { title: 'Resumen de la instancia', span: 1, h: 2, icon: 'server', desc: 'Conteos de configuración' },
 };
-const DEFAULT_LAYOUT = (): DashW[] => [
-  { id: 'w-kpis', type: 'kpis', span: 4 },
-  { id: 'w-evo', type: 'evolucion', span: 4 },
-  { id: 'w-tec', type: 'tecnico', span: 2 },
-  { id: 'w-rec', type: 'recibidas', span: 2 },
-  { id: 'w-pri', type: 'prioridad', span: 1 },
-  { id: 'w-tip', type: 'tipo', span: 1 },
-  { id: 'w-sla', type: 'sla', span: 1 },
-  { id: 'w-res', type: 'resumen', span: 1 },
-  { id: 'w-est', type: 'estado', span: 2 },
-  { id: 'w-gru', type: 'grupo', span: 2 },
-];
+// alto de la tarjeta = (h+2) filas base de la rejilla (auto-rows 38px, gap 14px)
+// → niveles ≈ 142·194·246·298·350·402px. Referencia: «por técnico» (la más alta) = 6.
+const hRows = (h: HLevel): number => h + 2;
+const DEFAULT_LAYOUT = (): DashW[] => (Object.keys(W_META) as WType[])
+  .sort((a, b) => ['kpis', 'evolucion', 'tecnico', 'recibidas', 'prioridad', 'tipo', 'sla', 'resumen', 'estado', 'grupo'].indexOf(a) - ['kpis', 'evolucion', 'tecnico', 'recibidas', 'prioridad', 'tipo', 'sla', 'resumen', 'estado', 'grupo'].indexOf(b))
+  .map((type) => ({ id: 'w-' + type, type, span: W_META[type].span, h: W_META[type].h }));
 const DASH_KEY = (uid: string) => `atenza-dash-v2-${uid}`;
 function useDashLayout(uid: string) {
   const key = DASH_KEY(uid);
@@ -531,19 +527,21 @@ function makeBuckets(period: Period, now: number): Bucket[] {
 const bucketIdx = (b: Bucket[], ms: number) => { for (let i = 0; i < b.length; i++) if (ms >= b[i]!.start && ms < b[i]!.end) return i; return -1; };
 const closedAtOf = (t: StoredTicket): number | undefined => { const h = t.statusHistory; return h && h.length ? h[h.length - 1]?.from : undefined; };
 
-function DashCard({ w, edit, over, bare, dragH, onSpan, onMove, canBack, canFwd, onRemove, headExtra, children }: { w: DashW; edit: boolean; over: boolean; bare?: boolean; dragH: Record<string, unknown>; onSpan: (s: 1 | 2 | 3 | 4) => void; onMove: (dir: -1 | 1) => void; canBack: boolean; canFwd: boolean; onRemove: () => void; headExtra?: import('react').ReactNode; children: import('react').ReactNode }) {
+function DashCard({ w, edit, over, bare, dragH, onSpan, onHeight, onMove, canBack, canFwd, onRemove, headExtra, children }: { w: DashW; edit: boolean; over: boolean; bare?: boolean; dragH: Record<string, unknown>; onSpan: (s: Span) => void; onHeight: (h: HLevel) => void; onMove: (dir: -1 | 1) => void; canBack: boolean; canFwd: boolean; onRemove: () => void; headExtra?: import('react').ReactNode; children: import('react').ReactNode }) {
   const meta = W_META[w.type];
   const showHead = edit || !bare;
-  return <div className={'dcard' + (bare ? ' plain' : '') + (over ? ' over' : '') + (edit ? ' editing' : '')} style={{ gridColumn: `span ${w.span}` } as CSS} draggable={edit} {...dragH}>
+  const h = w.h ?? meta.h;
+  return <div className={'dcard' + (bare ? ' plain' : '') + (over ? ' over' : '') + (edit ? ' editing' : '')} style={{ gridColumn: `span ${w.span}`, gridRow: `span ${hRows(h)}` } as CSS} draggable={edit} {...dragH}>
     {showHead && <div className="dcard-h">
       {edit && <span className="dc-grip" title="Arrastra para mover (o usa las flechas ◀ ▶)">⠿</span>}
       <Icon name={meta.icon} size={14} /><span className="dc-t">{meta.title}</span>
-      <div className="dc-tools">
-        {headExtra}
-        {edit && <div className="movebtns" title="Mover"><button onClick={() => onMove(-1)} disabled={!canBack} title="Mover antes" aria-label="Mover antes">◀</button><button onClick={() => onMove(1)} disabled={!canFwd} title="Mover después" aria-label="Mover después">▶</button></div>}
-        {edit && <div className="spanpick" title="Ancho en columnas">{([1, 2, 3, 4] as const).map((s) => <button key={s} className={w.span === s ? 'on' : ''} onClick={() => onSpan(s)}>{s}</button>)}</div>}
-        {edit && <button className="dc-x" onClick={onRemove} title="Quitar visual"><Icon name="trash" size={13} /></button>}
-      </div>
+      <div className="dc-tools">{headExtra}</div>
+    </div>}
+    {edit && <div className="dc-edit">
+      <div className="movebtns" title="Mover"><button onClick={() => onMove(-1)} disabled={!canBack} title="Mover antes" aria-label="Mover antes">◀</button><button onClick={() => onMove(1)} disabled={!canFwd} title="Mover después" aria-label="Mover después">▶</button></div>
+      <span className="dc-lab">Ancho</span><div className="spanpick" title="Ancho en columnas">{([1, 2, 3, 4] as const).map((s) => <button key={s} className={w.span === s ? 'on' : ''} onClick={() => onSpan(s)}>{s}</button>)}</div>
+      <span className="dc-lab">Alto</span><div className="spanpick" title="Alto en filas">{([1, 2, 3, 4, 5, 6] as const).map((n) => <button key={n} className={h === n ? 'on' : ''} onClick={() => onHeight(n)}>{n}</button>)}</div>
+      <button className="dc-x" onClick={onRemove} title="Quitar visual" style={{ marginLeft: 'auto' }}><Icon name="trash" size={13} /></button>
     </div>}
     <div className={bare ? 'dcard-bare' : 'dcard-b'}>{children}</div>
   </div>;
@@ -600,9 +598,10 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   const seq = useRef(0);
   const dragId = useRef<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
-  const setSpan = (id: string, s: 1 | 2 | 3 | 4) => setLayout((p) => p.map((w) => w.id === id ? { ...w, span: s } : w));
+  const setSpan = (id: string, s: Span) => setLayout((p) => p.map((w) => w.id === id ? { ...w, span: s } : w));
+  const setHeight = (id: string, h: HLevel) => setLayout((p) => p.map((w) => w.id === id ? { ...w, h } : w));
   const removeW = (id: string) => setLayout((p) => p.filter((w) => w.id !== id));
-  const addW = (type: WType) => { setLayout((p) => [...p, { id: `w-${type}-${Date.now()}-${seq.current++}`, type, span: W_META[type].span }]); setAddOpen(false); };
+  const addW = (type: WType) => { setLayout((p) => [...p, { id: `w-${type}-${Date.now()}-${seq.current++}`, type, span: W_META[type].span, h: W_META[type].h }]); setAddOpen(false); };
   const moveBefore = (src: string | null, dst: string) => { if (!src || src === dst) return; setLayout((p) => { const a = [...p]; const si = a.findIndex((w) => w.id === src); if (si < 0) return p; const [m] = a.splice(si, 1); const di = a.findIndex((w) => w.id === dst); a.splice(di, 0, m!); return a; }); };
   const moveBy = (id: string, dir: -1 | 1) => setLayout((p) => { const i = p.findIndex((w) => w.id === id); const j = i + dir; if (i < 0 || j < 0 || j >= p.length) return p; const a = [...p]; const [m] = a.splice(i, 1); a.splice(j, 0, m!); return a; });
   const dragH = (id: string): Record<string, unknown> => edit ? {
@@ -711,7 +710,7 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
     {layout.length === 0
       ? <div className="empty" style={{ padding: 40 }}>Panel vacío. Pulsa «Personalizar» → «Añadir visual».</div>
       : <div className="dgrid2">
-        {layout.map((w, i) => <DashCard key={w.id} w={w} edit={edit} over={overId === w.id} bare={w.type === 'kpis'} dragH={dragH(w.id)} onSpan={(s) => setSpan(w.id, s)} onMove={(dir) => moveBy(w.id, dir)} canBack={i > 0} canFwd={i < layout.length - 1} onRemove={() => removeW(w.id)} headExtra={w.type === 'evolucion' ? periodSeg : undefined}>{body(w.type)}</DashCard>)}
+        {layout.map((w, i) => <DashCard key={w.id} w={w} edit={edit} over={overId === w.id} bare={w.type === 'kpis'} dragH={dragH(w.id)} onSpan={(s) => setSpan(w.id, s)} onHeight={(h) => setHeight(w.id, h)} onMove={(dir) => moveBy(w.id, dir)} canBack={i > 0} canFwd={i < layout.length - 1} onRemove={() => removeW(w.id)} headExtra={w.type === 'evolucion' ? periodSeg : undefined}>{body(w.type)}</DashCard>)}
       </div>}
   </>;
 }
