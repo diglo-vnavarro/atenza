@@ -770,6 +770,35 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
 }
 
 // ---- Módulo de Activos / CMDB (lista + ficha viva + CRUD + asignación) ----
+// Combo de personas con BÚSQUEDA y orden alfabético (para listas largas de
+// usuarios). `extras` son opciones fijas al principio (p. ej. «todos», «sin asignar»).
+function SearchSelect({ value, onChange, members, extras, placeholder, disabled }: { value: string; onChange: (v: string) => void; members: UiMember[]; extras?: { value: string; label: string }[]; placeholder: string; disabled?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const wrapRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const h = (e: MouseEvent) => { if (wrapRef.current && !wrapRef.current.contains(e.target as HTMLElement)) setOpen(false); };
+    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+  const sorted = [...members].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const ql = q.trim().toLowerCase();
+  const filtered = ql ? sorted.filter((m) => `${m.name} ${m.email}`.toLowerCase().includes(ql)) : sorted;
+  const label = extras?.find((x) => x.value === value)?.label ?? members.find((m) => m.uid === value)?.name ?? placeholder;
+  const pick = (v: string) => { onChange(v); setOpen(false); setQ(''); };
+  return <div className="ssel" ref={wrapRef}>
+    <button type="button" className="ssel-btn" disabled={disabled} onClick={() => setOpen((o) => !o)}><span className="ssel-lbl">{label}</span>{!disabled && <span className="ssel-caret">▾</span>}</button>
+    {open && <div className="ssel-pop">
+      <input autoFocus className="ssel-search" placeholder="Buscar persona…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="ssel-list">
+        {!ql && extras?.map((x) => <button key={x.value} type="button" className={'ssel-opt' + (value === x.value ? ' on' : '')} onClick={() => pick(x.value)}>{x.label}</button>)}
+        {filtered.map((m) => <button key={m.uid} type="button" className={'ssel-opt' + (value === m.uid ? ' on' : '')} onClick={() => pick(m.uid)}><Avatar m={m} /> <span className="ssel-nm">{m.name}</span></button>)}
+        {filtered.length === 0 && <div className="ssel-empty">Sin resultados.</div>}
+      </div>
+    </div>}
+  </div>;
+}
+
 function AssetsModule({ tenant, canManage, onOpenTicket }: { tenant: TenantData; canManage: boolean; onOpenTicket: (id: string) => void }) {
   const addAsset = useStore((s) => s.addAsset);
   const updateAsset = useStore((s) => s.updateAsset);
@@ -778,11 +807,13 @@ function AssetsModule({ tenant, canManage, onOpenTicket }: { tenant: TenantData;
   const [fType, setFType] = useState('');
   const [fStatus, setFStatus] = useState('');
   const [fAssignee, setFAssignee] = useState('');
+  const [fSite, setFSite] = useState('');
   const [sort, setSort] = useState<{ col: 'name' | 'productType' | 'status' | 'assignedTo' | 'warrantyUntil'; dir: 1 | -1 }>({ col: 'name', dir: 1 });
   const [selId, setSelId] = useState<string | null>(null);
   const assets = tenant.assets ?? [];
   const now = Date.now();
   const memberName = (uid?: string | null) => tenant.members.find((m) => m.uid === uid)?.name ?? '';
+  const sites = [...new Set(assets.map((a) => a.site).filter((s): s is string => !!s))].sort((a, b) => a.localeCompare(b, 'es'));
   const ql = q.trim().toLowerCase();
   const sortVal = (a: Asset): string | number =>
     sort.col === 'status' ? assetStatusView(a.status).label
@@ -792,11 +823,22 @@ function AssetsModule({ tenant, canManage, onOpenTicket }: { tenant: TenantData;
             : a.name.toLowerCase();
   const list = assets
     .filter((a) =>
-      (!ql || `${a.name} ${a.tag ?? ''} ${a.serial ?? ''} ${a.vendor ?? ''} ${a.model ?? ''} ${a.id}`.toLowerCase().includes(ql)) &&
+      (!ql || `${a.name} ${a.tag ?? ''} ${a.serial ?? ''} ${a.vendor ?? ''} ${a.model ?? ''} ${a.id} ${memberName(a.assignedTo)} ${a.site ?? ''} ${a.department ?? ''} ${a.productType ?? ''}`.toLowerCase().includes(ql)) &&
       (!fType || a.productType === fType) &&
       (!fStatus || a.status === fStatus) &&
+      (!fSite || a.site === fSite) &&
       (!fAssignee || (fAssignee === '__none__' ? !a.assignedTo : a.assignedTo === fAssignee)))
     .sort((a, b) => { const va = sortVal(a), vb = sortVal(b); const c = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb), 'es'); return c * sort.dir; });
+  const hasFilter = !!(ql || fType || fStatus || fSite || fAssignee);
+  const exportCsv = () => {
+    const head = ['ID', 'Nombre', 'Etiqueta', 'Tipo', 'Nº serie', 'Estado', 'Asignado a', 'Sede', 'Departamento', 'Fabricante', 'Modelo', 'Compra', 'Garantía', 'Coste'];
+    const cell = (v: unknown) => { const s = v == null ? '' : String(v); return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const day = (ms?: number | null) => (ms ? new Date(ms).toLocaleDateString('es-ES') : '');
+    const rows = list.map((a) => [a.id, a.name, a.tag, a.productType, a.serial, assetStatusView(a.status).label, memberName(a.assignedTo), a.site, a.department, a.vendor, a.model, day(a.purchaseDate), day(a.warrantyUntil), a.cost].map(cell).join(';'));
+    const csv = '﻿' + [head.join(';'), ...rows].join('\r\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const el = document.createElement('a'); el.href = url; el.download = `activos-atenza-${new Date().toISOString().slice(0, 10)}.csv`; el.click(); URL.revokeObjectURL(url);
+  };
   const sortTh = (col: typeof sort.col, label: string, extra?: import('react').CSSProperties) => <th onClick={() => setSort((s) => ({ col, dir: s.col === col ? (s.dir * -1 as 1 | -1) : 1 }))} style={{ cursor: 'pointer', userSelect: 'none', ...extra }}>{label}{sort.col === col ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}</th>;
   const sel = assets.find((a) => a.id === selId) ?? null;
   const stat = (k: AssetStatus) => assets.filter((a) => a.status === k).length;
@@ -806,21 +848,25 @@ function AssetsModule({ tenant, canManage, onOpenTicket }: { tenant: TenantData;
   return <>
     <div className="hd">
       <h1>Activos</h1>
-      <span className="sub">{tenant.name} · {assets.length} activos</span>
-      {canManage && <button className="primary" style={{ marginLeft: 'auto' }} onClick={() => { const id = addAsset({ name: 'Nuevo activo', status: 'in_stock' }); setSelId(id); }}>＋ Nuevo activo</button>}
+      <span className="sub">{tenant.name} · {hasFilter ? `${list.length} de ${assets.length}` : assets.length} activos</span>
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+        <button className="ghost sm" onClick={exportCsv} disabled={list.length === 0} title="Exportar la vista actual a CSV"><Icon name="file-text" size={14} /> Exportar CSV</button>
+        {canManage && <button className="primary" onClick={() => { const id = addAsset({ name: 'Nuevo activo', status: 'in_stock' }); setSelId(id); }}>＋ Nuevo activo</button>}
+      </div>
     </div>
     <div className="astats">
       {ASSET_STATUS.map((s) => <button key={s.key} className={'astat' + (fStatus === s.key ? ' on' : '')} onClick={() => setFStatus(fStatus === s.key ? '' : s.key)}>
         <span className="sdot" style={{ background: s.color }} /><span className="astat-l">{s.label}</span><b className="mono">{stat(s.key)}</b></button>)}
     </div>
     <div className="card fbar" style={{ marginTop: 10 }}>
-      <label className="searchbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre, etiqueta, nº serie…" /></label>
+      <label className="searchbox"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></svg><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Nombre, etiqueta, serie, persona, sede…" /></label>
       <select value={fType} onChange={(e) => setFType(e.target.value)}><option value="">Tipo: todos</option>{ASSET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select>
       <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}><option value="">Estado: todos</option>{ASSET_STATUS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select>
-      <select value={fAssignee} onChange={(e) => setFAssignee(e.target.value)}><option value="">Asignado: todos</option><option value="__none__">— Sin asignar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select>
-      {(q || fType || fStatus || fAssignee) && <button className="ghost sm" onClick={() => { setQ(''); setFType(''); setFStatus(''); setFAssignee(''); }}>Limpiar</button>}
+      <select value={fSite} onChange={(e) => setFSite(e.target.value)}><option value="">Sede: todas</option>{sites.map((s) => <option key={s} value={s}>{s}</option>)}</select>
+      <SearchSelect value={fAssignee} onChange={setFAssignee} members={tenant.members} extras={[{ value: '', label: 'Asignado: todos' }, { value: '__none__', label: '— Sin asignar —' }]} placeholder="Asignado: todos" />
+      {hasFilter && <button className="ghost sm" onClick={() => { setQ(''); setFType(''); setFStatus(''); setFSite(''); setFAssignee(''); }}>Limpiar</button>}
     </div>
-    <div className="card" style={{ overflow: 'hidden', marginTop: 12 }}>
+    <div className="card asset-scroll" style={{ marginTop: 12 }}>
       <table className="mgmt">
         <thead><tr>{sortTh('name', 'Activo')}{sortTh('productType', 'Tipo')}<th>Nº serie</th>{sortTh('status', 'Estado')}{sortTh('assignedTo', 'Asignado a')}<th>Sede</th>{sortTh('warrantyUntil', 'Garantía')}</tr></thead>
         <tbody>{list.map((a) => { const sv = assetStatusView(a.status); const mem = tenant.members.find((m) => m.uid === a.assignedTo); const exp = a.warrantyUntil && a.warrantyUntil < now; return <tr key={a.id} className="mrow" onClick={() => setSelId(a.id)}>
@@ -850,7 +896,7 @@ function AssetsModule({ tenant, canManage, onOpenTicket }: { tenant: TenantData;
             <label>{fcap('Estado')}<select value={sel.status} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { status: e.target.value as AssetStatus })}>{ASSET_STATUS.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}</select></label>
           </div>
           <div className="nf-cols">
-            <label>{fcap('Asignado a')}<select value={sel.assignedTo ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { assignedTo: e.target.value || null })}><option value="">— Sin asignar —</option>{tenant.members.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>
+            <label>{fcap('Asignado a')}<SearchSelect value={sel.assignedTo ?? ''} onChange={(v) => updateAsset(sel.id, { assignedTo: v || null })} members={tenant.members} extras={[{ value: '', label: '— Sin asignar —' }]} placeholder="— Sin asignar —" disabled={!canManage} /></label>
             <label>{fcap('Sede')}<select value={sel.site ?? ''} disabled={!canManage} onChange={(e) => updateAsset(sel.id, { site: e.target.value })}><option value="">—</option>{(tenant.sites ?? []).map((s) => <option key={s} value={s}>{s}</option>)}{sel.site && !(tenant.sites ?? []).includes(sel.site) && <option value={sel.site}>{sel.site}</option>}</select></label>
           </div>
           <div className="nf-cols">

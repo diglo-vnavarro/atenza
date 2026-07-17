@@ -374,6 +374,24 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .asset-tk:hover{border-color:var(--accent); background:var(--sink);}
 .asset-tk .id{font-size:12px; color:var(--ink-faint);}
 .asset-tk .subj{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px;}
+/* combo de personas con búsqueda */
+.ssel{position:relative; min-width:210px;}
+.ssel-btn{display:flex; align-items:center; gap:8px; width:100%; border:1px solid var(--line-2); background:var(--surface); color:var(--ink); border-radius:9px; padding:8px 11px; font:inherit; font-size:13.5px; cursor:pointer; text-align:left;}
+.ssel-btn:hover:not(:disabled){border-color:var(--accent);}
+.ssel-btn:disabled{cursor:default;}
+.ssel-lbl{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ssel-caret{color:var(--ink-faint); font-size:11px;}
+.ssel-pop{position:absolute; z-index:45; top:calc(100% + 5px); left:0; width:290px; max-width:82vw; background:var(--surface); border:1px solid var(--line); border-radius:11px; box-shadow:0 16px 44px rgba(10,12,24,.20); padding:6px;}
+.ssel-search{width:100%; border:1px solid var(--line); border-radius:8px; padding:7px 10px; font:inherit; font-size:13px; margin-bottom:6px; background:var(--sink); color:var(--ink);}
+.ssel-list{max-height:270px; overflow:auto; display:flex; flex-direction:column;}
+.ssel-opt{display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:none; background:none; color:inherit; font:inherit; font-size:13px; padding:7px 8px; border-radius:7px; cursor:pointer;}
+.ssel-opt:hover{background:var(--sink);}
+.ssel-opt.on{background:var(--accent-soft); color:var(--accent-deep); font-weight:600;}
+.ssel-nm{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ssel-empty{padding:10px; color:var(--ink-faint); font-size:12.5px; text-align:center;}
+/* tabla de activos: cabecera fija + scroll propio */
+.asset-scroll{overflow:auto; max-height:calc(100vh - 300px);}
+.asset-scroll .mgmt thead th{position:sticky; top:0; z-index:2; background:var(--sink);}
 
 /* drawer (+ nueva solicitud) */
 .scrim{position:fixed; inset:0; background:rgba(12,13,24,.44); backdrop-filter:blur(2px); z-index:60; display:flex; justify-content:flex-end; animation:scrimin .2s ease;}
