@@ -293,10 +293,14 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .dcard-b{padding:15px 16px; min-width:0;}
 .dcard-bare{min-width:0;}
 .dcard-bare .kpis{margin-bottom:0;}
-.spanpick{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
-.spanpick button{border:none; background:var(--surface); color:var(--ink-soft); font:inherit; font-size:11px; width:22px; height:22px; cursor:pointer; border-left:1px solid var(--line);}
-.spanpick button:first-child{border-left:none;}
+.dcard.editing .dcard-h{flex-wrap:wrap; row-gap:7px;}
+.spanpick,.movebtns{display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+.spanpick button,.movebtns button{border:none; background:var(--surface); color:var(--ink-soft); font:inherit; font-size:11px; width:22px; height:22px; cursor:pointer; border-left:1px solid var(--line);}
+.spanpick button:first-child,.movebtns button:first-child{border-left:none;}
 .spanpick button.on{background:var(--accent); color:#fff;}
+.movebtns button{font-size:12px; color:var(--accent); font-weight:700;}
+.movebtns button:hover:not(:disabled){background:var(--accent-soft);}
+.movebtns button:disabled{color:var(--ink-faint); opacity:.5; cursor:default;}
 .dc-x{border:none; background:none; color:var(--ink-faint); cursor:pointer; padding:3px; border-radius:6px; display:inline-flex;}
 .dc-x:hover{background:color-mix(in srgb, var(--crit) 14%, transparent); color:var(--crit);}
 .seg-solo{display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); border-radius:9px; padding:6px 11px; font:inherit; font-size:12.5px; font-weight:600; cursor:pointer;}

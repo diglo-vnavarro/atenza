@@ -531,15 +531,16 @@ function makeBuckets(period: Period, now: number): Bucket[] {
 const bucketIdx = (b: Bucket[], ms: number) => { for (let i = 0; i < b.length; i++) if (ms >= b[i]!.start && ms < b[i]!.end) return i; return -1; };
 const closedAtOf = (t: StoredTicket): number | undefined => { const h = t.statusHistory; return h && h.length ? h[h.length - 1]?.from : undefined; };
 
-function DashCard({ w, edit, over, bare, dragH, onSpan, onRemove, headExtra, children }: { w: DashW; edit: boolean; over: boolean; bare?: boolean; dragH: Record<string, unknown>; onSpan: (s: 1 | 2 | 3 | 4) => void; onRemove: () => void; headExtra?: import('react').ReactNode; children: import('react').ReactNode }) {
+function DashCard({ w, edit, over, bare, dragH, onSpan, onMove, canBack, canFwd, onRemove, headExtra, children }: { w: DashW; edit: boolean; over: boolean; bare?: boolean; dragH: Record<string, unknown>; onSpan: (s: 1 | 2 | 3 | 4) => void; onMove: (dir: -1 | 1) => void; canBack: boolean; canFwd: boolean; onRemove: () => void; headExtra?: import('react').ReactNode; children: import('react').ReactNode }) {
   const meta = W_META[w.type];
   const showHead = edit || !bare;
   return <div className={'dcard' + (bare ? ' plain' : '') + (over ? ' over' : '') + (edit ? ' editing' : '')} style={{ gridColumn: `span ${w.span}` } as CSS} draggable={edit} {...dragH}>
     {showHead && <div className="dcard-h">
-      {edit && <span className="dc-grip" title="Arrastra para reordenar">⠿</span>}
+      {edit && <span className="dc-grip" title="Arrastra para mover (o usa las flechas ◀ ▶)">⠿</span>}
       <Icon name={meta.icon} size={14} /><span className="dc-t">{meta.title}</span>
       <div className="dc-tools">
         {headExtra}
+        {edit && <div className="movebtns" title="Mover"><button onClick={() => onMove(-1)} disabled={!canBack} title="Mover antes" aria-label="Mover antes">◀</button><button onClick={() => onMove(1)} disabled={!canFwd} title="Mover después" aria-label="Mover después">▶</button></div>}
         {edit && <div className="spanpick" title="Ancho en columnas">{([1, 2, 3, 4] as const).map((s) => <button key={s} className={w.span === s ? 'on' : ''} onClick={() => onSpan(s)}>{s}</button>)}</div>}
         {edit && <button className="dc-x" onClick={onRemove} title="Quitar visual"><Icon name="trash" size={13} /></button>}
       </div>
@@ -603,6 +604,7 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   const removeW = (id: string) => setLayout((p) => p.filter((w) => w.id !== id));
   const addW = (type: WType) => { setLayout((p) => [...p, { id: `w-${type}-${Date.now()}-${seq.current++}`, type, span: W_META[type].span }]); setAddOpen(false); };
   const moveBefore = (src: string | null, dst: string) => { if (!src || src === dst) return; setLayout((p) => { const a = [...p]; const si = a.findIndex((w) => w.id === src); if (si < 0) return p; const [m] = a.splice(si, 1); const di = a.findIndex((w) => w.id === dst); a.splice(di, 0, m!); return a; }); };
+  const moveBy = (id: string, dir: -1 | 1) => setLayout((p) => { const i = p.findIndex((w) => w.id === id); const j = i + dir; if (i < 0 || j < 0 || j >= p.length) return p; const a = [...p]; const [m] = a.splice(i, 1); a.splice(j, 0, m!); return a; });
   const dragH = (id: string): Record<string, unknown> => edit ? {
     onDragStart: (e: import('react').DragEvent) => { dragId.current = id; e.dataTransfer.effectAllowed = 'move'; },
     onDragOver: (e: import('react').DragEvent) => { e.preventDefault(); if (overId !== id) setOverId(id); },
@@ -705,11 +707,11 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
         <button className={'seg-solo' + (edit ? ' on' : '')} onClick={() => { setEdit((e) => !e); setAddOpen(false); }}><Icon name="sliders" size={14} /> {edit ? 'Hecho' : 'Personalizar'}</button>
       </div>
     </div>
-    {edit && <div className="edithint"><Icon name="eye" size={13} /> Arrastra las tarjetas para reordenar · ajusta el ancho (1–4 columnas) · añade o quita visuales. El diseño se guarda para tu usuario.</div>}
+    {edit && <div className="edithint"><Icon name="eye" size={13} /> Reordena con las flechas <b>◀ ▶</b> (o arrastrando la tarjeta) · ajusta el ancho <b>1–4</b> columnas · añade o quita visuales. El diseño se guarda para tu usuario.</div>}
     {layout.length === 0
       ? <div className="empty" style={{ padding: 40 }}>Panel vacío. Pulsa «Personalizar» → «Añadir visual».</div>
       : <div className="dgrid2">
-        {layout.map((w) => <DashCard key={w.id} w={w} edit={edit} over={overId === w.id} bare={w.type === 'kpis'} dragH={dragH(w.id)} onSpan={(s) => setSpan(w.id, s)} onRemove={() => removeW(w.id)} headExtra={w.type === 'evolucion' ? periodSeg : undefined}>{body(w.type)}</DashCard>)}
+        {layout.map((w, i) => <DashCard key={w.id} w={w} edit={edit} over={overId === w.id} bare={w.type === 'kpis'} dragH={dragH(w.id)} onSpan={(s) => setSpan(w.id, s)} onMove={(dir) => moveBy(w.id, dir)} canBack={i > 0} canFwd={i < layout.length - 1} onRemove={() => removeW(w.id)} headExtra={w.type === 'evolucion' ? periodSeg : undefined}>{body(w.type)}</DashCard>)}
       </div>}
   </>;
 }
