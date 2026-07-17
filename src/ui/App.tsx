@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ReactFlow, Background, BackgroundVariant, Controls, MiniMap, Handle, Position, MarkerType, Panel,
   useNodesState, useEdgesState, type Node, type Edge, type Connection, type NodeProps, type ReactFlowInstance,
@@ -378,6 +378,24 @@ export function App() {
 // ---- Gráficos SVG modernos (siguen los tokens de la app; sin dependencias) ----
 type CSS = import('react').CSSProperties;
 
+// Mide el contenedor en vivo (ResizeObserver) para que los gráficos se
+// redimensionen al alto/ancho real de la tarjeta en lugar de hacer scroll.
+function useMeasure<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [size, setSize] = useState({ w: 0, h: 0 });
+  const measure = useCallback(() => { const el = ref.current; if (!el) return; const r = el.getBoundingClientRect(); setSize((s) => (s.w === Math.round(r.width) && s.h === Math.round(r.height) ? s : { w: Math.round(r.width), h: Math.round(r.height) })); }, []);
+  // Cada render remide (protegido contra bucles por la igualdad): capta los
+  // cambios de alto de la tarjeta aunque el ResizeObserver no dispare.
+  useLayoutEffect(() => { measure(); });
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const ro = new ResizeObserver(measure); ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [measure]);
+  return [ref, size] as const;
+}
+
 // Aro de anillo con separación entre segmentos, total al centro y leyenda con %.
 function Donut({ data, size = 128, thickness = 15 }: { data: { label: string; value: number; color: string }[]; size?: number; thickness?: number }) {
   const total = data.reduce((a, d) => a + d.value, 0);
@@ -425,25 +443,31 @@ function MiniBars({ data, color = 'var(--accent)' }: { data: { label: string; va
 
 // Semicírculo de proporción (p. ej. vencidas sobre el total con SLA).
 function Gauge({ value, max, color = 'var(--warn)', caption }: { value: number; max: number; color?: string; caption?: string }) {
-  const frac = max ? Math.min(1, value / max) : 0; const R = 46, CX = 62, CY = 60;
+  const frac = max ? Math.min(1, value / max) : 0; const R = 46, CX = 66, CY = 64;
   const pt = (f: number): [number, number] => [CX + R * Math.cos(Math.PI * (1 - f)), CY - R * Math.sin(Math.PI * (1 - f))];
   const [ex, ey] = pt(frac);
-  return <svg width={124} height={78} viewBox="0 0 124 78" style={{ flexShrink: 0 }}>
-    <path d="M16 60 A46 46 0 0 1 108 60" fill="none" stroke="var(--sink)" strokeWidth={11} strokeLinecap="round" />
-    {frac > 0 && <path d={`M16 60 A46 46 0 ${frac > 0.5 ? 1 : 0} 1 ${ex} ${ey}`} fill="none" stroke={color} strokeWidth={11} strokeLinecap="round" />}
-    <text x={62} y={52} textAnchor="middle" fontSize={26} fontWeight={760} fontFamily="var(--mono)" fill="var(--ink)" letterSpacing="-0.03em">{value}</text>
-    {caption && <text x={62} y={72} textAnchor="middle" fontSize={9.5} fill="var(--ink-faint)" letterSpacing="0.05em">{caption}</text>}
+  // El arco del gauge barre como mucho 180° → large-arc-flag SIEMPRE 0 (con 1 se
+  // dibujaría el arco mayor >180° y se veía "cortado"). viewBox con margen arriba.
+  return <svg width={132} height={80} viewBox="0 0 132 80" style={{ maxWidth: '100%', maxHeight: '100%' }}>
+    <path d="M20 64 A46 46 0 0 1 112 64" fill="none" stroke="var(--sink)" strokeWidth={11} strokeLinecap="round" />
+    {frac > 0 && <path d={`M20 64 A46 46 0 0 1 ${ex} ${ey}`} fill="none" stroke={color} strokeWidth={11} strokeLinecap="round" />}
+    <text x={66} y={56} textAnchor="middle" fontSize={26} fontWeight={760} fontFamily="var(--mono)" fill="var(--ink)" letterSpacing="-0.03em">{value}</text>
+    {caption && <text x={66} y={74} textAnchor="middle" fontSize={9.5} fill="var(--ink-faint)" letterSpacing="0.05em">{caption}</text>}
   </svg>;
 }
 
 // Serie temporal: líneas + relleno de área, rejilla tenue, extremo destacado y
 // capa de hover (línea guía + tooltip). Sin doble eje (una sola escala Y).
-function AreaTimeline({ labels, series, height = 216 }: { labels: string[]; series: { name: string; color: string; values: number[] }[]; height?: number }) {
+function AreaTimeline({ labels, series }: { labels: string[]; series: { name: string; color: string; values: number[] }[] }) {
   const [hi, setHi] = useState<number | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const [wrapRef, size] = useMeasure<HTMLDivElement>();
   const n = labels.length;
-  const W = 720, H = height, padL = 30, padR = 14, padT = 14, padB = 26;
-  const plotW = W - padL - padR, plotH = H - padT - padB;
+  // Se dibuja a los px REALES del contenedor (sin viewBox escalado) → el gráfico
+  // se redimensiona con el alto de la tarjeta y el texto nunca se deforma.
+  const W = size.w > 0 ? size.w : 640, H = size.h > 0 ? size.h : 180;
+  // menos margen vertical cuando la tarjeta es baja (para que quepa el trazo)
+  const padL = 30, padR = 14, padT = 12, padB = H < 150 ? 16 : 26;
+  const plotW = W - padL - padR, plotH = Math.max(1, H - padT - padB);
   const rawMax = Math.max(1, ...series.flatMap((s) => s.values));
   // techo “bonito”: 1·10ⁿ, 2·10ⁿ o 5·10ⁿ
   const niceMax = (m: number) => { const p = Math.pow(10, Math.floor(Math.log10(m))); const f = m / p; const step = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10; return step * p; };
@@ -460,7 +484,7 @@ function AreaTimeline({ labels, series, height = 216 }: { labels: string[]; seri
   return <div className="areawrap">
     <div className="area-legend">{series.map((s) => <span key={s.name} className="al-item"><span className="al-line" style={{ background: s.color }} />{s.name}<b className="mono">{s.values.reduce((a, b) => a + b, 0)}</b></span>)}</div>
     <div className="area-plot" ref={wrapRef} onMouseMove={onMove} onMouseLeave={() => setHi(null)}>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="none" style={{ display: 'block' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width={W} height={H} style={{ display: 'block', position: 'absolute', inset: 0 }}>
         <defs>{series.map((s, i) => <linearGradient key={i} id={`atg${i}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={s.color} stopOpacity={0.22} /><stop offset="100%" stopColor={s.color} stopOpacity={0} /></linearGradient>)}</defs>
         {ticks.map((t, i) => { const yy = y(t); return <g key={i}><line x1={padL} y1={yy} x2={W - padR} y2={yy} stroke="var(--line)" strokeWidth={1} strokeDasharray={i === 0 ? '' : '3 4'} opacity={i === 0 ? 1 : 0.7} /><text x={padL - 6} y={yy + 3} textAnchor="end" fontSize={10} fill="var(--ink-faint)" fontFamily="var(--mono)">{t}</text></g>; })}
         {xIdx.map((i) => <text key={i} x={x(i)} y={H - 8} textAnchor={i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'} fontSize={10} fill="var(--ink-faint)">{labels[i]}</text>)}
@@ -480,28 +504,36 @@ function AreaTimeline({ labels, series, height = 216 }: { labels: string[]; seri
 }
 
 // ---- Panel modular: catálogo de visuales, layout por usuario (localStorage) ----
-type WType = 'kpis' | 'evolucion' | 'tecnico' | 'recibidas' | 'prioridad' | 'tipo' | 'estado' | 'grupo' | 'sla' | 'resumen';
+type WType = 'kpis' | 'evolucion' | 'tecnico' | 'recibidas' | 'prioridad' | 'tipo' | 'estado' | 'grupo' | 'sla' | 'resumen'
+  | 'sede' | 'categoria' | 'antiguedad' | 'sinasignar' | 'cumplimiento';
 type Span = 1 | 2 | 3 | 4;
 type HLevel = 1 | 2 | 3 | 4 | 5 | 6;
 interface DashW { id: string; type: WType; span: Span; h?: HLevel }
-const W_META: Record<WType, { title: string; span: Span; h: HLevel; icon: string; desc: string }> = {
+// fit:true → gráfico que se REDIMENSIONA al alto de la tarjeta (sin scroll).
+// El resto (tablas/listas) hace scroll cuando no cabe.
+const W_META: Record<WType, { title: string; span: Span; h: HLevel; icon: string; desc: string; fit?: boolean }> = {
   kpis: { title: 'Indicadores', span: 4, h: 1, icon: 'sliders', desc: 'Abiertas · sin asignar · vencidas · mías' },
-  evolucion: { title: 'Evolución de tickets', span: 4, h: 5, icon: 'zap', desc: 'Entrantes vs. cerradas en el tiempo' },
+  evolucion: { title: 'Evolución de tickets', span: 4, h: 5, icon: 'zap', desc: 'Entrantes vs. cerradas en el tiempo', fit: true },
   tecnico: { title: 'Solicitudes por técnico', span: 2, h: 6, icon: 'users', desc: 'Carga y capacidad por persona' },
-  recibidas: { title: 'Recibidas · últimos 14 días', span: 2, h: 3, icon: 'calendar', desc: 'Entradas diarias recientes' },
-  prioridad: { title: 'Abiertas por prioridad', span: 1, h: 3, icon: 'list', desc: 'Reparto por prioridad' },
-  tipo: { title: 'Por tipo', span: 1, h: 2, icon: 'ticket', desc: 'Incidencias vs. peticiones' },
+  recibidas: { title: 'Recibidas · últimos 14 días', span: 2, h: 3, icon: 'calendar', desc: 'Entradas diarias recientes', fit: true },
+  prioridad: { title: 'Abiertas por prioridad', span: 1, h: 3, icon: 'list', desc: 'Reparto por prioridad', fit: true },
+  tipo: { title: 'Por tipo', span: 1, h: 2, icon: 'ticket', desc: 'Incidencias vs. peticiones', fit: true },
   estado: { title: 'Por estado', span: 2, h: 3, icon: 'list', desc: 'Reparto por estado actual' },
   grupo: { title: 'Cola por grupo de soporte', span: 2, h: 3, icon: 'inbox', desc: 'Carga por grupo' },
-  sla: { title: 'Estado del SLA', span: 1, h: 2, icon: 'shield', desc: 'Vencidas / cerca / en plazo' },
+  sla: { title: 'Estado del SLA', span: 1, h: 2, icon: 'shield', desc: 'Vencidas / cerca / en plazo', fit: true },
   resumen: { title: 'Resumen de la instancia', span: 1, h: 2, icon: 'server', desc: 'Conteos de configuración' },
+  sede: { title: 'Por sede', span: 2, h: 3, icon: 'landmark', desc: 'Reparto de abiertas por sede' },
+  categoria: { title: 'Por categoría de servicio', span: 2, h: 3, icon: 'list', desc: 'Reparto por categoría' },
+  antiguedad: { title: 'Antigüedad de abiertas', span: 2, h: 3, icon: 'calendar', desc: 'Cuánto llevan abiertas' },
+  sinasignar: { title: 'Sin asignar por grupo', span: 2, h: 3, icon: 'inbox', desc: 'Cola sin técnico, por grupo' },
+  cumplimiento: { title: 'Cumplimiento de SLA', span: 1, h: 3, icon: 'shield', desc: 'En plazo vs. cerca vs. vencidas', fit: true },
 };
 // alto de la tarjeta = (h+2) filas base de la rejilla (auto-rows 38px, gap 14px)
 // → niveles ≈ 142·194·246·298·350·402px. Referencia: «por técnico» (la más alta) = 6.
 const hRows = (h: HLevel): number => h + 2;
-const DEFAULT_LAYOUT = (): DashW[] => (Object.keys(W_META) as WType[])
-  .sort((a, b) => ['kpis', 'evolucion', 'tecnico', 'recibidas', 'prioridad', 'tipo', 'sla', 'resumen', 'estado', 'grupo'].indexOf(a) - ['kpis', 'evolucion', 'tecnico', 'recibidas', 'prioridad', 'tipo', 'sla', 'resumen', 'estado', 'grupo'].indexOf(b))
-  .map((type) => ({ id: 'w-' + type, type, span: W_META[type].span, h: W_META[type].h }));
+// Solo estos 10 componen el panel por defecto; el resto está en «Añadir visual».
+const DEFAULT_TYPES: WType[] = ['kpis', 'evolucion', 'tecnico', 'recibidas', 'prioridad', 'tipo', 'sla', 'resumen', 'estado', 'grupo'];
+const DEFAULT_LAYOUT = (): DashW[] => DEFAULT_TYPES.map((type) => ({ id: 'w-' + type, type, span: W_META[type].span, h: W_META[type].h }));
 const DASH_KEY = (uid: string) => `atenza-dash-v2-${uid}`;
 function useDashLayout(uid: string) {
   const key = DASH_KEY(uid);
@@ -543,7 +575,7 @@ function DashCard({ w, edit, over, bare, dragH, onSpan, onHeight, onMove, canBac
       <span className="dc-lab">Alto</span><div className="spanpick" title="Alto en filas">{([1, 2, 3, 4, 5, 6] as const).map((n) => <button key={n} className={h === n ? 'on' : ''} onClick={() => onHeight(n)}>{n}</button>)}</div>
       <button className="dc-x" onClick={onRemove} title="Quitar visual" style={{ marginLeft: 'auto' }}><Icon name="trash" size={13} /></button>
     </div>}
-    <div className={bare ? 'dcard-bare' : 'dcard-b'}>{children}</div>
+    <div className={bare ? 'dcard-bare' : ('dcard-b' + (meta.fit ? ' fit' : ''))}>{children}</div>
   </div>;
 }
 
@@ -645,6 +677,23 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
   }, [period, arc, tenant.tickets]);
 
   const inPlazo = Math.max(0, withDue - overdue - nearBreach);
+
+  // --- datos de los visuales adicionales ---
+  const memberSite = (uid?: string | null) => tenant.members.find((m) => m.uid === uid)?.site;
+  const bySite = new Map<string, number>();
+  for (const t of tickets) { const s = t.site || memberSite(t.requesterId) || 'Sin sede'; bySite.set(s, (bySite.get(s) ?? 0) + 1); }
+  const siteRows = [...bySite.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value]) => ({ label, value }));
+  const byCat = new Map<string, number>();
+  for (const t of tickets) { const c = t.serviceCategory || t.category || 'Sin categoría'; byCat.set(c, (byCat.get(c) ?? 0) + 1); }
+  const catRows = [...byCat.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value]) => ({ label, value }));
+  const AGE = [{ label: '< 1 día', max: 1 }, { label: '1–3 días', max: 3 }, { label: '3–7 días', max: 7 }, { label: '7–30 días', max: 30 }, { label: '> 30 días', max: Infinity }];
+  const agingRows = AGE.map((a) => ({ label: a.label, value: 0, color: 'var(--warn)' }));
+  for (const t of tickets) { const created = t.createdAt ?? t.statusHistory?.[0]?.from; if (created == null) continue; const days = (now - created) / 86400000; const idx = AGE.findIndex((a) => days < a.max); if (idx >= 0) agingRows[idx]!.value++; }
+  const byUnGroup = new Map<string, number>();
+  for (const t of tickets) { if (t.technicianId) continue; const g = groupName(t.groupId); byUnGroup.set(g, (byUnGroup.get(g) ?? 0) + 1); }
+  const unassignedRows = [...byUnGroup.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([label, value]) => ({ label, value }));
+  const cumplData = [{ label: 'En plazo', value: inPlazo, color: 'var(--ok)' }, { label: 'Cerca (<2 h)', value: nearBreach, color: 'var(--warn)' }, { label: 'Vencidas', value: overdue, color: 'var(--crit)' }];
+
   const periodSeg = <div className="seg xs" onDragStart={(e) => e.preventDefault()}>{([['dias', 'Días'], ['semanas', 'Semanas'], ['meses', 'Meses']] as [Period, string][]).map(([k, l]) => <button key={k} draggable={false} className={period === k ? 'on' : ''} onClick={() => setPeriod(k)}>{l}</button>)}</div>;
 
   const body = (type: WType): import('react').ReactNode => {
@@ -673,7 +722,7 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
       case 'tipo': return <Donut data={typeData} />;
       case 'estado': return <BarList rows={stateRows} />;
       case 'grupo': return <BarList rows={groupRows} color="var(--accent)" />;
-      case 'sla': return <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      case 'sla': return <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', flex: 1, minHeight: 0 }}>
         <Gauge value={overdue} max={Math.max(1, withDue)} color="var(--crit)" caption="vencidas" />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, fontSize: 12.5, flex: 1, minWidth: 118 }}>
           <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}><span className="sdot" style={{ background: 'var(--crit)' }} />Vencidas <b className="mono" style={{ marginLeft: 'auto' }}>{overdue}</b></span>
@@ -687,6 +736,11 @@ function Dashboard({ tenant, user, go }: { tenant: TenantData; user: ReturnType<
         <div><div className="k">Grupos</div><b style={{ fontSize: 18 }}>{tenant.groups.length}</b></div>
         <div><div className="k">Personas</div><b style={{ fontSize: 18 }}>{tenant.members.length}</b></div>
       </div>;
+      case 'sede': return <BarList rows={siteRows} />;
+      case 'categoria': return <BarList rows={catRows} />;
+      case 'antiguedad': return <BarList rows={agingRows} />;
+      case 'sinasignar': return <BarList rows={unassignedRows} color="var(--warn)" />;
+      case 'cumplimiento': return <Donut data={cumplData} />;
     }
   };
 
