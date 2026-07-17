@@ -268,7 +268,13 @@ export function App() {
     <div className="login-wrap"><div className="login-card" style={{ textAlign: 'center' }}>
       <div className="brand" style={{ justifyContent: 'center', fontSize: 20 }}><span className="glyph">A</span> Atenza</div>
       {accessRequested
-        ? <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>✅ Solicitud enviada. Un administrador la revisará y te dará acceso; vuelve a entrar más tarde.</p>
+        ? <>
+          <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>✅ Solicitud enviada.<br />Si ya estabas dado de alta, tu acceso se activa en unos segundos: pulsa <b>Recargar</b>. Si no, un administrador la aprobará.</p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="primary" onClick={() => window.location.reload()}>Recargar</button>
+            <button className="ghost" onClick={() => doSignOut()}>Salir</button>
+          </div>
+        </>
         : <>
           <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>Sin acceso todavía.<br /><b>{authUser?.email}</b> no pertenece a ninguna instancia.</p>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
