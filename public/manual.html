@@ -84,6 +84,10 @@
   .steps{counter-reset:s;list-style:none;padding-left:0}
   .steps>li{counter-increment:s;position:relative;padding-left:34px;margin:10px 0}
   .steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:23px;height:23px;background:var(--accent);color:#fff;border-radius:50%;display:grid;place-items:center;font-size:12.5px;font-weight:700}
+  .btn{display:inline-flex;align-items:center;gap:6px;background:var(--accent);color:#fff;border-radius:9px;padding:9px 16px;font-weight:650;font-size:14px;text-decoration:none;box-shadow:var(--shadow)}
+  .btn:hover{background:var(--accent-deep);text-decoration:none}
+  .embed{border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow);background:var(--surface);margin-top:6px}
+  .embed iframe{display:block;width:100%;height:660px;border:0}
   footer{border-top:1px solid var(--line);color:var(--muted);font-size:13px;padding:22px 0 40px}
   @media (max-width:860px){ .wrap{grid-template-columns:1fr;gap:0} nav{position:static;padding-top:0;margin-top:8px;border-bottom:1px solid var(--line);padding-bottom:14px} main{max-width:100%} }
 </style>
@@ -109,6 +113,7 @@
     <a href="#intro">1 · Qué es Atenza</a>
     <a href="#acceso">2 · Acceso y roles</a>
     <a href="#cambios">3 · Novedades frente a SDP</a>
+    <a href="#comparativa">★ Comparativa interactiva</a>
     <a href="#solicitudes">4 · Trabajar con solicitudes</a>
     <a href="#estados">5 · Estados y ciclo de vida</a>
     <a href="#vistas">6 · Vistas y archivo</a>
@@ -164,6 +169,15 @@
           <tr><td>Acceso de usuarios</td><td class="sdp">Provisión manual.</td><td class="atz">Solicitud + <b>aprobación</b> con alerta al administrador.</td></tr>
         </tbody>
       </table>
+      </div>
+    </section>
+
+    <section id="comparativa">
+      <h2><span class="n">★</span>Comparativa interactiva</h2>
+      <p>Explora visualmente las diferencias con SDP: cifras clave, filtros por tipo de cambio (simplificado / mejorado / nuevo) y una tarjeta por cambio que se despliega para ver <b>qué fricción se quita</b> y <b>qué capacidad se conserva</b>.</p>
+      <p><a class="btn" href="/comparativa.html" target="_blank" rel="noopener">Abrir a pantalla completa ↗</a></p>
+      <div class="embed">
+        <iframe src="/comparativa.html" title="Comparativa interactiva Atenza vs SDP" loading="lazy"></iframe>
       </div>
     </section>
 

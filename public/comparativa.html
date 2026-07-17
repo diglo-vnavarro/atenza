@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2f6bff">
+<meta name="description" content="Comparativa interactiva Atenza vs ServiceDesk Plus: qué se simplifica sin perder capacidades.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<title>Atenza vs SDP · Comparativa</title>
+</head>
+<body>
+<style>
+  :root{
+    --bg:#eef1f6; --surface:#ffffff; --raise:#f7f9fc; --sink:#e7ebf2;
+    --ink:#101722; --body:#3d4654; --muted:#727c8b; --line:#e0e5ee; --line-2:#cfd6e1;
+    --accent:#2f6bff; --accent-deep:#1b4bd1; --accent-weak:#e7effe;
+    --legacy:#8b90a0; --legacy-weak:#eceef3;
+    --simpl:#2f6bff; --simpl-bg:#e7effe;
+    --mejor:#b3730b; --mejor-bg:#fbf0dd;
+    --nuevo:#0c8f68; --nuevo-bg:#e0f4ed;
+    --ink-hero:#f3f6fb; --hero:#0f1723; --hero-2:#16202f;
+    --mono:ui-monospace,"SFMono-Regular","Cascadia Code",Menlo,Consolas,monospace;
+    --ui:ui-sans-serif,system-ui,-apple-system,"Segoe UI Variable Display","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --shadow:0 1px 2px rgba(16,22,38,.05),0 10px 30px rgba(16,22,38,.07);
+    --shadow-lg:0 20px 60px rgba(16,22,38,.14);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --bg:#0b0e14; --surface:#141a23; --raise:#1a212c; --sink:#1e2632;
+      --ink:#eaeef4; --body:#c0c8d4; --muted:#87909e; --line:#242d3a; --line-2:#323d4c;
+      --accent:#5b8bff; --accent-deep:#7ba2ff; --accent-weak:#172239;
+      --legacy:#79808f; --legacy-weak:#1a212c;
+      --simpl:#5b8bff; --simpl-bg:#172239;
+      --mejor:#e3a44b; --mejor-bg:#2f2413;
+      --nuevo:#43c79b; --nuevo-bg:#102b23;
+      --ink-hero:#eef2f8; --hero:#0a0f17; --hero-2:#111a27;
+      --shadow:0 1px 2px rgba(0,0,0,.35),0 12px 34px rgba(0,0,0,.4);
+      --shadow-lg:0 24px 70px rgba(0,0,0,.5);
+    }
+  }
+  :root[data-theme="light"]{
+    --bg:#eef1f6; --surface:#ffffff; --raise:#f7f9fc; --sink:#e7ebf2;
+    --ink:#101722; --body:#3d4654; --muted:#727c8b; --line:#e0e5ee; --line-2:#cfd6e1;
+    --accent:#2f6bff; --accent-deep:#1b4bd1; --accent-weak:#e7effe;
+    --legacy:#8b90a0; --legacy-weak:#eceef3;
+    --simpl:#2f6bff; --simpl-bg:#e7effe; --mejor:#b3730b; --mejor-bg:#fbf0dd; --nuevo:#0c8f68; --nuevo-bg:#e0f4ed;
+    --ink-hero:#f3f6fb; --hero:#0f1723; --hero-2:#16202f;
+    --shadow:0 1px 2px rgba(16,22,38,.05),0 10px 30px rgba(16,22,38,.07); --shadow-lg:0 20px 60px rgba(16,22,38,.14);
+  }
+  :root[data-theme="dark"]{
+    --bg:#0b0e14; --surface:#141a23; --raise:#1a212c; --sink:#1e2632;
+    --ink:#eaeef4; --body:#c0c8d4; --muted:#87909e; --line:#242d3a; --line-2:#323d4c;
+    --accent:#5b8bff; --accent-deep:#7ba2ff; --accent-weak:#172239;
+    --legacy:#79808f; --legacy-weak:#1a212c;
+    --simpl:#5b8bff; --simpl-bg:#172239; --mejor:#e3a44b; --mejor-bg:#2f2413; --nuevo:#43c79b; --nuevo-bg:#102b23;
+    --ink-hero:#eef2f8; --hero:#0a0f17; --hero-2:#111a27;
+    --shadow:0 1px 2px rgba(0,0,0,.35),0 12px 34px rgba(0,0,0,.4); --shadow-lg:0 24px 70px rgba(0,0,0,.5);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--body);font-family:var(--ui);line-height:1.55;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+  h1,h2,h3{color:var(--ink);letter-spacing:-.02em;margin:0}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+  /* theme toggle */
+  .themebtn{position:fixed;top:16px;right:16px;z-index:50;width:38px;height:38px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink);cursor:pointer;box-shadow:var(--shadow);display:grid;place-items:center;font-size:16px}
+  .themebtn:hover{border-color:var(--accent)}
+
+  /* hero */
+  .hero{background:radial-gradient(1200px 400px at 80% -10%,var(--hero-2),var(--hero));color:var(--ink-hero);padding:52px 0 46px;position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;right:-120px;top:-120px;width:360px;height:360px;border-radius:50%;background:radial-gradient(circle,rgba(47,107,255,.28),transparent 68%);pointer-events:none}
+  .hero .wrap{position:relative}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#9fb4e6;background:rgba(91,139,255,.12);border:1px solid rgba(91,139,255,.28);padding:5px 12px;border-radius:999px}
+  .wordmark{display:flex;align-items:center;gap:16px;margin:22px 0 6px;flex-wrap:wrap}
+  .logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(150deg,#3f77ff,#1b4bd1);display:grid;place-items:center;flex-shrink:0;box-shadow:0 8px 24px rgba(31,75,209,.5)}
+  .logo svg{width:30px;height:30px}
+  .wm-txt{font-size:clamp(30px,5.4vw,50px);font-weight:800;color:#fff;letter-spacing:-.03em;line-height:1}
+  .wm-old{color:#68728a;font-weight:700}
+  .arrow{color:var(--accent-deep);font-weight:800}
+  .hero p.lead{font-size:clamp(16px,2.2vw,20px);color:#c4d0e6;max-width:40ch;margin:14px 0 0}
+  .hero .keyline{margin-top:8px;color:#8fa2c4;font-size:14.5px}
+
+  /* stats */
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:-30px auto 0;position:relative;z-index:5}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px 16px;box-shadow:var(--shadow)}
+  .stat .v{font-size:32px;font-weight:800;color:var(--ink);letter-spacing:-.03em;line-height:1}
+  .stat .v .u{font-size:17px;color:var(--accent);margin-left:2px;font-weight:700}
+  .stat .l{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.35}
+  .stat.hl .v{color:var(--accent)}
+
+  /* section head */
+  .sec{padding:48px 0 8px}
+  .sec h2{font-size:clamp(22px,3.4vw,30px);font-weight:800}
+  .sec .sub{color:var(--muted);margin-top:6px;max-width:56ch;font-size:15px}
+
+  /* filters */
+  .filters{display:flex;gap:9px;flex-wrap:wrap;margin:22px 0 20px}
+  .chip{border:1px solid var(--line-2);background:var(--surface);color:var(--body);border-radius:999px;padding:8px 15px;font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:.15s}
+  .chip:hover{border-color:var(--accent)}
+  .chip.on{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+  .chip .dot{width:9px;height:9px;border-radius:50%}
+  .chip.on .dot{outline:2px solid rgba(255,255,255,.35)}
+  .chip .c{font-family:var(--mono);font-size:12px;opacity:.7}
+
+  /* cards */
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;transition:transform .18s,box-shadow .18s,opacity .3s;display:flex;flex-direction:column}
+  .card.hide{display:none}
+  .card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+  .card-h{display:flex;align-items:center;gap:12px;padding:16px 18px 12px;cursor:pointer}
+  .ic{width:38px;height:38px;border-radius:10px;background:var(--accent-weak);color:var(--accent);display:grid;place-items:center;flex-shrink:0}
+  .ic svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .card-h .t{flex:1;min-width:0}
+  .card-h .t b{display:block;color:var(--ink);font-size:16px;font-weight:700;letter-spacing:-.01em}
+  .tag{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .tag.simpl{color:var(--simpl);background:var(--simpl-bg)} .tag.mejor{color:var(--mejor);background:var(--mejor-bg)} .tag.nuevo{color:var(--nuevo);background:var(--nuevo-bg)}
+  .caret{color:var(--muted);transition:transform .2s;flex-shrink:0}
+  .card.open .caret{transform:rotate(90deg)}
+  /* antes -> ahora */
+  .ba{display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;gap:0;margin:0 18px 16px;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .ba .side{padding:11px 13px}
+  .ba .antes{background:var(--legacy-weak)}
+  .ba .ahora{background:var(--accent-weak)}
+  .ba .k{font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+  .ba .antes .k{color:var(--legacy)} .ba .ahora .k{color:var(--accent-deep)}
+  .ba .antes .v{color:var(--body);font-size:13px}
+  .ba .ahora .v{color:var(--ink);font-size:13px;font-weight:560}
+  .ba .mid{display:grid;place-items:center;background:var(--surface);padding:0 4px;color:var(--accent);font-weight:800}
+  /* detail */
+  .detail{max-height:0;overflow:hidden;transition:max-height .28s ease}
+  .detail-in{padding:2px 18px 18px}
+  .dl{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}
+  .dl .badge{flex-shrink:0;width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:13px;font-weight:800}
+  .dl.minus .badge{color:var(--simpl);background:var(--simpl-bg)}
+  .dl.keep .badge{color:var(--nuevo);background:var(--nuevo-bg)}
+  .dl b{color:var(--ink)}
+
+  /* preserved strip */
+  .keepwrap{background:var(--raise);border:1px solid var(--line);border-radius:18px;padding:26px 24px;margin-top:8px}
+  .keepwrap h3{font-size:19px;font-weight:800}
+  .keepwrap p{color:var(--muted);margin:6px 0 16px;font-size:14.5px}
+  .keepgrid{display:flex;flex-wrap:wrap;gap:9px}
+  .keepgrid span{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 13px;font-size:13.5px;color:var(--ink)}
+  .keepgrid span::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--nuevo)}
+
+  footer{color:var(--muted);font-size:13.5px;padding:40px 0 56px;text-align:center}
+  footer a{color:var(--accent);font-weight:600;text-decoration:none}
+  footer a:hover{text-decoration:underline}
+
+  @media (max-width:720px){
+    .stats{grid-template-columns:repeat(2,1fr)}
+    .grid{grid-template-columns:1fr}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<button class="themebtn" id="themeBtn" aria-label="Cambiar tema">◐</button>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">Migración · Mesa de servicio</span>
+    <div class="wordmark">
+      <span class="logo"><svg viewBox="0 0 48 48"><path d="M14 35 L24 13 L34 35" fill="none" stroke="#fff" stroke-width="4.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M18.2 28 H29.8" fill="none" stroke="#fff" stroke-width="4.3" stroke-linecap="round"/></svg></span>
+      <span class="wm-txt"><span class="wm-old">SDP</span> <span class="arrow">→</span> Atenza</span>
+    </div>
+    <p class="lead">Lo mismo que hacíamos, con menos pasos.</p>
+    <p class="keyline">Una comparativa interactiva de qué se ha <b style="color:#cdd8ec">simplificado</b> al pasar de ServiceDesk Plus a Atenza — <b style="color:#cdd8ec">sin perder capacidades</b>.</p>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="stats" id="stats">
+    <div class="stat hl"><div class="v"><span class="mono" data-to="1">0</span></div><div class="l">formulario para crear<br>(antes: múltiples plantillas)</div></div>
+    <div class="stat"><div class="v"><span class="mono" data-to="16">0</span></div><div class="l">categorías de servicio<br>como eje del sistema</div></div>
+    <div class="stat"><div class="v"><span class="mono" data-to="453">0</span></div><div class="l">activos vivos en el<br>CMDB editable</div></div>
+    <div class="stat hl"><div class="v"><span class="mono" data-to="0">0</span></div><div class="l">capacidades perdidas<br>en la migración</div></div>
+  </div>
+
+  <section class="sec">
+    <h2>Qué cambia, punto por punto</h2>
+    <p class="sub">Cada tarjeta muestra el <b>antes (SDP)</b> y el <b>ahora (Atenza)</b>. Pulsa para ver qué fricción se quita y qué capacidad se conserva. Filtra por tipo de cambio.</p>
+    <div class="filters" id="filters">
+      <button class="chip on" data-f="all">Todas <span class="c" id="c-all"></span></button>
+      <button class="chip" data-f="simpl"><span class="dot" style="background:var(--simpl)"></span>Simplificado <span class="c" id="c-simpl"></span></button>
+      <button class="chip" data-f="mejor"><span class="dot" style="background:var(--mejor)"></span>Mejorado <span class="c" id="c-mejor"></span></button>
+      <button class="chip" data-f="nuevo"><span class="dot" style="background:var(--nuevo)"></span>Nuevo <span class="c" id="c-nuevo"></span></button>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <section class="sec">
+    <div class="keepwrap">
+      <h3>Lo que NO se pierde</h3>
+      <p>Simplificar no es recortar. Todas estas capacidades de SDP siguen presentes en Atenza:</p>
+      <div class="keepgrid">
+        <span>SLA y temporizadores</span><span>Aprobaciones</span><span>Base de conocimiento</span>
+        <span>Reglas de negocio y de formulario</span><span>Adjuntos</span><span>Tareas / checklist</span>
+        <span>Registro de tiempo</span><span>Histórico de estados</span><span>Multi-sede y departamentos</span>
+        <span>Grupos de soporte</span><span>Notificaciones</span><span>Auditoría</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Atenza · Mesa de servicio de Diglo IT — comparativa interna.
+    &nbsp;·&nbsp; Guía completa en el <a href="/manual.html" target="_blank" rel="noopener">manual de uso</a>.
+  </footer>
+</div>
+
+<script>
+  // ---- iconos (feather-style) ----
+  const I = {
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    flow:'<circle cx="5" cy="12" r="2.4"/><circle cx="19" cy="12" r="2.4"/><path d="M7.4 12h9.2"/>',
+    cpu:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/>',
+    box:'<path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8"/>',
+    archive:'<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
+    grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+    user:'<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/>',
+    gauge:'<path d="M4 18a8 8 0 1 1 16 0"/><path d="M12 18l4-5"/>',
+    key:'<circle cx="8" cy="12" r="3.4"/><path d="M11.4 12H21M18 12v3M15 12v2"/>',
+    mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M4 7l8 6 8-6"/>'
+  };
+  const svg = k => '<svg viewBox="0 0 24 24">'+(I[k]||'')+'</svg>';
+
+  // ---- datos ----
+  const DATA = [
+    {area:'Crear una solicitud',nat:'simpl',ic:'plus',
+      sdp:'Elegir una plantilla concreta entre muchas.',
+      atz:'Categoría de servicio + Tipo. Un solo formulario.',
+      minus:'Se acaba el «¿qué plantilla uso?»: eliges categoría y tipo (Incidencia/Petición) y listo.',
+      keep:'El ciclo de vida, el SLA y el grupo de soporte se aplican automáticamente según la categoría.'},
+    {area:'Cambiar de estado',nat:'simpl',ic:'flow',
+      sdp:'Desplegable de estados.',
+      atz:'Barra de estados por clic sobre el ticket.',
+      minus:'El estado actual va coloreado y los siguientes en blanco: un clic y cambia.',
+      keep:'Se respeta el flujo configurado y la puerta de cierre (no deja cerrar sin resolución).'},
+    {area:'Archivado de tickets',nat:'simpl',ic:'archive',
+      sdp:'Manual o por antigüedad.',
+      atz:'Automático, solo por estado terminal.',
+      minus:'Nada que archivar a mano: sale de la bandeja al pasar a Cerrada/Cancelada/Resuelta.',
+      keep:'Un ticket abierto nunca se archiva por edad; el Archivo tiene búsqueda multicampo.'},
+    {area:'Asignar técnico',nat:'simpl',ic:'user',
+      sdp:'Elegir entre todos los técnicos.',
+      atz:'Solo los técnicos del grupo de la categoría.',
+      minus:'El combo se acota al grupo de soporte correcto: menos errores de asignación.',
+      keep:'La asignación manual sigue disponible; el grupo lo define la categoría.'},
+    {area:'Acceso de usuarios',nat:'simpl',ic:'key',
+      sdp:'Provisión manual usuario a usuario.',
+      atz:'Solicitud de acceso + aprobación con alerta.',
+      minus:'El usuario pide acceso y al admin le salta una alerta en la campana.',
+      keep:'El control sigue siendo del administrador: nada entra sin aprobación.'},
+    {area:'Activos afectados',nat:'mejor',ic:'cpu',
+      sdp:'Campo de texto libre.',
+      atz:'Selector del inventario real (CMDB).',
+      minus:'Se acabó escribir el activo a mano: lo eliges del inventario.',
+      keep:'Vínculo en ambos sentidos: desde el activo ves sus tickets y los abres.'},
+    {area:'Inventario de activos',nat:'mejor',ic:'box',
+      sdp:'Módulo de activos de SDP.',
+      atz:'CMDB propio, vivo y editable (453 activos).',
+      minus:'Alta, edición y asignación en línea, sin salir de Atenza.',
+      keep:'Inventario completo importado, con usuario asignado y estado por activo.'},
+    {area:'Panel de inicio',nat:'mejor',ic:'grid',
+      sdp:'Panel fijo, igual para todos.',
+      atz:'Modular por usuario, con evolución temporal.',
+      minus:'Cada uno arma su panel: mueve tarjetas, cambia su ancho, añade visuales.',
+      keep:'Todos los KPIs de siempre y más (entrantes vs. cerradas por periodo).'},
+    {area:'Notificaciones',nat:'mejor',ic:'mail',
+      sdp:'Avisos limitados.',
+      atz:'«Correos a notificar» por ticket + reglas.',
+      minus:'Añades destinatarios al vuelo en el propio ticket.',
+      keep:'Las reglas de notificación por evento y destinatario siguen ahí.'},
+    {area:'Capacidad del equipo',nat:'nuevo',ic:'gauge',
+      sdp:'No existía.',
+      atz:'Carga real por técnico vía OrganiZate.',
+      minus:'De un vistazo ves quién está saturado antes de asignar.',
+      keep:'Capacidad nueva: integra la planificación de OrganiZate en la mesa.'},
+  ];
+
+  const NAT = {simpl:'Simplificado',mejor:'Mejorado',nuevo:'Nuevo'};
+  const grid = document.getElementById('grid');
+  DATA.forEach(d=>{
+    const showMid = d.nat!=='nuevo';
+    const el = document.createElement('article');
+    el.className='card'; el.dataset.nat=d.nat;
+    el.innerHTML = `
+      <div class="card-h">
+        <span class="ic">${svg(d.ic)}</span>
+        <span class="t"><b>${d.area}</b></span>
+        <span class="tag ${d.nat}">${NAT[d.nat]}</span>
+        <svg class="caret" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="ba">
+        <div class="side antes"><div class="k">Antes · SDP</div><div class="v">${d.sdp}</div></div>
+        <div class="mid">→</div>
+        <div class="side ahora"><div class="k">Ahora · Atenza</div><div class="v">${d.atz}</div></div>
+      </div>
+      <div class="detail"><div class="detail-in">
+        <div class="dl minus"><span class="badge">−</span><div><b>Menos fricción.</b> ${d.minus}</div></div>
+        <div class="dl keep"><span class="badge">✓</span><div><b>Capacidad ${d.nat==='nuevo'?'nueva':'conservada'}.</b> ${d.keep}</div></div>
+      </div></div>`;
+    const head = el.querySelector('.card-h');
+    const det = el.querySelector('.detail');
+    head.addEventListener('click',()=>{
+      const open = el.classList.toggle('open');
+      det.style.maxHeight = open ? det.scrollHeight+'px' : '0';
+    });
+    grid.appendChild(el);
+  });
+
+  // ---- filtros ----
+  const counts = {all:DATA.length,simpl:0,mejor:0,nuevo:0};
+  DATA.forEach(d=>counts[d.nat]++);
+  Object.keys(counts).forEach(k=>{const e=document.getElementById('c-'+k); if(e)e.textContent=counts[k];});
+  document.getElementById('filters').addEventListener('click',e=>{
+    const b=e.target.closest('.chip'); if(!b)return;
+    document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c===b));
+    const f=b.dataset.f;
+    document.querySelectorAll('.card').forEach(c=>{
+      const show = f==='all'||c.dataset.nat===f;
+      c.classList.toggle('hide',!show);
+      if(!show && c.classList.contains('open')){c.classList.remove('open');c.querySelector('.detail').style.maxHeight='0';}
+    });
+  });
+
+  // ---- contadores animados ----
+  const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const animate = (el)=>{
+    const to=+el.dataset.to; if(reduce){el.textContent=to;return;}
+    const dur=1100, t0=performance.now();
+    const step=(t)=>{const p=Math.min(1,(t-t0)/dur);const e=1-Math.pow(1-p,3);el.textContent=Math.round(e*to);if(p<1)requestAnimationFrame(step);};
+    requestAnimationFrame(step);
+    // garantía: el número final SIEMPRE queda fijado aunque rAF se frene.
+    setTimeout(()=>{el.textContent=String(to);}, dur+120);
+  };
+  const io=new IntersectionObserver((es)=>{es.forEach(x=>{if(x.isIntersecting){animate(x.target);io.unobserve(x.target);}});},{threshold:.1});
+  document.querySelectorAll('.stat [data-to]').forEach(el=>io.observe(el));
+  // respaldo: si algo impide al observer disparar, fija los valores tras un momento.
+  setTimeout(()=>document.querySelectorAll('.stat [data-to]').forEach(el=>{ if(el.textContent==='0' && +el.dataset.to!==0) el.textContent=String(el.dataset.to); }), 1600);
+
+  // ---- tema ----
+  const tb=document.getElementById('themeBtn');
+  tb.addEventListener('click',()=>{
+    const cur=document.documentElement.getAttribute('data-theme');
+    const next=cur==='dark'?'light':cur==='light'?'dark':(matchMedia('(prefers-color-scheme:dark)').matches?'light':'dark');
+    document.documentElement.setAttribute('data-theme',next);
+    tb.textContent = next==='dark'?'☀':'◐';
+  });
+</script>
+</body>
+</html>
