@@ -363,4 +363,14 @@ export interface Asset {
   cost?: number | null;
   notes?: string;
   createdAt?: number;
+  /** historial de cambios relevantes (alta · cambio de estado · asignación). */
+  history?: AssetEvent[];
+}
+
+/** Evento del historial de un activo. `from`/`to` guardan claves/uids según el tipo. */
+export interface AssetEvent {
+  at: number; // epoch ms
+  kind: 'create' | 'status' | 'assign';
+  from?: string | null;
+  to?: string | null;
 }

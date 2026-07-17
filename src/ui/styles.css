@@ -369,6 +369,10 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .ap-chip .ap-tag{font-family:var(--mono); font-size:10.5px; color:var(--ink-faint); background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:0 5px;}
 .ap-chip button{border:none; background:none; color:var(--ink-faint); font-size:16px; line-height:1; cursor:pointer; padding:0 2px; border-radius:5px;}
 .ap-chip button:hover{background:color-mix(in srgb, var(--crit) 16%, transparent); color:var(--crit);}
+.ap-sug{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:2px;}
+.ap-sug-l{font-size:11.5px; color:var(--ink-faint);}
+.ap-sugbtn{border:1px dashed var(--line-2); background:var(--surface); color:var(--accent); border-radius:999px; padding:3px 10px; font:inherit; font-size:12px; cursor:pointer;}
+.ap-sugbtn:hover{border-color:var(--accent); background:var(--accent-soft);}
 .asset-tks{display:flex; flex-direction:column; gap:6px; margin-top:4px;}
 .asset-tk{display:flex; align-items:center; gap:10px; width:100%; text-align:left; border:1px solid var(--line); background:var(--surface); border-radius:9px; padding:8px 11px; font:inherit; cursor:pointer;}
 .asset-tk:hover{border-color:var(--accent); background:var(--sink);}
@@ -392,6 +396,33 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 /* tabla de activos: cabecera fija + scroll propio */
 .asset-scroll{overflow:auto; max-height:calc(100vh - 300px);}
 .asset-scroll .mgmt thead th{position:sticky; top:0; z-index:2; background:var(--sink);}
+.mgmt th.chk, .mgmt td.chk{width:34px; text-align:center; padding-left:8px; padding-right:4px;}
+.mgmt tr.rowsel{background:var(--accent-soft);}
+.rowbtn{border:none; background:none; color:var(--ink-faint); font-size:18px; line-height:1; cursor:pointer; padding:1px 8px; border-radius:6px;}
+.rowbtn:hover{background:var(--sink); color:var(--ink);}
+/* barra de acciones en lote */
+.bulkbar{display:flex; align-items:center; gap:9px; flex-wrap:wrap; margin-top:10px; padding:9px 12px; background:var(--accent-soft); border:1px solid color-mix(in srgb,var(--accent) 30%,transparent); border-radius:11px;}
+.bulkbar .bb-count{font-size:13px; color:var(--ink);}
+.bulkbar select{padding:6px 9px; border-radius:8px; border:1px solid var(--line-2); background:var(--surface); font:inherit; font-size:13px; color:var(--ink);}
+.bulkbar .ssel{min-width:180px;}
+/* menú de acciones rápidas por fila (posición fija) */
+.rm-scrim{position:fixed; inset:0; z-index:60;}
+.rowmenu{z-index:61; width:252px; transform:translateX(-100%); background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 16px 44px rgba(10,12,24,.22); padding:8px;}
+.rm-sec{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700; margin:4px 4px 5px;}
+.rm-status{display:flex; flex-direction:column; gap:2px; margin-bottom:6px;}
+.rm-status button{display:flex; align-items:center; gap:8px; border:none; background:none; color:inherit; font:inherit; font-size:13px; padding:6px 8px; border-radius:7px; cursor:pointer; text-align:left;}
+.rm-status button:hover{background:var(--sink);}
+.rm-status button.on{background:var(--accent-soft); color:var(--accent-deep); font-weight:600;}
+.rm-div{height:1px; background:var(--line); margin:7px 0;}
+.rm-item{display:block; width:100%; text-align:left; border:none; background:none; color:inherit; font:inherit; font-size:13px; padding:7px 8px; border-radius:7px; cursor:pointer;}
+.rm-item:hover{background:var(--sink);}
+.rm-item.danger{color:var(--crit);}
+/* historial del activo */
+.asset-hist{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:9px; overflow:hidden;}
+.ah-row{display:flex; gap:12px; padding:7px 11px; font-size:12.5px; border-top:1px solid var(--line);}
+.ah-row:first-child{border-top:none;}
+.ah-when{color:var(--ink-faint); white-space:nowrap; font-size:11.5px;}
+.ah-txt{color:var(--ink);}
 
 /* drawer (+ nueva solicitud) */
 .scrim{position:fixed; inset:0; background:rgba(12,13,24,.44); backdrop-filter:blur(2px); z-index:60; display:flex; justify-content:flex-end; animation:scrimin .2s ease;}

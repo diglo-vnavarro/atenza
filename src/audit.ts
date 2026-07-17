@@ -27,6 +27,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'config.change': 'Cambio de configuración',
   'asset.create': 'Activo creado',
   'asset.delete': 'Activo eliminado',
+  'asset.bulk': 'Activos actualizados (lote)',
 };
 
 export const auditLabel = (action: string): string => AUDIT_LABELS[action] ?? action;

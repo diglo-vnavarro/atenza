@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification, ReplyTemplate, Attachment, AccessRequest, Asset } from '../model.js';
+import type { Lifecycle, LifecycleState, SlaCategory, Stage, Template, TicketType, Sla, FieldDef, StatusDef, NotifRule, NotifEvent, AppNotification, ReplyTemplate, Attachment, AccessRequest, Asset, AssetEvent } from '../model.js';
 import { isArchivedStatus } from '../model.js';
 import type { User } from '../access.js';
 import type { ClosureRules } from '../closure.js';
@@ -127,7 +127,9 @@ interface State {
   removeGroup: (id: string) => void;
   addAsset: (a: Partial<Asset>) => string;
   updateAsset: (id: string, patch: Partial<Asset>) => void;
+  bulkUpdateAssets: (ids: string[], patch: Partial<Asset>) => void;
   removeAsset: (id: string) => void;
+  removeAssets: (ids: string[]) => void;
   setTicketAssets: (ticketId: string, assetIds: string[]) => void;
   addMember: (name: string, email: string, role: Role, external: boolean) => void;
   updateMember: (uid: string, patch: Partial<UiMember>) => void;
@@ -848,20 +850,46 @@ export const useStore = create<State>()(
           // p. ej. SDP-…, y no deben inflar la numeración manual).
           const nums = (t0.assets ?? []).map((x) => { const m = /^AS-(\d+)$/.exec(x.id); return m ? parseInt(m[1]!, 10) : 0; });
           const id = 'AS-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(4, '0');
-          const asset: Asset = { name: (a.name ?? '').trim() || 'Activo sin nombre', status: a.status ?? 'in_stock', assignedTo: a.assignedTo ?? null, createdAt: Date.now(), ...a, id };
+          const now = Date.now();
+          const asset: Asset = { name: (a.name ?? '').trim() || 'Activo sin nombre', status: a.status ?? 'in_stock', assignedTo: a.assignedTo ?? null, createdAt: now, ...a, id, history: [{ at: now, kind: 'create' }] };
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: [...(t.assets ?? []), asset] })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.writeAsset(t.id, asset).catch(errlog); }
           const t = activeT(get()); if (t) logAudit(t, 'asset.create', `${id} · ${asset.name}`);
           return id;
         },
         updateAsset: (id, patch) => {
-          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: (t.assets ?? []).map((x) => (x.id === id ? { ...x, ...patch } : x)) })) }));
+          const cur = (activeT(get())?.assets ?? []).find((x) => x.id === id);
+          const now = Date.now(); const evts: AssetEvent[] = [];
+          if (cur) {
+            if (patch.status !== undefined && patch.status !== cur.status) evts.push({ at: now, kind: 'status', from: cur.status, to: patch.status });
+            if (patch.assignedTo !== undefined && (patch.assignedTo ?? null) !== (cur.assignedTo ?? null)) evts.push({ at: now, kind: 'assign', from: cur.assignedTo ?? null, to: patch.assignedTo ?? null });
+          }
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: (t.assets ?? []).map((x) => (x.id === id ? { ...x, ...patch, ...(evts.length ? { history: [...(x.history ?? []), ...evts] } : {}) } : x)) })) }));
           if (CLOUD) { const t = activeT(get()); const a = (t?.assets ?? []).find((x) => x.id === id); if (t && a) void cloud.writeAsset(t.id, a).catch(errlog); }
+        },
+        // Actualización EN LOTE (varios activos con el mismo patch), con historial.
+        bulkUpdateAssets: (ids, patch) => {
+          const set0 = new Set(ids); const now = Date.now();
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: (t.assets ?? []).map((x) => {
+            if (!set0.has(x.id)) return x;
+            const evts: AssetEvent[] = [];
+            if (patch.status !== undefined && patch.status !== x.status) evts.push({ at: now, kind: 'status', from: x.status, to: patch.status });
+            if (patch.assignedTo !== undefined && (patch.assignedTo ?? null) !== (x.assignedTo ?? null)) evts.push({ at: now, kind: 'assign', from: x.assignedTo ?? null, to: patch.assignedTo ?? null });
+            return { ...x, ...patch, ...(evts.length ? { history: [...(x.history ?? []), ...evts] } : {}) };
+          }) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) for (const a of (t.assets ?? [])) if (set0.has(a.id)) void cloud.writeAsset(t.id, a).catch(errlog); }
+          const t = activeT(get()); if (t) logAudit(t, 'asset.bulk', `${ids.length} activo(s) actualizados`);
         },
         removeAsset: (id) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: (t.assets ?? []).filter((x) => x.id !== id) })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.removeAssetDoc(t.id, id).catch(errlog); }
           const t = activeT(get()); if (t) logAudit(t, 'asset.delete', id);
+        },
+        removeAssets: (ids) => {
+          const set0 = new Set(ids);
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, assets: (t.assets ?? []).filter((x) => !set0.has(x.id)) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) for (const id of ids) void cloud.removeAssetDoc(t.id, id).catch(errlog); }
+          const t = activeT(get()); if (t) logAudit(t, 'asset.delete', `${ids.length} activo(s) eliminados`);
         },
         setTicketAssets: (ticketId, assetIds) => {
           const t = activeT(get()); if (!t) return;
