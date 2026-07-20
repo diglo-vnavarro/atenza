@@ -45,9 +45,20 @@ const db = getFirestore();
 // type) para NO deshacer F4c. `archived`/`createdAt` se recalculan aparte (abajo).
 const ATENZA_OWNED = ['worklog', 'tasks', 'approvals', 'attachments', 'comments', 'resolution', 'serviceCategoryId', 'serviceCategory', 'type'] as const;
 const remap = (uid: unknown) => (typeof uid === 'string' && idMap[uid]) ? idMap[uid] : uid;
+// AUTO-CATEGORIZADO: mapa plantilla SDP → nombre de categoría de servicio
+// (generado por scripts/gen-template-cat-map.ts desde el snapshot). Los tickets
+// que llegan de SDP SIN categoría se asignan por su templateId; el resto → default.
+const tplCatMap: Record<string, string> = (() => { const p = join(importer, 'template-category-map.json'); return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : {}; })();
+const DEFAULT_CAT = 'Incidencias generales';
+type Cat = { id: string; name: string; incident?: unknown; service_request?: unknown };
 
 async function syncTickets() {
-  let created = 0, updated = 0, preserved = 0, remapped = 0;
+  let created = 0, updated = 0, preserved = 0, remapped = 0, autoCat = 0;
+  // catálogo de categorías de servicio del tenant (para resolver nombre → id + tipo)
+  const cats = (((await db.doc(`tenants/${TENANT}`).get()).data()?.serviceCategories) ?? []) as Cat[];
+  const catByName = new Map(cats.map((c) => [c.name, c]));
+  const catOf = (tplId: string): Cat | undefined => catByName.get(tplCatMap[tplId] ?? DEFAULT_CAT) ?? catByName.get(DEFAULT_CAT);
+  const typeOf = (cat: Cat, cur?: string): 'incident' | 'service_request' => { const ty = (cur ?? 'incident') as 'incident' | 'service_request'; if (cat[ty]) return ty; return cat.incident ? 'incident' : 'service_request'; };
   for (let i = 0; i < tickets.length; i += 200) {
     const slice = tickets.slice(i, i + 200);
     const refs = slice.map((t) => db.doc(`tenants/${TENANT}/tickets/${t.id}`));
@@ -60,6 +71,9 @@ async function syncTickets() {
       if (tech !== t.technicianId || reqr !== t.requesterId) remapped++;
       const next: Record<string, unknown> = { ...t, requesterId: reqr, technicianId: tech, sdpId: t.id, syncedAt: Date.now() };
       for (const f of ATENZA_OWNED) if (prev[f] !== undefined) { next[f] = prev[f]; preserved++; } // preserva lo añadido en Atenza
+      // AUTO-CATEGORIZADO: si sigue sin categoría (ticket nuevo de SDP), se asigna
+      // por su plantilla; NO pisa la de los tickets ya categorizados (arriba se preserva).
+      if (!next.serviceCategoryId) { const cat = catOf(String(t.templateId ?? '')); if (cat) { next.serviceCategoryId = cat.id; next.serviceCategory = cat.name; next.type = typeOf(cat, next.type as string); autoCat++; } }
       // archived se DERIVA del estado (SDP es fuente de verdad); createdAt se conserva.
       next.archived = isArchivedStatus(next.status as string);
       next.createdAt = (prev.createdAt as number | undefined) ?? (t.statusHistory as { from?: number }[] | undefined)?.[0]?.from ?? Date.now();
@@ -68,7 +82,7 @@ async function syncTickets() {
     });
     if (!DRY) await batch.commit();
   }
-  console.log(`${DRY ? '[DRY] ' : ''}tickets: ${created} nuevos, ${updated} actualizados · ${preserved} campos Atenza preservados · ${remapped} identidades remapeadas.`);
+  console.log(`${DRY ? '[DRY] ' : ''}tickets: ${created} nuevos, ${updated} actualizados · ${preserved} campos Atenza preservados · ${autoCat} auto-categorizados · ${remapped} identidades remapeadas.`);
 }
 
 async function syncMembers() {
