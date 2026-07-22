@@ -36,6 +36,9 @@ const rawMap: Record<string, string> = process.env.IDENTITY_MAP_JSON
 const idMap: Record<string, string> = Object.fromEntries(Object.entries(rawMap).filter(([k]) => !k.startsWith('_')));
 const TENANT = process.env.TENANT ?? 'diglo-it';
 const DRY = process.env.DRY_RUN === '1' || process.argv.includes('--dry-run');
+// Plantilla forzada por tipo (instancias cuyos tickets no traen la plantilla de
+// Atenza; p. ej. Leasys → tpl-leasys-inc/sr para que resuelvan su ciclo de vida).
+const FT_INC = process.env.TEMPLATE_INC, FT_SR = process.env.TEMPLATE_SR;
 
 initializeApp({ projectId: process.env.GOOGLE_CLOUD_PROJECT ?? 'diglo-desk-pd' });
 const db = getFirestore();
@@ -70,6 +73,7 @@ async function syncTickets() {
       const tech = remap(t.technicianId), reqr = remap(t.requesterId);
       if (tech !== t.technicianId || reqr !== t.requesterId) remapped++;
       const next: Record<string, unknown> = { ...t, requesterId: reqr, technicianId: tech, sdpId: t.id, syncedAt: Date.now() };
+      if (FT_INC || FT_SR) next.templateId = (next.type === 'service_request' ? FT_SR : FT_INC) ?? next.templateId;
       for (const f of ATENZA_OWNED) if (prev[f] !== undefined) { next[f] = prev[f]; preserved++; } // preserva lo añadido en Atenza
       // AUTO-CATEGORIZADO: si sigue sin categoría (ticket nuevo de SDP), se asigna
       // por su plantilla; NO pisa la de los tickets ya categorizados (arriba se preserva).

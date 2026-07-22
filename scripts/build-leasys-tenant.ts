@@ -68,7 +68,7 @@ const tickets = raw.tickets.map((t) => {
   const status = (nm(t.status) as string) ?? 'Open';
   const type = t.is_service_request ? 'service_request' : 'incident';
   return {
-    id: (t.display_id as string) || String(t.id),
+    id: '#' + ((t.display_id as string) || String(t.id)), // mismo esquema que el sync (importer/etl.ts)
     type, subject: (t.subject as string) ?? '(sin asunto)',
     requesterId: t.requester?.id ? String(t.requester.id) : null,
     technicianId: t.technician?.id ? String(t.technician.id) : null,
