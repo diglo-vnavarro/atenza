@@ -20,3 +20,7 @@ importer/imported-categories.json
 importer/imported-masterdata.json
 importer/imported-assets.json
 importer/identity-map.json
+
+# Datos de import Leasys (PII: nombres/correos/asuntos)
+importer/leasys-raw.json
+importer/leasys-tenant.json

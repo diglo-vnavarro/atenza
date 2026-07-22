@@ -30,8 +30,9 @@ export interface AccessRequest {
 
 export type TicketType = 'incident' | 'service_request';
 
-/** Estados TERMINALES que archivan el ticket (sale de la bandeja en vivo → Archivo). */
-export const ARCHIVE_STATUSES = ['Cerrada', 'Cancelada', 'Resuelta'];
+/** Estados TERMINALES que archivan el ticket (sale de la bandeja en vivo → Archivo).
+ *  Incluye los equivalentes en inglés de la instancia Leasys (Closed/Canceled/Resolved). */
+export const ARCHIVE_STATUSES = ['Cerrada', 'Cancelada', 'Resuelta', 'Closed', 'Canceled', 'Cancelled', 'Resolved'];
 export const isArchivedStatus = (status: string | undefined): boolean => !!status && ARCHIVE_STATUSES.includes(status);
 
 /** Documento de pertenencia: tenants/{tenantId}/members/{uid} */
