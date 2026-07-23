@@ -3076,6 +3076,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
   const addMember = useStore((s) => s.addMember);
   const updateMember = useStore((s) => s.updateMember);
   const removeMember = useStore((s) => s.removeMember);
+  const revokeAccess = useStore((s) => s.revokeAccess);
   const setMembersEnabled = useStore((s) => s.setMembersEnabled);
   const setImpersonate = useStore((s) => s.setImpersonate);
   const [q, setQ] = useState(''); const [fGroup, setFGroup] = useState(''); const [fRole, setFRole] = useState(''); const [fStatus, setFStatus] = useState('');
@@ -3153,6 +3154,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
           </div>
           <label className="te-vis"><span>Traspasado a Atenza (trabaja aquí, no en SDP)</span><button className={'toggle' + (sel.enabled ? ' on' : '')} onClick={() => updateMember(sel.uid, { enabled: !sel.enabled })} aria-label="En Atenza" /></label>
           <label className="te-vis"><span>Usuario externo (fuera del dominio {corp})</span><button className={'toggle' + (sel.external ? ' on' : '')} onClick={() => updateMember(sel.uid, { external: !sel.external })} aria-label="Externo" /></label>
+          {sel.status !== 'disabled' && <button className="ghost" style={{ color: 'var(--crit)', alignSelf: 'flex-start' }} onClick={() => { if (confirm(`¿Revocar el acceso de ${sel.name} a ${tenant.name}? Se deshabilita su ficha y deja de poder entrar a esta instancia.`)) revokeAccess(sel.uid); }}>Revocar acceso a la instancia</button>}
           <div><div className="k" style={{ marginBottom: 4 }}>Grupos de soporte</div>
             {(() => { const assigned = groups.filter((g) => (sel.groupIds ?? []).includes(g.id)); const avail = groups.filter((g) => !(sel.groupIds ?? []).includes(g.id)).slice().sort((a, b) => a.name.localeCompare(b.name, 'es')); return <>
               {assigned.length === 0 ? <span className="soft" style={{ fontSize: 12 }}>Sin asignar grupos de soporte.</span>

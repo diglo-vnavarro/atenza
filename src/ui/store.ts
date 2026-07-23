@@ -52,6 +52,7 @@ interface State {
   approveAccess: (uid: string, tenantId: string, role: Role) => Promise<void>;
   rejectAccess: (uid: string) => Promise<void>;
   provisionAccess: (email: string, tenantId: string, role: Role) => Promise<{ ok: boolean; uid: string; name: string }>;
+  revokeAccess: (uid: string) => Promise<void>;
   setUser: (uid: string) => void;
   setImpersonate: (uid: string | null) => void;
   setTenant: (id: string) => void;
@@ -328,6 +329,17 @@ export const useStore = create<State>()(
         provisionAccess: async (email, tenantId, role) => {
           if (!CLOUD) throw new Error('Disponible solo en la nube.');
           return cloud.adminProvisionAccess(email, tenantId, role);
+        },
+        // Revoca el acceso de un miembro a la instancia activa: deshabilita su ficha
+        // y lo quita de userTenants (no volverá a cargar la instancia).
+        revokeAccess: async (uid) => {
+          const tid = get().activeTenantId;
+          set((s) => ({ db: mapTenant(s.db, tid, (t) => ({ ...t, members: t.members.map((m) => m.uid === uid ? { ...m, status: 'disabled', enabled: false } : m) })) }));
+          if (CLOUD) {
+            const m = get().db.tenants.find((x) => x.id === tid)?.members.find((x) => x.uid === uid);
+            if (m) await cloud.writeMember(tid, m).catch(errlog);
+            await cloud.removeUserTenant(uid, tid).catch(errlog);
+          }
         },
 
         setUser: (uid) => {

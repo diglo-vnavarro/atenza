@@ -67,6 +67,11 @@ export async function addUserTenant(uid: string, tenantId: string): Promise<void
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, 'userTenants', uid), { tenantIds: m.arrayUnion(tenantId) }, { merge: true });
 }
+/** Revoca el acceso de un usuario a una instancia (lo quita de su índice). */
+export async function removeUserTenant(uid: string, tenantId: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, 'userTenants', uid), { tenantIds: m.arrayRemove(tenantId) }, { merge: true });
+}
 
 /** Lee los tenants a los que pertenece el usuario (índice userTenants). */
 export async function getUserTenantIds(uid: string): Promise<string[]> {
