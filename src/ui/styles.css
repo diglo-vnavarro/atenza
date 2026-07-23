@@ -914,4 +914,5 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 /* --- portal: cabecera con acción + auditoría 'create' --- */
 .plat-head-row{display:flex; align-items:center; justify-content:space-between; gap:12px; margin:18px 0 4px;}
 .aud-create{color:#7c3aed; background:#efe7fd;}
-:root[data-theme="dark"] .aud-create, @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .aud-create{background:#241a3a;}}
+:root[data-theme="dark"] .aud-create{background:#241a3a;}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .aud-create{background:#241a3a;}}
