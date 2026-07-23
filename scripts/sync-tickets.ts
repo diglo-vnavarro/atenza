@@ -114,10 +114,36 @@ async function syncMembers() {
   console.log(`${DRY ? '[DRY] ' : ''}members: ${n} de referencia (merge) · ${preserved} campos de rol/permiso preservados · ${skipped} omitidos por estar en el mapa de identidad.`);
 }
 
+// Cifras de cabecera para el PANEL DE PLATAFORMA (Fase 1.4): se estampan en el
+// doc del tenant al terminar el sync, por conteo de agregación (barato, no lee
+// los ~23k del archivo). Mejor esfuerzo: si falla, no rompe el sync.
+async function stampSummary() {
+  try {
+    const tk = db.collection(`tenants/${TENANT}/tickets`);
+    const [act, arch, mem] = await Promise.all([
+      tk.where('archived', '==', false).count().get(),
+      tk.where('archived', '==', true).count().get(),
+      db.collection(`tenants/${TENANT}/members`).count().get(),
+    ]);
+    const summary = {
+      ticketsActive: act.data().count,
+      ticketsArchived: arch.data().count,
+      members: mem.data().count,
+      lastSyncAt: Date.now(),
+      lastSyncStatus: 'ok' as const,
+    };
+    if (!DRY) await db.doc(`tenants/${TENANT}`).set({ summary }, { merge: true });
+    console.log(`${DRY ? '[DRY] ' : ''}summary: ${summary.ticketsActive} activos · ${summary.ticketsArchived} archivo · ${summary.members} personas · lastSyncAt=${summary.lastSyncAt}`);
+  } catch (e) {
+    console.error('summary: no se pudo estampar (no crítico):', (e as Error).message);
+  }
+}
+
 async function main() {
   console.log(`${DRY ? '=== DRY-RUN (no escribe nada) === ' : ''}Sync SDP → Atenza · tenant ${TENANT} · ${tickets.length} tickets · ${Object.keys(idMap).length} identidades mapeadas.`);
   await syncMembers();
   await syncTickets();
+  await stampSummary();
   if (DRY) console.log('DRY-RUN completado: NADA se escribió. Quita DRY_RUN para aplicar.');
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
