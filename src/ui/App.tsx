@@ -213,6 +213,40 @@ function GlobalSearch({ tenant, onOpen }: { tenant: TenantData; onOpen: (id: str
   </div>;
 }
 
+// Landing/selector de instancia: tarjetas con la marca (logo/color) de cada
+// instancia a la que el usuario tiene acceso, su rol y unas cifras rápidas.
+function InstancePicker({ tenants, user, onPick }: { tenants: TenantData[]; user: ReturnType<typeof buildUser>; onPick: (id: string) => void }) {
+  const roleLabel = (t: TenantData) => user.platformAdmin
+    ? 'Administrador de plataforma'
+    : ({ tenant_admin: 'Administrador', technician: 'Técnico', requester: 'Solicitante' }[user.memberships[t.id]?.role ?? 'requester']);
+  return (
+    <div className="pick-wrap">
+      <div className="pick-inner">
+        <div className="pick-head"><span className="glyph">A</span> <b>Atenza</b></div>
+        <h1 className="pick-title">Elige una instancia</h1>
+        <p className="pick-sub">Tienes acceso a {tenants.length} instancias.</p>
+        <div className="pick-grid">
+          {tenants.map((t) => {
+            const accent = t.branding?.primaryColor ?? '#2f6bff';
+            return (
+              <button key={t.id} className="pick-inst" style={{ ['--accent']: accent } as CSS} onClick={() => onPick(t.id)}>
+                <div className="pick-logo">
+                  {t.branding?.logoUrl
+                    ? <img src={t.branding.logoUrl} alt="" />
+                    : <span className="pick-glyph" style={{ background: accent }}>{(t.name || 'A').slice(0, 1)}</span>}
+                </div>
+                <div className="pick-inst-name">{t.name}</div>
+                <div className="pick-inst-role">{roleLabel(t)}</div>
+                <div className="pick-inst-meta">{t.tickets.length} activos · {t.members.length} personas</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const db = useStore((s) => s.db);
   const currentUserId = useStore((s) => s.currentUserId);
@@ -236,6 +270,9 @@ export function App() {
   const [dismissedAnn, setDismissedAnn] = useState<string[]>([]);
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
+  // Landing de selección de instancia: se muestra una vez por sesión a quien tiene
+  // ≥2 instancias (clic en el logo del topbar para volver a ella).
+  const [instanceChosen, setInstanceChosen] = useState(false);
 
   // Identidad: en la nube = uid del usuario autenticado (los docs de miembro van
   // keyados por ese uid); en local = selector de personas (demo).
@@ -286,6 +323,10 @@ export function App() {
   );
   if (firebaseEnabled && !tenant) return card('Sincronizando datos…');
   if (!tenant) return card('Sin datos.');
+  // Landing/selector: quien tiene ≥2 instancias elige antes de entrar.
+  if (myTenants.length > 1 && !instanceChosen) return (
+    <InstancePicker tenants={myTenants} user={user} onPick={(id) => { setTenant(id); setInstanceChosen(true); }} />
+  );
 
   const isReq = role === 'requester';
   const caps = capsOf(tenant, effectiveUserId, !!user.platformAdmin);
@@ -298,7 +339,15 @@ export function App() {
   return (
     <div>
       <div className="top">
-        <div className="brand"><span className="glyph">A</span> Atenza <small>{firebaseEnabled ? 'nube' : 'local'}</small></div>
+        <div className={'brand' + (myTenants.length > 1 ? ' brand-clic' : '')}
+          onClick={() => { if (myTenants.length > 1) setInstanceChosen(false); }}
+          title={myTenants.length > 1 ? 'Cambiar de instancia' : ''}>
+          {tenant.branding?.logoUrl
+            ? <img className="brand-logo" src={tenant.branding.logoUrl} alt="" />
+            : <span className="glyph" style={tenant.branding?.primaryColor ? { background: tenant.branding.primaryColor } : undefined}>{(tenant.name || 'A').slice(0, 1)}</span>}
+          <span className="brand-name">{tenant.name}</span>
+          <small>Atenza · {firebaseEnabled ? 'nube' : 'local'}</small>
+        </div>
         {myTenants.length > 1 && (
           <select className="instsel" value={tenant.id} onChange={(e) => setTenant(e.target.value)} title="Instancia">
             {myTenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}

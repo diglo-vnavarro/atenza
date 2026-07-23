@@ -13,7 +13,7 @@ import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
 import { webhooksFor } from '../webhooks.js';
 import { canTransition, initialState } from '../lifecycle.js';
-import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours } from '../data/seed.js';
+import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours, type Branding } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
 
@@ -60,6 +60,7 @@ interface State {
   transition: (ticketId: string, to: string) => void;
   setStatus: (ticketId: string, statusName: string) => void;
   setStatuses: (list: StatusDef[]) => void;
+  setBranding: (b: Branding) => void;
   setPicklist: (key: keyof Picklists, list: PickVal[]) => void;
   setPriorityMatrix: (matrix: PriorityMatrix) => void;
   setBusinessHours: (bh: BusinessHours) => void;
@@ -441,6 +442,10 @@ export const useStore = create<State>()(
         setStatuses: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, statuses: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { statuses: list }).catch(errlog); }
+        },
+        setBranding: (b) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, branding: b })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { branding: b }).catch(errlog); }
         },
         setPicklist: (key, list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, picklists: { ...(t.picklists as Picklists), [key]: list } })) }));
