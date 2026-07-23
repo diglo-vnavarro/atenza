@@ -251,6 +251,11 @@ function InstancePicker({ tenants, user, onPick, onPlatform }: { tenants: Tenant
 // Cabeceras ligeras (registro) + cifras derivadas de la instancia cargada como
 // respaldo mientras el job no estampe `summary`.
 function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: TenantHeader[]; loaded: TenantData[]; onEnter: (id: string) => void; onClose: () => void }) {
+  const accessRequests = useStore((s) => s.accessRequests);
+  const approve = useStore((s) => s.approveAccess);
+  const reject = useStore((s) => s.rejectAccess);
+  const [tab, setTab] = useState<'inst' | 'acc'>('inst');
+  const [sel, setSel] = useState<Record<string, { tid: string; role: Role }>>({});
   const rel = (ts?: number) => {
     if (!ts) return '—';
     const s = Math.max(0, (Date.now() - ts) / 1000);
@@ -266,6 +271,28 @@ function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: Tenant
           <div className="pick-head"><span className="glyph">A</span> <b>Atenza</b> · Plataforma</div>
           <button className="ghost" onClick={onClose}>← Volver</button>
         </div>
+        <div className="plat-tabs">
+          <button className={tab === 'inst' ? 'on' : ''} onClick={() => setTab('inst')}>Instancias</button>
+          <button className={tab === 'acc' ? 'on' : ''} onClick={() => setTab('acc')}>Accesos{accessRequests.length ? ` (${accessRequests.length})` : ''}</button>
+        </div>
+        {tab === 'acc' ? <>
+          <h1 className="pick-title">Solicitudes de acceso</h1>
+          <p className="pick-sub">Personas que han iniciado sesión y pedido acceso. Al <b>aprobar</b> se crea su usuario en la instancia elegida con el rol indicado y obtiene acceso.</p>
+          {accessRequests.length === 0 && <div className="card"><div className="empty" style={{ padding: 24 }}>No hay solicitudes de acceso pendientes.</div></div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {accessRequests.slice().sort((a, b) => b.at - a.at).map((r) => {
+              const c = sel[r.uid] ?? { tid: sorted[0]?.id ?? '', role: 'technician' as Role };
+              return <div key={r.uid} className="card plat-req">
+                <span className="av" style={{ background: 'var(--accent)' }}>{(r.name || r.email)[0]?.toUpperCase()}</span>
+                <span style={{ flex: 1, minWidth: 160 }}><b style={{ fontSize: 13 }}>{r.name || r.email}</b><span style={{ display: 'block', fontSize: 11.5, color: 'var(--ink-faint)' }}>{r.email} · {fmtDate(r.at)}</span></span>
+                <select value={c.tid} onChange={(e) => setSel({ ...sel, [r.uid]: { ...c, tid: e.target.value } })} title="Instancia">{sorted.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
+                <select value={c.role} onChange={(e) => setSel({ ...sel, [r.uid]: { ...c, role: e.target.value as Role } })} title="Rol">{(['tenant_admin', 'technician', 'requester'] as Role[]).map((x) => <option key={x} value={x}>{ROLE_LABEL[x]}</option>)}</select>
+                <button className="primary" disabled={!c.tid} onClick={() => approve(r.uid, c.tid, c.role)}>Aprobar</button>
+                <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => reject(r.uid)}>Rechazar</button>
+              </div>;
+            })}
+          </div>
+        </> : <>
         <h1 className="pick-title">Instancias</h1>
         <p className="pick-sub">{headers.length} instancias en la plataforma.</p>
         <div className="plat-grid">
@@ -298,6 +325,7 @@ function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: Tenant
             );
           })}
         </div>
+        </>}
       </div>
     </div>
   );
@@ -317,6 +345,7 @@ export function App() {
   const accessRequests = useStore((s) => s.accessRequests);
   const setAdminSec = useStore((s) => s.setAdminSec);
   const [accessRequested, setAccessRequested] = useState(false);
+  const [accessError, setAccessError] = useState('');
   const authUser = useAuth((s) => s.user);
   const authReady = useAuth((s) => s.ready);
   useEffect(() => { void useAuth.getState().init(); }, []);
@@ -373,8 +402,13 @@ export function App() {
         </>
         : <>
           <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>Sin acceso todavía.<br /><b>{authUser?.email}</b> no pertenece a ninguna instancia.</p>
+          {accessError && <p style={{ margin: '0 0 12px', color: 'var(--crit)', fontSize: 13 }}>{accessError}</p>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            <button className="primary" onClick={async () => { await requestAccess(authUser?.email ?? ''); setAccessRequested(true); }}>Solicitar acceso</button>
+            <button className="primary" onClick={async () => {
+              setAccessError('');
+              try { await requestAccess(authUser?.email ?? ''); setAccessRequested(true); }
+              catch { setAccessError('No se pudo enviar la solicitud. Recarga la página e inténtalo de nuevo; si persiste, avisa a un administrador.'); }
+            }}>Solicitar acceso</button>
             <button className="ghost" onClick={() => doSignOut()}>Salir</button>
           </div>
         </>}

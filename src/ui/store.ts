@@ -305,8 +305,8 @@ export const useStore = create<State>()(
 
         // Solicitar acceso (usuario sin ficha, en la pantalla «Sin acceso»).
         requestAccess: async (email, name, note) => {
-          const uid = get().currentUserId; if (!uid) return;
-          if (CLOUD) await cloud.requestAccess(uid, email, name, note).catch(errlog);
+          const uid = get().currentUserId; if (!uid) throw new Error('Sesión no disponible.');
+          if (CLOUD) await cloud.requestAccess(uid, email, name, note); // propaga el error para que la UI lo muestre (no silenciar como antes)
         },
         // Aprobar: crea el miembro en el tenant + userTenants + borra la solicitud.
         approveAccess: async (uid, tenantId, role) => {
