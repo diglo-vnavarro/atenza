@@ -896,3 +896,6 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .plat-tabs button.on{color:var(--accent-deep); background:var(--accent-soft);}
 .plat-req{display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:12px 14px;}
 .plat-req .av{width:30px; height:30px; border-radius:50%; display:grid; place-items:center; color:#fff; font-weight:700; font-size:13px; flex:none;}
+
+/* --- banner: viendo instancia como admin de plataforma --- */
+.plat-vbanner{background:var(--accent-soft); color:var(--accent-deep); border-color:var(--accent);}

@@ -54,6 +54,7 @@ interface State {
   setUser: (uid: string) => void;
   setImpersonate: (uid: string | null) => void;
   setTenant: (id: string) => void;
+  enterTenant: (id: string) => Promise<void>;
   setAdminSec: (s: string) => void;
   setAdminLc: (i: number) => void;
   select: (id: string | null) => void;
@@ -329,6 +330,21 @@ export const useStore = create<State>()(
         },
         setImpersonate: (uid) => set({ impersonateUid: uid, selectedTicketId: null }),
         setTenant: (id) => set({ activeTenantId: id, selectedTicketId: null }),
+        // «Entrar como» (admin de plataforma): abre una instancia aunque NO esté en
+        // userTenants. Si aún no está cargada, se suscribe on-demand (misma vía que
+        // startCloud) y se añade a db.tenants; la suscripción se limpia con el resto.
+        enterTenant: async (id) => {
+          set({ selectedTicketId: null, activeTenantId: id });
+          if (!CLOUD) return;
+          if (get().db.tenants.some((t) => t.id === id)) return; // ya cargada
+          const uid = get().currentUserId;
+          const role = await cloud.getMemberRole(id, uid).catch(() => null);
+          const filter = role === 'requester' ? uid : null;
+          const un = await cloud.subscribeTenant(id, filter, (tdata) => {
+            set((s) => ({ db: { ...s.db, tenants: [...s.db.tenants.filter((t) => t.id !== id), tdata] } }));
+          }, uid).catch((e) => { errlog(e); return (() => {}); });
+          unsubs.push(un);
+        },
         setAdminSec: (s) => set({ adminSec: s }),
         setAdminLc: (i) => set({ adminLcIndex: i }),
         select: (id) => set({ selectedTicketId: id }),

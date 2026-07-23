@@ -302,7 +302,6 @@ function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: Tenant
             const active = h.summary?.ticketsActive ?? ld?.tickets.length;
             const archived = h.summary?.ticketsArchived;
             const members = h.summary?.members ?? ld?.members.length;
-            const canEnter = !!ld;
             return (
               <div key={h.id} className="plat-card" style={{ ['--accent']: accent } as CSS}>
                 <div className="plat-card-h">
@@ -319,7 +318,7 @@ function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: Tenant
                 </div>
                 <div className="plat-foot">
                   <span className="plat-sync">Sinc.: {rel(h.summary?.lastSyncAt)}</span>
-                  <button className="primary" disabled={!canEnter} title={canEnter ? '' : 'Aún no tienes esta instancia cargada en esta sesión'} onClick={() => onEnter(h.id)}>Entrar</button>
+                  <button className="primary" onClick={() => onEnter(h.id)}>Entrar</button>
                 </div>
               </div>
             );
@@ -338,6 +337,7 @@ export function App() {
   const setUser = useStore((s) => s.setUser);
   const select = useStore((s) => s.select);
   const setTenant = useStore((s) => s.setTenant);
+  const enterTenant = useStore((s) => s.enterTenant);
   const cloudReady = useStore((s) => s.cloudReady);
   const hasAccess = useStore((s) => s.hasAccess);
   const startCloud = useStore((s) => s.startCloud);
@@ -416,13 +416,15 @@ export function App() {
   );
   if (firebaseEnabled && !tenant) return card('Sincronizando datos…');
   if (!tenant) return card('Sin datos.');
+  // «Entrar como»: la instancia activa aún no está cargada (suscripción on-demand).
+  if (firebaseEnabled && activeTenantId && !db.tenants.some((t) => t.id === activeTenantId)) return card('Cargando instancia…');
   // Portal de plataforma (solo admin de plataforma) — tiene prioridad sobre el
   // selector para poder abrirse también desde la landing.
   if (showPlatform && user.platformAdmin) return (
     <PlatformPortal
       headers={platformTenants.length ? platformTenants : myTenants.map((t) => ({ id: t.id, name: t.name, key: t.key, active: t.active, branding: t.branding }))}
       loaded={db.tenants}
-      onEnter={(id) => { setTenant(id); setInstanceChosen(true); setShowPlatform(false); }}
+      onEnter={(id) => { void enterTenant(id); setInstanceChosen(true); setShowPlatform(false); }}
       onClose={() => setShowPlatform(false)} />
   );
   // Landing/selector: quien tiene ≥2 instancias elige antes de entrar.
@@ -472,6 +474,11 @@ export function App() {
         )}
         <span className="rolebadge">{role === 'tenant_admin' ? 'Admin' : role === 'technician' ? 'Técnico' : 'Solicitante'}</span>
       </div>
+
+      {user.platformAdmin && !user.memberships[tenant.id] && <div className="imp-banner plat-vbanner">
+        <span>▦ Estás viendo <b>{tenant.name}</b> como administrador de plataforma (no eres miembro de esta instancia).</span>
+        <button className="ghost" onClick={() => setShowPlatform(true)}>Volver al portal</button>
+      </div>}
 
       {readOnly && <div className="imp-banner">
         <span><Icon name="eye" size={13} /> Estás viendo el portal <b>como {displayMember?.name ?? effectiveUserId}</b> ({role === 'requester' ? 'Solicitante' : role === 'technician' ? 'Técnico' : 'Admin'}) · solo lectura</span>
