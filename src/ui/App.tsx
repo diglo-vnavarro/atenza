@@ -22,7 +22,7 @@ import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
-import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap, type Branding } from '../data/seed.js';
+import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap, type Branding, type TenantHeader } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
   in_progress: ['En curso', 'var(--ok)', 'var(--ok-bg)'],
@@ -215,14 +215,14 @@ function GlobalSearch({ tenant, onOpen }: { tenant: TenantData; onOpen: (id: str
 
 // Landing/selector de instancia: tarjetas con la marca (logo/color) de cada
 // instancia a la que el usuario tiene acceso, su rol y unas cifras rápidas.
-function InstancePicker({ tenants, user, onPick }: { tenants: TenantData[]; user: ReturnType<typeof buildUser>; onPick: (id: string) => void }) {
+function InstancePicker({ tenants, user, onPick, onPlatform }: { tenants: TenantData[]; user: ReturnType<typeof buildUser>; onPick: (id: string) => void; onPlatform?: () => void }) {
   const roleLabel = (t: TenantData) => user.platformAdmin
     ? 'Administrador de plataforma'
     : ({ tenant_admin: 'Administrador', technician: 'Técnico', requester: 'Solicitante' }[user.memberships[t.id]?.role ?? 'requester']);
   return (
     <div className="pick-wrap">
       <div className="pick-inner">
-        <div className="pick-head"><span className="glyph">A</span> <b>Atenza</b></div>
+        <div className="pick-head"><span className="glyph">A</span> <b>Atenza</b>{onPlatform && <button className="pick-platlink" onClick={onPlatform}>▦ Portal de plataforma</button>}</div>
         <h1 className="pick-title">Elige una instancia</h1>
         <p className="pick-sub">Tienes acceso a {tenants.length} instancias.</p>
         <div className="pick-grid">
@@ -239,6 +239,62 @@ function InstancePicker({ tenants, user, onPick }: { tenants: TenantData[]; user
                 <div className="pick-inst-role">{roleLabel(t)}</div>
                 <div className="pick-inst-meta">{t.tickets.length} activos · {t.members.length} personas</div>
               </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Portal de plataforma (solo admin de plataforma): estado de TODAS las instancias.
+// Cabeceras ligeras (registro) + cifras derivadas de la instancia cargada como
+// respaldo mientras el job no estampe `summary`.
+function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: TenantHeader[]; loaded: TenantData[]; onEnter: (id: string) => void; onClose: () => void }) {
+  const rel = (ts?: number) => {
+    if (!ts) return '—';
+    const s = Math.max(0, (Date.now() - ts) / 1000);
+    if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+    if (s < 86400) return `hace ${Math.round(s / 3600)} h`;
+    return `hace ${Math.round(s / 86400)} d`;
+  };
+  const sorted = [...headers].sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <div className="pick-wrap">
+      <div className="pick-inner" style={{ maxWidth: 940 }}>
+        <div className="plat-top">
+          <div className="pick-head"><span className="glyph">A</span> <b>Atenza</b> · Plataforma</div>
+          <button className="ghost" onClick={onClose}>← Volver</button>
+        </div>
+        <h1 className="pick-title">Instancias</h1>
+        <p className="pick-sub">{headers.length} instancias en la plataforma.</p>
+        <div className="plat-grid">
+          {sorted.map((h) => {
+            const ld = loaded.find((t) => t.id === h.id);
+            const accent = h.branding?.primaryColor ?? '#2f6bff';
+            const active = h.summary?.ticketsActive ?? ld?.tickets.length;
+            const archived = h.summary?.ticketsArchived;
+            const members = h.summary?.members ?? ld?.members.length;
+            const canEnter = !!ld;
+            return (
+              <div key={h.id} className="plat-card" style={{ ['--accent']: accent } as CSS}>
+                <div className="plat-card-h">
+                  {h.branding?.logoUrl
+                    ? <img className="plat-logo" src={h.branding.logoUrl} alt="" />
+                    : <span className="pick-glyph" style={{ background: accent, width: 38, height: 38, fontSize: 18 }}>{(h.name || 'A').slice(0, 1)}</span>}
+                  <div className="plat-idn"><div className="plat-name">{h.name}</div><div className="plat-key">{h.key}</div></div>
+                  <span className={'plat-badge' + (h.active ? ' on' : ' off')}>{h.active ? 'Activa' : 'Inactiva'}</span>
+                </div>
+                <div className="plat-kpis">
+                  <div><b>{active ?? '—'}</b><span>activos</span></div>
+                  <div><b>{archived ?? '—'}</b><span>archivo</span></div>
+                  <div><b>{members ?? '—'}</b><span>personas</span></div>
+                </div>
+                <div className="plat-foot">
+                  <span className="plat-sync">Sinc.: {rel(h.summary?.lastSyncAt)}</span>
+                  <button className="primary" disabled={!canEnter} title={canEnter ? '' : 'Aún no tienes esta instancia cargada en esta sesión'} onClick={() => onEnter(h.id)}>Entrar</button>
+                </div>
+              </div>
             );
           })}
         </div>
@@ -273,6 +329,9 @@ export function App() {
   // Landing de selección de instancia: se muestra una vez por sesión a quien tiene
   // ≥2 instancias (clic en el logo del topbar para volver a ella).
   const [instanceChosen, setInstanceChosen] = useState(false);
+  // Portal de plataforma (solo admins de plataforma): panel de estado de instancias.
+  const [showPlatform, setShowPlatform] = useState(false);
+  const platformTenants = useStore((s) => s.platformTenants);
 
   // Identidad: en la nube = uid del usuario autenticado (los docs de miembro van
   // keyados por ese uid); en local = selector de personas (demo).
@@ -323,9 +382,19 @@ export function App() {
   );
   if (firebaseEnabled && !tenant) return card('Sincronizando datos…');
   if (!tenant) return card('Sin datos.');
+  // Portal de plataforma (solo admin de plataforma) — tiene prioridad sobre el
+  // selector para poder abrirse también desde la landing.
+  if (showPlatform && user.platformAdmin) return (
+    <PlatformPortal
+      headers={platformTenants.length ? platformTenants : myTenants.map((t) => ({ id: t.id, name: t.name, key: t.key, active: t.active, branding: t.branding }))}
+      loaded={db.tenants}
+      onEnter={(id) => { setTenant(id); setInstanceChosen(true); setShowPlatform(false); }}
+      onClose={() => setShowPlatform(false)} />
+  );
   // Landing/selector: quien tiene ≥2 instancias elige antes de entrar.
   if (myTenants.length > 1 && !instanceChosen) return (
-    <InstancePicker tenants={myTenants} user={user} onPick={(id) => { setTenant(id); setInstanceChosen(true); }} />
+    <InstancePicker tenants={myTenants} user={user} onPick={(id) => { setTenant(id); setInstanceChosen(true); }}
+      onPlatform={user.platformAdmin ? () => setShowPlatform(true) : undefined} />
   );
 
   const isReq = role === 'requester';
@@ -357,6 +426,7 @@ export function App() {
         <div className="spring" />
         <button className="newtop" onClick={() => setShowNew(true)} title={readOnly ? 'Ver el catálogo que ve este usuario (solo lectura)' : ''}>＋ Nueva solicitud</button>
         <Bell tenant={tenant} meUid={effectiveUserId} accessCount={user.platformAdmin ? accessRequests.length : 0} onReviewAccess={() => { setAdminSec('accesos'); setView('admin'); }} />
+        {user.platformAdmin && <button className="iconbtn" onClick={() => setShowPlatform(true)} title="Portal de plataforma" aria-label="Portal de plataforma">▦</button>}
         <button className="iconbtn" onClick={toggleTheme} title="Tema" aria-label="Cambiar tema">◐</button>
         {firebaseEnabled ? <>
           <span className="who-mini">{displayMember?.name ?? authUser?.email}</span>

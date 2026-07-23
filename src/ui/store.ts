@@ -13,7 +13,7 @@ import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
 import { webhooksFor } from '../webhooks.js';
 import { canTransition, initialState } from '../lifecycle.js';
-import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours, type Branding } from '../data/seed.js';
+import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours, type Branding, type TenantHeader } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
 
@@ -44,6 +44,8 @@ interface State {
   cloudReady: boolean;
   hasAccess: boolean;
   accessRequests: AccessRequest[];
+  /** cabeceras de TODAS las instancias (solo se llena para admins de plataforma). */
+  platformTenants: TenantHeader[];
   layouts: Record<string, Record<string, { x: number; y: number }>>;
   startCloud: (uid: string) => Promise<void>;
   requestAccess: (email: string, name?: string, note?: string) => Promise<void>;
@@ -268,6 +270,7 @@ export const useStore = create<State>()(
         db: seed,
         currentUserId: 'u-admin',
         impersonateUid: null,
+        platformTenants: [],
         activeTenantId: 'diglo-it',
         adminSec: 'lifecycle',
         adminLcIndex: 0,
@@ -283,7 +286,7 @@ export const useStore = create<State>()(
             cloud.isPlatformAdmin(uid).catch(() => false),
             cloud.getUserTenantIds(uid).catch(() => [] as string[]),
           ]);
-          set({ db: { tenants: [], platformAdmins: pa ? [uid] : [] }, currentUserId: uid, cloudReady: true, hasAccess: pa || tids.length > 0, activeTenantId: tids[0] ?? '', accessRequests: [] });
+          set({ db: { tenants: [], platformAdmins: pa ? [uid] : [] }, currentUserId: uid, cloudReady: true, hasAccess: pa || tids.length > 0, activeTenantId: tids[0] ?? '', accessRequests: [], platformTenants: [] });
           for (const tid of tids) {
             const role = await cloud.getMemberRole(tid, uid).catch(() => null);
             const filter = role === 'requester' ? uid : null;
@@ -292,8 +295,12 @@ export const useStore = create<State>()(
             }, uid);
             unsubs.push(un);
           }
-          // Superadmin: cola de solicitudes de acceso (para la bandeja de aprobaciones + campana).
-          if (pa) { const un = await cloud.subscribeAccessRequests((rs) => set({ accessRequests: rs })).catch(() => (() => {})); unsubs.push(un); }
+          // Superadmin: cola de solicitudes de acceso (para la bandeja de aprobaciones + campana)
+          // + registro de TODAS las instancias para el panel de plataforma (no depende de userTenants).
+          if (pa) {
+            const un = await cloud.subscribeAccessRequests((rs) => set({ accessRequests: rs })).catch(() => (() => {})); unsubs.push(un);
+            void cloud.listTenantHeaders().then((hs) => set({ platformTenants: hs })).catch(errlog);
+          }
         },
 
         // Solicitar acceso (usuario sin ficha, en la pantalla «Sin acceso»).

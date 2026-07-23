@@ -203,6 +203,23 @@ export interface Branding {
   loginTagline?: string;
 }
 
+/** Cifras de cabecera de una instancia, estampadas server-side (job de sync o
+ *  función) para el panel de plataforma; evita cargar la instancia entera. */
+export interface TenantSummary {
+  ticketsActive?: number;
+  ticketsArchived?: number;
+  members?: number;
+  lastSyncAt?: number;
+  lastSyncStatus?: 'ok' | 'error';
+}
+/** Cabecera ligera de instancia para el registro/panel de plataforma (sin cargar
+ *  tickets ni configuración). Se obtiene con listTenantHeaders(). */
+export interface TenantHeader {
+  id: string; name: string; key: string; active: boolean;
+  branding?: Branding;
+  summary?: TenantSummary;
+}
+
 export interface TenantData {
   id: string; name: string; key: string; active: boolean;
   /** marca por instancia (logo/color). */

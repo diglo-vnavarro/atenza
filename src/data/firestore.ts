@@ -23,7 +23,7 @@ import type { Webhook } from '../webhooks.js';
 import type { KbArticle } from '../kb.js';
 import type { Announcement } from '../announce.js';
 import type { AuditEntry } from '../audit.js';
-import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode, Picklists, PriorityMatrix, BusinessHours, RoleDef, ServiceCategoryDef, Branding } from './seed.js';
+import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode, Picklists, PriorityMatrix, BusinessHours, RoleDef, ServiceCategoryDef, Branding, TenantHeader, TenantSummary } from './seed.js';
 import type { QueryConstraint } from 'firebase/firestore';
 
 let _fs: Awaited<ReturnType<typeof loadFs>> | null = null;
@@ -35,7 +35,7 @@ async function loadFs() {
 async function fs() { return (_fs ??= await loadFs()); }
 
 // ---- config del tenant que vive en el doc raíz ----
-interface TenantDoc { name: string; key: string; active: boolean; branding?: Branding; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; picklists?: Picklists; priorityMatrix?: PriorityMatrix; businessHours?: BusinessHours; holidays?: string[]; sites?: string[]; departments?: string[]; userGroups?: string[]; roles?: RoleDef[]; notifRules?: NotifRule[]; closureRules?: ClosureRules; replyTemplates?: ReplyTemplate[]; businessRules?: BusinessRule[]; formRules?: FormRule[]; webhooks?: Webhook[]; kbArticles?: KbArticle[]; announcements?: Announcement[]; customFields?: FieldDef[]; serviceCategoryIcons?: Record<string, string>; organizateGroupIds?: string[]; serviceCategories?: ServiceCategoryDef[]; operationMode?: 'classic' | 'simplified'; inboundEnabled?: boolean; capacity: Record<string, Capacity>; counter: number }
+interface TenantDoc { name: string; key: string; active: boolean; branding?: Branding; summary?: TenantSummary; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; picklists?: Picklists; priorityMatrix?: PriorityMatrix; businessHours?: BusinessHours; holidays?: string[]; sites?: string[]; departments?: string[]; userGroups?: string[]; roles?: RoleDef[]; notifRules?: NotifRule[]; closureRules?: ClosureRules; replyTemplates?: ReplyTemplate[]; businessRules?: BusinessRule[]; formRules?: FormRule[]; webhooks?: Webhook[]; kbArticles?: KbArticle[]; announcements?: Announcement[]; customFields?: FieldDef[]; serviceCategoryIcons?: Record<string, string>; organizateGroupIds?: string[]; serviceCategories?: ServiceCategoryDef[]; operationMode?: 'classic' | 'simplified'; inboundEnabled?: boolean; capacity: Record<string, Capacity>; counter: number }
 
 /** Rol del usuario en un tenant (para decidir el filtro de tickets al suscribir). */
 export async function getMemberRole(tid: string, uid: string): Promise<string | null> {
@@ -79,6 +79,18 @@ export async function getUserTenantIds(uid: string): Promise<string[]> {
 export async function isPlatformAdmin(uid: string): Promise<boolean> {
   const { m, db } = await fs();
   return (await m.getDoc(m.doc(db, 'platformAdmins', uid))).exists();
+}
+
+/** Registro de instancias para el PANEL DE PLATAFORMA: cabeceras ligeras de TODAS
+ *  las instancias (sin cargar tickets/config). El `list` de /tenants solo lo
+ *  permiten las reglas a isPlatformAdmin. No depende de userTenants. */
+export async function listTenantHeaders(): Promise<TenantHeader[]> {
+  const { m, db } = await fs();
+  const snap = await m.getDocs(m.collection(db, 'tenants'));
+  return snap.docs.map((d) => {
+    const t = d.data() as TenantDoc;
+    return { id: d.id, name: t.name ?? d.id, key: t.key ?? d.id, active: t.active ?? true, branding: t.branding, summary: t.summary };
+  });
 }
 
 /** Crea/actualiza la solicitud de acceso del usuario actual (sin ficha aún). */
