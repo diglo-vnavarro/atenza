@@ -23,8 +23,9 @@ import { visibleAnnouncements, type Announcement, type Audience } from '../annou
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
 import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap, type Branding, type TenantHeader, type PlatformAuditEntry } from '../data/seed.js';
+import { BLUEPRINTS, getBlueprint } from '../data/blueprints.js';
 
-const AUDIT_LABEL: Record<string, string> = { provision: 'Provisión', approve: 'Aprobación', reject: 'Rechazo', revoke: 'Revocación' };
+const AUDIT_LABEL: Record<string, string> = { provision: 'Provisión', approve: 'Aprobación', reject: 'Rechazo', revoke: 'Revocación', create: 'Creación' };
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
   in_progress: ['En curso', 'var(--ok)', 'var(--ok-bg)'],
@@ -286,12 +287,58 @@ function DirectProvision({ headers }: { headers: TenantHeader[] }) {
 // Portal de plataforma (solo admin de plataforma): estado de TODAS las instancias.
 // Cabeceras ligeras (registro) + cifras derivadas de la instancia cargada como
 // respaldo mientras el job no estampe `summary`.
-function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: TenantHeader[]; loaded: TenantData[]; onEnter: (id: string) => void; onClose: () => void }) {
+// Asistente de creación de instancia (Fase 3): identidad + blueprint + color +
+// primer admin. Crea el tenant (client-side, permitido a platformAdmin) y
+// provisiona al admin por email vía la Cloud Function ACTIVE.
+const slugify = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+function NewInstanceWizard({ meEmail, onClose, onCreated }: { meEmail?: string; onClose: () => void; onCreated: (id: string) => void }) {
+  const createInstance = useStore((s) => s.createInstance);
+  const [name, setName] = useState('');
+  const [key, setKey] = useState('');
+  const [bp, setBp] = useState('starter-es');
+  const [color, setColor] = useState('#2f6bff');
+  const [adminEmail, setAdminEmail] = useState(meEmail ?? '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const id = slugify(key || name);
+  const hint: import('react').CSSProperties = { fontSize: 11.5, color: 'var(--ink-faint)', marginTop: 4, display: 'block' };
+  const submit = async () => {
+    setErr('');
+    if (!name.trim()) return setErr('Indica un nombre.');
+    if (!id) return setErr('El identificador no es válido.');
+    if (!adminEmail.trim()) return setErr('Indica el email del primer administrador.');
+    setBusy(true);
+    try {
+      await createInstance({ id, name: name.trim(), key: id, blueprintId: bp, branding: { primaryColor: color } }, adminEmail.trim());
+      onCreated(id);
+    } catch (e) { setErr((e as { message?: string })?.message || 'No se pudo crear la instancia.'); setBusy(false); }
+  };
+  return <div className="scrim tmodal-scrim" onClick={onClose}>
+    <div className="tmodal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
+      <div className="tmodal-h"><b>Nueva instancia</b><button className="xbtn" onClick={onClose}>✕</button></div>
+      <div className="tmodal-b" style={{ display: 'grid', gap: 14 }}>
+        <label>Nombre<input value={name} onChange={(e) => { setName(e.target.value); if (!key) setKey(slugify(e.target.value)); }} placeholder="p. ej. Soporte RRHH" style={{ width: '100%', boxSizing: 'border-box' }} /></label>
+        <label>Identificador<input value={key} onChange={(e) => setKey(e.target.value)} placeholder="soporte-rrhh" style={{ width: '100%', boxSizing: 'border-box' }} /><span style={hint}>id/clave: <b>{id || '—'}</b></span></label>
+        <label>Configuración base<select value={bp} onChange={(e) => setBp(e.target.value)} style={{ width: '100%' }}>{BLUEPRINTS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}</select><span style={hint}>{getBlueprint(bp).description}</span></label>
+        <label>Color de marca<br /><input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 46, height: 32, padding: 2, marginTop: 4 }} /></label>
+        <label>Email del primer administrador<input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@empresa.com" style={{ width: '100%', boxSizing: 'border-box' }} /><span style={hint}>Debe haber iniciado sesión en Atenza al menos una vez.</span></label>
+        {err && <div style={{ color: 'var(--crit)', fontSize: 12.5 }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+          <button className="ghost" onClick={onClose}>Cancelar</button>
+          <button className="primary" disabled={busy} onClick={submit}>{busy ? 'Creando…' : 'Crear instancia'}</button>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail }: { headers: TenantHeader[]; loaded: TenantData[]; onEnter: (id: string) => void; onClose: () => void; meEmail?: string }) {
   const accessRequests = useStore((s) => s.accessRequests);
   const approve = useStore((s) => s.approveAccess);
   const reject = useStore((s) => s.rejectAccess);
   const fetchAudit = useStore((s) => s.fetchPlatformAudit);
   const [tab, setTab] = useState<'inst' | 'acc' | 'audit'>('inst');
+  const [showWizard, setShowWizard] = useState(false);
   const [sel, setSel] = useState<Record<string, { tid: string; role: Role }>>({});
   const [audit, setAudit] = useState<PlatformAuditEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -351,8 +398,12 @@ function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: Tenant
             })}
           </div>
         </> : <>
-        <h1 className="pick-title">Instancias</h1>
+        <div className="plat-head-row">
+          <h1 className="pick-title" style={{ margin: 0 }}>Instancias</h1>
+          <button className="primary" onClick={() => setShowWizard(true)}>＋ Nueva instancia</button>
+        </div>
         <p className="pick-sub">{headers.length} instancias en la plataforma.</p>
+        {showWizard && <NewInstanceWizard meEmail={meEmail} onClose={() => setShowWizard(false)} onCreated={() => setShowWizard(false)} />}
         <div className="plat-grid">
           {sorted.map((h) => {
             const ld = loaded.find((t) => t.id === h.id);
@@ -483,7 +534,8 @@ export function App() {
       headers={platformTenants.length ? platformTenants : myTenants.map((t) => ({ id: t.id, name: t.name, key: t.key, active: t.active, branding: t.branding }))}
       loaded={db.tenants}
       onEnter={(id) => { void enterTenant(id); setInstanceChosen(true); setShowPlatform(false); }}
-      onClose={() => setShowPlatform(false)} />
+      onClose={() => setShowPlatform(false)}
+      meEmail={authUser?.email ?? displayMember?.email} />
   );
   // Landing/selector: quien tiene ≥2 instancias elige antes de entrar.
   if (myTenants.length > 1 && !instanceChosen) return (
