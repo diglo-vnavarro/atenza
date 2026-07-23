@@ -219,7 +219,7 @@ export interface PlatformAuditEntry {
   at: number;
   actorUid: string;
   actorName?: string;
-  action: 'provision' | 'approve' | 'reject' | 'revoke';
+  action: 'provision' | 'approve' | 'reject' | 'revoke' | 'create';
   tenantId?: string;
   targetEmail?: string;
   detail?: string;

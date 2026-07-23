@@ -97,6 +97,32 @@ export async function adminProvisionAccess(email: string, tenantId: string, role
   return res.data as { ok: boolean; uid: string; name: string };
 }
 
+/** ¿Existe ya una instancia con ese id? (para no sobrescribir al crear). */
+export async function tenantExists(tid: string): Promise<boolean> {
+  const { m, db } = await fs();
+  return (await m.getDoc(m.doc(db, 'tenants', tid))).exists();
+}
+/** Crea una instancia NUEVA (Fase 3): escribe el doc del tenant + sus
+ *  subcolecciones de configuración (ciclos, plantillas, grupos) en un batch
+ *  atómico. Los miembros NO se escriben aquí (el primer admin se provisiona
+ *  aparte con adminProvisionAccess, que resuelve su uid real). */
+export async function createInstance(t: TenantData): Promise<void> {
+  const { m, db } = await fs();
+  const batch = m.writeBatch(db);
+  const tdoc = {
+    name: t.name, key: t.key, active: t.active, ...(t.branding ? { branding: t.branding } : {}),
+    categories: t.categories, statuses: t.statuses ?? [], picklists: t.picklists,
+    serviceCategories: t.serviceCategories ?? [], serviceCategoryIcons: t.serviceCategoryIcons ?? {},
+    operationMode: 'simplified' as const, capacity: {}, counter: t.counter ?? 1000,
+    sites: [], departments: [], userGroups: [], roles: [], createdAt: Date.now(), source: 'blueprint',
+  };
+  batch.set(m.doc(db, 'tenants', t.id), tdoc);
+  for (const lc of t.lifecycles) batch.set(m.doc(db, `tenants/${t.id}/lifecycles`, lc.id!), lc);
+  for (const tp of t.templates) batch.set(m.doc(db, `tenants/${t.id}/templates`, tp.id), tp);
+  for (const g of t.groups) batch.set(m.doc(db, `tenants/${t.id}/groups`, g.id), g);
+  await batch.commit();
+}
+
 /** Auditoría de plataforma (append-only). La escritura solo la permite el
  *  isPlatformAdmin (reglas); si el llamante no lo es, se ignora el fallo. */
 export async function writePlatformAudit(entry: Omit<PlatformAuditEntry, 'id'>): Promise<void> {

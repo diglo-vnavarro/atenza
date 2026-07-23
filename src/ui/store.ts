@@ -16,6 +16,7 @@ import { canTransition, initialState } from '../lifecycle.js';
 import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours, type Branding, type TenantHeader, type PlatformAuditEntry } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
+import { materializeTenant, type InstanceSpec } from '../data/blueprints.js';
 
 export interface ImportSnapshot { categories: string[]; templates: Template[]; slas: Sla[]; groups: Group[]; members: UiMember[] }
 export type Role = 'tenant_admin' | 'technician' | 'requester';
@@ -54,6 +55,7 @@ interface State {
   provisionAccess: (email: string, tenantId: string, role: Role) => Promise<{ ok: boolean; uid: string; name: string }>;
   revokeAccess: (uid: string) => Promise<void>;
   fetchPlatformAudit: () => Promise<PlatformAuditEntry[]>;
+  createInstance: (spec: InstanceSpec, adminEmail: string) => Promise<{ ok: boolean; uid: string; name: string }>;
   setUser: (uid: string) => void;
   setImpersonate: (uid: string | null) => void;
   setTenant: (id: string) => void;
@@ -204,7 +206,7 @@ export const useStore = create<State>()(
       const syncCurLc = () => { if (!CLOUD) return; const s = get(); const t = activeT(s); const lc = curLc(s); if (t && lc?.id) void cloud.writeLifecycle(t.id, lc).catch(errlog); };
       // Auditoría de plataforma (mejor esfuerzo; solo escribe si el llamante es
       // admin de plataforma — lo imponen las reglas). Sin claves undefined.
-      const auditPlatform = (action: 'provision' | 'approve' | 'reject' | 'revoke', extra: { tenantId?: string; targetEmail?: string; detail?: string }) => {
+      const auditPlatform = (action: 'provision' | 'approve' | 'reject' | 'revoke' | 'create', extra: { tenantId?: string; targetEmail?: string; detail?: string }) => {
         if (!CLOUD) return;
         const s = get();
         const actorName = s.db.tenants.flatMap((t) => t.members).find((m) => m.uid === s.currentUserId)?.name;
@@ -361,6 +363,28 @@ export const useStore = create<State>()(
           }
         },
         fetchPlatformAudit: async () => (CLOUD ? cloud.listPlatformAudit(100) : []),
+        // Crear instancia nueva desde un blueprint (admin de plataforma). En nube:
+        // escribe tenant+config (batch) y provisiona al primer admin por email vía
+        // la Cloud Function ACTIVE (adminProvisionAccess). En local: la añade al
+        // estado con el usuario actual como admin (para demo/verificación).
+        createInstance: async (spec, adminEmail) => {
+          if (get().db.tenants.some((t) => t.id === spec.id)) throw new Error('Ya existe una instancia con ese identificador.');
+          if (CLOUD) {
+            if (await cloud.tenantExists(spec.id)) throw new Error('Ya existe una instancia con ese identificador.');
+            const placeholder: UiMember = { uid: '_pending', name: adminEmail, email: adminEmail, role: 'tenant_admin', status: 'active', external: false, color: '#4f46e5', enabled: true };
+            await cloud.createInstance(materializeTenant(spec, placeholder));
+            const res = await cloud.adminProvisionAccess(adminEmail, spec.id, 'tenant_admin'); // resuelve email→uid + ficha real
+            void auditPlatform('create', { tenantId: spec.id, targetEmail: adminEmail, detail: spec.blueprintId });
+            void cloud.listTenantHeaders().then((hs) => set({ platformTenants: hs })).catch(errlog);
+            return { ok: true, uid: res.uid, name: res.name };
+          }
+          // LOCAL: el creador (usuario actual) es el primer admin.
+          const meUid = get().currentUserId;
+          const me = get().db.tenants.flatMap((t) => t.members).find((m) => m.uid === meUid);
+          const admin: UiMember = { uid: meUid, name: me?.name ?? adminEmail, email: me?.email ?? adminEmail, role: 'tenant_admin', status: 'active', external: false, roleName: 'SDAdmin', color: '#4f46e5', enabled: true };
+          set((s) => ({ db: { ...s.db, tenants: [...s.db.tenants, materializeTenant(spec, admin)] } }));
+          return { ok: true, uid: meUid, name: admin.name };
+        },
 
         setUser: (uid) => {
           const db = get().db; const u = buildUser(db, uid); const ts = tenantsForUser(db, u);
