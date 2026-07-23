@@ -13,7 +13,7 @@ import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
 import { webhooksFor } from '../webhooks.js';
 import { canTransition, initialState } from '../lifecycle.js';
-import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours, type Branding, type TenantHeader } from '../data/seed.js';
+import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours, type Branding, type TenantHeader, type PlatformAuditEntry } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
 
@@ -53,6 +53,7 @@ interface State {
   rejectAccess: (uid: string) => Promise<void>;
   provisionAccess: (email: string, tenantId: string, role: Role) => Promise<{ ok: boolean; uid: string; name: string }>;
   revokeAccess: (uid: string) => Promise<void>;
+  fetchPlatformAudit: () => Promise<PlatformAuditEntry[]>;
   setUser: (uid: string) => void;
   setImpersonate: (uid: string | null) => void;
   setTenant: (id: string) => void;
@@ -201,6 +202,19 @@ export const useStore = create<State>()(
       const activeT = (s: State) => s.db.tenants.find((t) => t.id === s.activeTenantId);
       const curLc = (s: State): Lifecycle | undefined => { const t = activeT(s); return t?.lifecycles[Math.min(s.adminLcIndex, (t?.lifecycles.length ?? 1) - 1)]; };
       const syncCurLc = () => { if (!CLOUD) return; const s = get(); const t = activeT(s); const lc = curLc(s); if (t && lc?.id) void cloud.writeLifecycle(t.id, lc).catch(errlog); };
+      // Auditoría de plataforma (mejor esfuerzo; solo escribe si el llamante es
+      // admin de plataforma — lo imponen las reglas). Sin claves undefined.
+      const auditPlatform = (action: 'provision' | 'approve' | 'reject' | 'revoke', extra: { tenantId?: string; targetEmail?: string; detail?: string }) => {
+        if (!CLOUD) return;
+        const s = get();
+        const actorName = s.db.tenants.flatMap((t) => t.members).find((m) => m.uid === s.currentUserId)?.name;
+        const entry: Record<string, unknown> = { at: Date.now(), actorUid: s.currentUserId, action };
+        if (actorName) entry.actorName = actorName;
+        if (extra.tenantId) entry.tenantId = extra.tenantId;
+        if (extra.targetEmail) entry.targetEmail = extra.targetEmail;
+        if (extra.detail) entry.detail = extra.detail;
+        void cloud.writePlatformAudit(entry as Omit<PlatformAuditEntry, 'id'>).catch(() => undefined);
+      };
 
       // Motor de notificaciones: en cada evento evalúa las reglas del tenant,
       // resuelve destinatarios (solicitante / técnico / grupo) y crea un aviso en
@@ -322,9 +336,12 @@ export const useStore = create<State>()(
             external: !req.email.toLowerCase().endsWith('@' + corp.toLowerCase()),
             color: palette[(t?.members.length ?? 0) % palette.length]!, caps: memberCaps({ role }, t?.roles), enabled: true,
           };
-          if (CLOUD) { await cloud.writeMember(tenantId, member).catch(errlog); await cloud.addUserTenant(uid, tenantId).catch(errlog); await cloud.deleteAccessRequest(uid).catch(errlog); }
+          if (CLOUD) { await cloud.writeMember(tenantId, member).catch(errlog); await cloud.addUserTenant(uid, tenantId).catch(errlog); await cloud.deleteAccessRequest(uid).catch(errlog); void auditPlatform('approve', { tenantId, targetEmail: req.email, detail: role }); }
         },
-        rejectAccess: async (uid) => { if (CLOUD) await cloud.deleteAccessRequest(uid).catch(errlog); },
+        rejectAccess: async (uid) => {
+          const req = get().accessRequests.find((r) => r.uid === uid);
+          if (CLOUD) { await cloud.deleteAccessRequest(uid).catch(errlog); void auditPlatform('reject', { targetEmail: req?.email }); }
+        },
         // Provisión directa por email (admin de plataforma) vía Cloud Function.
         provisionAccess: async (email, tenantId, role) => {
           if (!CLOUD) throw new Error('Disponible solo en la nube.');
@@ -334,13 +351,16 @@ export const useStore = create<State>()(
         // y lo quita de userTenants (no volverá a cargar la instancia).
         revokeAccess: async (uid) => {
           const tid = get().activeTenantId;
+          const targetEmail = get().db.tenants.find((x) => x.id === tid)?.members.find((x) => x.uid === uid)?.email;
           set((s) => ({ db: mapTenant(s.db, tid, (t) => ({ ...t, members: t.members.map((m) => m.uid === uid ? { ...m, status: 'disabled', enabled: false } : m) })) }));
           if (CLOUD) {
             const m = get().db.tenants.find((x) => x.id === tid)?.members.find((x) => x.uid === uid);
             if (m) await cloud.writeMember(tid, m).catch(errlog);
             await cloud.removeUserTenant(uid, tid).catch(errlog);
+            void auditPlatform('revoke', { tenantId: tid, targetEmail });
           }
         },
+        fetchPlatformAudit: async () => (CLOUD ? cloud.listPlatformAudit(100) : []),
 
         setUser: (uid) => {
           const db = get().db; const u = buildUser(db, uid); const ts = tenantsForUser(db, u);

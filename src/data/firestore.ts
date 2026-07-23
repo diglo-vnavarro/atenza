@@ -23,7 +23,7 @@ import type { Webhook } from '../webhooks.js';
 import type { KbArticle } from '../kb.js';
 import type { Announcement } from '../announce.js';
 import type { AuditEntry } from '../audit.js';
-import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode, Picklists, PriorityMatrix, BusinessHours, RoleDef, ServiceCategoryDef, Branding, TenantHeader, TenantSummary } from './seed.js';
+import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode, Picklists, PriorityMatrix, BusinessHours, RoleDef, ServiceCategoryDef, Branding, TenantHeader, TenantSummary, PlatformAuditEntry } from './seed.js';
 import type { QueryConstraint } from 'firebase/firestore';
 
 let _fs: Awaited<ReturnType<typeof loadFs>> | null = null;
@@ -95,6 +95,19 @@ export async function adminProvisionAccess(email: string, tenantId: string, role
   const fns = getFunctions(app, 'europe-west1');
   const res = await httpsCallable(fns, 'adminProvisionAccess')({ email, tenantId, role });
   return res.data as { ok: boolean; uid: string; name: string };
+}
+
+/** Auditoría de plataforma (append-only). La escritura solo la permite el
+ *  isPlatformAdmin (reglas); si el llamante no lo es, se ignora el fallo. */
+export async function writePlatformAudit(entry: Omit<PlatformAuditEntry, 'id'>): Promise<void> {
+  const { m, db } = await fs();
+  const ref = m.doc(m.collection(db, 'platformAudit'));
+  await m.setDoc(ref, { ...entry, id: ref.id });
+}
+export async function listPlatformAudit(max = 100): Promise<PlatformAuditEntry[]> {
+  const { m, db } = await fs();
+  const snap = await m.getDocs(m.query(m.collection(db, 'platformAudit'), m.orderBy('at', 'desc'), m.limit(max)));
+  return snap.docs.map((d) => d.data() as PlatformAuditEntry);
 }
 
 /** Registro de instancias para el PANEL DE PLATAFORMA: cabeceras ligeras de TODAS

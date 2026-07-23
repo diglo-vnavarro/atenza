@@ -899,3 +899,14 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 
 /* --- banner: viendo instancia como admin de plataforma --- */
 .plat-vbanner{background:var(--accent-soft); color:var(--accent-deep); border-color:var(--accent);}
+
+/* --- auditoría de plataforma --- */
+.plat-audit{width:100%; border-collapse:collapse; font-size:12.5px;}
+.plat-audit th{text-align:left; font-weight:600; color:var(--ink-faint); padding:10px 12px; border-bottom:1px solid var(--line); background:var(--surface-2);}
+.plat-audit td{padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+.plat-audit tr:last-child td{border-bottom:none;}
+.aud-act{font-weight:600; padding:2px 8px; border-radius:20px; font-size:11px;}
+.aud-provision{color:var(--ok); background:var(--ok-bg);}
+.aud-approve{color:var(--accent-deep); background:var(--accent-soft);}
+.aud-reject{color:var(--warn); background:var(--warn-bg);}
+.aud-revoke{color:var(--crit); background:var(--crit-bg);}

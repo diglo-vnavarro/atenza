@@ -212,6 +212,18 @@ export interface TenantSummary {
   lastSyncAt?: number;
   lastSyncStatus?: 'ok' | 'error';
 }
+/** Entrada del registro de AUDITORÍA de plataforma (colección top-level
+ *  platformAudit, append-only): quién hizo qué acción transversal y cuándo. */
+export interface PlatformAuditEntry {
+  id: string;
+  at: number;
+  actorUid: string;
+  actorName?: string;
+  action: 'provision' | 'approve' | 'reject' | 'revoke';
+  tenantId?: string;
+  targetEmail?: string;
+  detail?: string;
+}
 /** Cabecera ligera de instancia para el registro/panel de plataforma (sin cargar
  *  tickets ni configuración). Se obtiene con listTenantHeaders(). */
 export interface TenantHeader {

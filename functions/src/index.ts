@@ -115,6 +115,9 @@ export const adminProvisionAccess = onCall({ region: 'europe-west1' }, async (re
   if (refDoc) await db.doc(`tenants/${tenantId}/idmap/${refDoc.id}`).set({ uid, email }, { merge: true });
   await db.doc(`userTenants/${uid}`).set({ tenantIds: FieldValue.arrayUnion(tenantId) }, { merge: true });
   await db.doc(`accessRequests/${uid}`).delete().catch(() => undefined);
+  // traza de auditoría (append-only)
+  const auditRef = db.collection('platformAudit').doc();
+  await auditRef.set({ id: auditRef.id, at: Date.now(), actorUid: callerUid, action: 'provision', tenantId, targetEmail: email, detail: role }).catch((e) => logger.error('audit provision', e));
   logger.info(`provisión directa: ${email} → ${tenantId} (${role}) por ${callerUid}`);
   return { ok: true, uid, name: member.name };
 });

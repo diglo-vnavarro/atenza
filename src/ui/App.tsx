@@ -22,7 +22,9 @@ import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
-import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap, type Branding, type TenantHeader } from '../data/seed.js';
+import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap, type Branding, type TenantHeader, type PlatformAuditEntry } from '../data/seed.js';
+
+const AUDIT_LABEL: Record<string, string> = { provision: 'Provisión', approve: 'Aprobación', reject: 'Rechazo', revoke: 'Revocación' };
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
   in_progress: ['En curso', 'var(--ok)', 'var(--ok-bg)'],
@@ -288,8 +290,12 @@ function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: Tenant
   const accessRequests = useStore((s) => s.accessRequests);
   const approve = useStore((s) => s.approveAccess);
   const reject = useStore((s) => s.rejectAccess);
-  const [tab, setTab] = useState<'inst' | 'acc'>('inst');
+  const fetchAudit = useStore((s) => s.fetchPlatformAudit);
+  const [tab, setTab] = useState<'inst' | 'acc' | 'audit'>('inst');
   const [sel, setSel] = useState<Record<string, { tid: string; role: Role }>>({});
+  const [audit, setAudit] = useState<PlatformAuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  useEffect(() => { if (tab === 'audit') { setAuditLoading(true); fetchAudit().then(setAudit).catch(() => setAudit([])).finally(() => setAuditLoading(false)); } }, [tab, fetchAudit]);
   const rel = (ts?: number) => {
     if (!ts) return '—';
     const s = Math.max(0, (Date.now() - ts) / 1000);
@@ -308,8 +314,24 @@ function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: Tenant
         <div className="plat-tabs">
           <button className={tab === 'inst' ? 'on' : ''} onClick={() => setTab('inst')}>Instancias</button>
           <button className={tab === 'acc' ? 'on' : ''} onClick={() => setTab('acc')}>Accesos{accessRequests.length ? ` (${accessRequests.length})` : ''}</button>
+          <button className={tab === 'audit' ? 'on' : ''} onClick={() => setTab('audit')}>Auditoría</button>
         </div>
-        {tab === 'acc' ? <>
+        {tab === 'audit' ? <>
+          <h1 className="pick-title">Auditoría de plataforma</h1>
+          <p className="pick-sub">Acciones transversales (conceder, aprobar, rechazar, revocar acceso), más recientes primero.</p>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {auditLoading ? <div className="empty" style={{ padding: 24 }}>Cargando…</div>
+              : audit.length === 0 ? <div className="empty" style={{ padding: 24 }}>Sin registros de auditoría.</div>
+                : <table className="tbl plat-audit"><thead><tr><th>Cuándo</th><th>Acción</th><th>Actor</th><th>Destinatario</th><th>Instancia</th></tr></thead>
+                  <tbody>{audit.map((e) => <tr key={e.id}>
+                    <td>{fmtDate(e.at)}</td>
+                    <td><span className={'aud-act aud-' + e.action}>{AUDIT_LABEL[e.action] ?? e.action}</span>{e.detail ? ` · ${ROLE_LABEL[e.detail as Role] ?? e.detail}` : ''}</td>
+                    <td>{e.actorName ?? e.actorUid.slice(0, 8)}</td>
+                    <td>{e.targetEmail ?? '—'}</td>
+                    <td>{e.tenantId ?? '—'}</td>
+                  </tr>)}</tbody></table>}
+          </div>
+        </> : tab === 'acc' ? <>
           <h1 className="pick-title">Gestión de acceso</h1>
           <p className="pick-sub">Concede acceso directo por email, o aprueba/rechaza las solicitudes pendientes.</p>
           <DirectProvision headers={sorted} />
