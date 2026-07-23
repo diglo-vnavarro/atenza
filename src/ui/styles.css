@@ -854,3 +854,15 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .pick-inst-name{font-size:16px; font-weight:700; letter-spacing:-.01em;}
 .pick-inst-role{font-size:12px; color:var(--accent-deep); font-weight:600; margin-top:2px;}
 .pick-inst-meta{font-size:11.5px; color:var(--ink-faint); margin-top:8px;}
+
+/* --- editor de marca (branding) --- */
+.brand-logo-slot{width:46px; height:46px; border-radius:11px; overflow:hidden; flex:none; display:grid; place-items:center; background:var(--sink);}
+.brand-logo-slot img{width:46px; height:46px; object-fit:cover; display:block;}
+.btn-file{display:inline-flex; align-items:center; cursor:pointer; font-size:12px; font-weight:600; color:var(--ink); background:var(--surface); border:1px solid var(--line-2); border-radius:6px; padding:6px 12px;}
+.btn-file:hover{border-color:var(--accent); color:var(--accent-deep);}
+.brand-prev-top{display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); font-weight:650; font-size:13.5px;}
+.brand-prev-top .glyph{width:22px; height:22px; border-radius:6px; color:#fff; display:grid; place-items:center; font-weight:800; font-size:12px;}
+.brand-prev-top .brand-logo{width:24px; height:24px; border-radius:6px; object-fit:cover;}
+.brand-prev-top small{font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface); padding:2px 6px; border-radius:5px;}
+.brand-prev-card{margin-top:14px; cursor:default;}
+.brand-prev-card:hover{transform:none; box-shadow:none;}

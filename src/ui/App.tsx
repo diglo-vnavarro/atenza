@@ -22,7 +22,7 @@ import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
-import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
+import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap, type Branding } from '../data/seed.js';
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
   in_progress: ['En curso', 'var(--ok)', 'var(--ok-bg)'],
@@ -2035,7 +2035,7 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
-  ['Configuraciones de instancia', 'server', [['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
+  ['Configuraciones de instancia', 'server', [['Marca (logo y color)', 'marca'], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', 'users', [['Usuarios', 'miembros'], ['Solicitudes de acceso', 'accesos'], ['Roles', 'roles'], ['Grupos de usuarios', 'gruposusuarios'], ['Grupos de soporte', 'gruposoporte'], ['Acceso específico', null]]],
   ['Personalización', 'sliders', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
   ['Plantillas y formularios', 'file-text', [['Categorías de servicio', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
@@ -2044,7 +2044,7 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuración del correo', 'mail', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', 'shield', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
+const ADMIN_TITLE: Record<string, string> = { marca: 'Marca de la instancia', plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -2402,6 +2402,96 @@ function KbModule({ tenant, canManage, meName }: { tenant: TenantData; canManage
   </div>;
 }
 
+// ---- Marca por instancia: logo (incrustado y reescalado) + color + tagline ----
+function readAsDataURL(f: File): Promise<string> {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = () => rej(new Error('read')); r.readAsDataURL(f); });
+}
+// Reescala una imagen de mapa de bits a `maxPx` (lado mayor) y la exporta como
+// PNG data URI, para no incrustar un logo pesado en el documento del tenant.
+async function downscaleImage(f: File, maxPx: number): Promise<string> {
+  const src = await readAsDataURL(f);
+  const img = new Image(); await new Promise((res, rej) => { img.onload = () => res(null); img.onerror = () => rej(new Error('img')); img.src = src; });
+  const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d')!.drawImage(img, 0, 0, w, h);
+  return c.toDataURL('image/png');
+}
+// Quita claves vacías (Firestore no admite `undefined`).
+function cleanBranding(b: Branding): Branding {
+  const o: Branding = {};
+  if (b.logoUrl) o.logoUrl = b.logoUrl;
+  if (b.logoMarkUrl) o.logoMarkUrl = b.logoMarkUrl;
+  if (b.primaryColor) o.primaryColor = b.primaryColor;
+  if (b.loginTagline) o.loginTagline = b.loginTagline;
+  return o;
+}
+function BrandingAdmin({ tenant }: { tenant: TenantData }) {
+  const setBranding = useStore((s) => s.setBranding);
+  const cur = useMemo(() => cleanBranding(tenant.branding ?? {}), [tenant.branding]);
+  const [draft, setDraft] = useState<Branding>(cur);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  useEffect(() => { setDraft(cleanBranding(tenant.branding ?? {})); }, [tenant.id]); // reset al cambiar de instancia
+  const dirty = JSON.stringify(cleanBranding(draft)) !== JSON.stringify(cur);
+  const accent = draft.primaryColor || '#2f6bff';
+  const initial = (tenant.name || 'A').slice(0, 1);
+
+  const onFile = async (f: File | undefined) => {
+    setErr(''); if (!f) return;
+    if (!f.type.startsWith('image/')) { setErr('El archivo debe ser una imagen.'); return; }
+    if (f.size > 1_000_000) { setErr('Imagen demasiado grande (máx. 1 MB).'); return; }
+    setBusy(true);
+    try {
+      if (f.type === 'image/svg+xml' && f.size >= 100_000) throw new Error('svg');
+      const url = f.type === 'image/svg+xml' ? await readAsDataURL(f) : await downscaleImage(f, 160);
+      setDraft((d) => ({ ...d, logoUrl: url }));
+    } catch { setErr('No se pudo procesar la imagen (¿SVG > 100 KB?).'); }
+    setBusy(false);
+  };
+
+  return <>
+    <div className="banner" style={{ marginBottom: 14 }}>La <b>marca</b> de esta instancia (logo y color) se muestra en la barra superior, en la pantalla de selección de instancia y en el acceso. El logo se <b>incrusta reescalado</b> para que sea ligero.</div>
+    <div className="work" style={{ gridTemplateColumns: '1fr 300px', gap: 18 }}>
+      <div className="card" style={{ display: 'grid', gap: 18, alignContent: 'start' }}>
+        <label>Logo
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 8 }}>
+            <div className="brand-logo-slot">{draft.logoUrl ? <img src={draft.logoUrl} alt="" /> : <span className="pick-glyph" style={{ background: accent, width: 46, height: 46, fontSize: 22 }}>{initial}</span>}</div>
+            <label className="btn-file">{busy ? 'Procesando…' : 'Subir imagen'}<input type="file" accept="image/*" hidden disabled={busy} onChange={(e) => onFile(e.target.files?.[0])} /></label>
+            {draft.logoUrl && <button className="ghost" onClick={() => setDraft((d) => ({ ...d, logoUrl: undefined }))}>Quitar</button>}
+          </div>
+        </label>
+        <label>Color de marca
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+            <input type="color" value={accent} onChange={(e) => setDraft((d) => ({ ...d, primaryColor: e.target.value }))} style={{ width: 46, height: 32, padding: 2 }} />
+            <input value={draft.primaryColor ?? ''} placeholder="#2f6bff" onChange={(e) => setDraft((d) => ({ ...d, primaryColor: e.target.value || undefined }))} style={{ width: 130 }} />
+          </div>
+        </label>
+        <label>Frase de acceso (opcional)
+          <input value={draft.loginTagline ?? ''} placeholder="p. ej. Portal de servicios" onChange={(e) => setDraft((d) => ({ ...d, loginTagline: e.target.value || undefined }))} style={{ marginTop: 8, width: '100%', boxSizing: 'border-box' }} />
+        </label>
+        {err && <div style={{ color: 'var(--crit)', fontSize: 12 }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="primary" disabled={!dirty || busy} onClick={() => setBranding(cleanBranding(draft))}>Guardar cambios</button>
+          <button className="ghost" disabled={!dirty} onClick={() => setDraft(cur)}>Descartar</button>
+        </div>
+      </div>
+      <div className="card" style={{ alignSelf: 'start' }}>
+        <div className="lbl" style={{ marginBottom: 12 }}>Vista previa</div>
+        <div className="brand-prev-top">
+          {draft.logoUrl ? <img className="brand-logo" src={draft.logoUrl} alt="" /> : <span className="glyph" style={{ background: accent }}>{initial}</span>}
+          <span className="brand-name">{tenant.name}</span><small>Atenza</small>
+        </div>
+        <div className="pick-inst brand-prev-card" style={{ ['--accent']: accent } as CSS}>
+          <div className="pick-logo">{draft.logoUrl ? <img src={draft.logoUrl} alt="" /> : <span className="pick-glyph" style={{ background: accent }}>{initial}</span>}</div>
+          <div className="pick-inst-name">{tenant.name}</div>
+          {draft.loginTagline && <div className="pick-inst-meta">{draft.loginTagline}</div>}
+        </div>
+      </div>
+    </div>
+  </>;
+}
+
 const ADMIN_FIRST = ADMIN_AREAS.flatMap((a) => a[2]).find(([, k]) => k)?.[1] ?? 'catservicio';
 function AdminConfig({ tenant }: { tenant: TenantData }) {
   // Sección activa en el store (adminSec) para poder navegar desde fuera (p. ej. la
@@ -2418,6 +2508,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     </nav>
     <div className="adm-pane">
       <div className="adm-crumb">{ADMIN_TITLE[sec] ?? sec}</div>
+    {sec === 'marca' && <BrandingAdmin tenant={tenant} />}
     {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
     {sec === 'estado' && <StatusAdmin tenant={tenant} />}
     {sec === 'valores' && <ValuesAdmin tenant={tenant} />}

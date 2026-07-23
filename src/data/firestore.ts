@@ -232,6 +232,12 @@ export async function patchTenantDoc(tid: string, patch: Partial<TenantDoc>): Pr
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, 'tenants', tid), patch, { merge: true });
 }
+/** Marca de instancia: updateDoc REEMPLAZA el mapa completo (a diferencia de
+ *  setDoc+merge, que fusiona mapas y no permitiría borrar el logo). */
+export async function writeBranding(tid: string, branding: Branding): Promise<void> {
+  const { m, db } = await fs();
+  await m.updateDoc(m.doc(db, 'tenants', tid), { branding });
+}
 export async function writeSla(tid: string, s: Sla): Promise<void> {
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, `tenants/${tid}/slas`, s.id), s);

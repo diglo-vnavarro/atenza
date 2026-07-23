@@ -445,7 +445,7 @@ export const useStore = create<State>()(
         },
         setBranding: (b) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, branding: b })) }));
-          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { branding: b }).catch(errlog); }
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.writeBranding(t.id, b).catch(errlog); }
         },
         setPicklist: (key, list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, picklists: { ...(t.picklists as Picklists), [key]: list } })) }));
