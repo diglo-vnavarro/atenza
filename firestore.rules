@@ -75,6 +75,14 @@ service cloud.firestore {
       allow update: if false;
     }
 
+    // Registro de AUDITORÍA de plataforma (append-only): solo el superadmin lo
+    // lee y lo escribe; nunca se actualiza ni se borra (traza inmutable).
+    match /platformAudit/{id} {
+      allow read:   if isPlatformAdmin();
+      allow create: if isPlatformAdmin();
+      allow update, delete: if false;
+    }
+
     // Cola de correo de la extensión Trigger Email. CANDADO DE FASE DE PRUEBAS:
     // solo se pueden encolar emails dirigidos al usuario de pruebas — ni un
     // cliente mal comportado puede enviar a terceros. La lee la extensión (admin).

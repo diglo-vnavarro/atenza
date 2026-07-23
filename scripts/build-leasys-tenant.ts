@@ -34,8 +34,11 @@ const statuses = raw.statuses.map((s) => { const t = timerOf(s.name); return { n
 const CAT: Record<string, string> = { in_progress: 'in_progress', stop_timer: 'stop_timer', completed: 'completed' };
 const lcStates = raw.statuses.map((s) => ({ key: slug(s.name), label: s.name as string, stage: TERMINAL.has(s.name) ? 'closed' : 'open', category: CAT[timerOf(s.name)], ...(s.name === 'Open' ? { isInitial: true } : {}), ...(TERMINAL.has(s.name) ? { isTerminal: true } : {}) }));
 const nonTerminal = lcStates.filter((s) => !(s as any).isTerminal);
-const transitions = nonTerminal.flatMap((s) => lcStates.filter((d) => d.key !== s.key).map((d) => ({ from: s.key, to: d.key })));
-const lifecycle = { id: 'lc-leasys', name: 'Leasys', type: 'incident', published: true, states: lcStates, transitions };
+const lbl = new Map(lcStates.map((s) => [s.key, s.label]));
+// id/name en cada transición (misma convención que la app; sin ellos React Flow
+// no pinta las flechas porque todas las aristas comparten id=undefined).
+const transitions = nonTerminal.flatMap((s) => lcStates.filter((d) => d.key !== s.key).map((d) => ({ id: `tr_${s.key}_${d.key}`, name: `${lbl.get(s.key)} → ${lbl.get(d.key)}`, from: s.key, to: d.key })));
+const lifecycle = { id: 'lc-leasys', name: 'Leasys', version: '1.0', type: 'incident', published: true, states: lcStates, transitions };
 
 // ---- plantillas (para resolver ciclo sin categoría) ----
 const templates = [

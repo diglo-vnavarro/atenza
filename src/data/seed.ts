@@ -189,8 +189,53 @@ export interface CatSub { name: string; items: string[] }
 export interface CatNode { name: string; subs: CatSub[] }
 /** Ticket con su id (en Firestore el id es la clave del documento). */
 export type StoredTicket = Ticket & { id: string };
+/** Personalización de marca por instancia. Se aplica en el topbar, la landing de
+ *  selección de instancia y (a futuro) el login por deep-link. Todo opcional:
+ *  sin branding, se cae al isotipo «A» + color de acento por defecto. */
+export interface Branding {
+  /** logo a color (data URI o URL). Si falta, se usa la inicial del nombre. */
+  logoUrl?: string;
+  /** isotipo cuadrado (favicon / avatar de instancia). */
+  logoMarkUrl?: string;
+  /** acento de marca (#hex); retiñe el color de la instancia activa. */
+  primaryColor?: string;
+  /** frase bajo el logo en la pantalla de acceso. */
+  loginTagline?: string;
+}
+
+/** Cifras de cabecera de una instancia, estampadas server-side (job de sync o
+ *  función) para el panel de plataforma; evita cargar la instancia entera. */
+export interface TenantSummary {
+  ticketsActive?: number;
+  ticketsArchived?: number;
+  members?: number;
+  lastSyncAt?: number;
+  lastSyncStatus?: 'ok' | 'error';
+}
+/** Entrada del registro de AUDITORÍA de plataforma (colección top-level
+ *  platformAudit, append-only): quién hizo qué acción transversal y cuándo. */
+export interface PlatformAuditEntry {
+  id: string;
+  at: number;
+  actorUid: string;
+  actorName?: string;
+  action: 'provision' | 'approve' | 'reject' | 'revoke';
+  tenantId?: string;
+  targetEmail?: string;
+  detail?: string;
+}
+/** Cabecera ligera de instancia para el registro/panel de plataforma (sin cargar
+ *  tickets ni configuración). Se obtiene con listTenantHeaders(). */
+export interface TenantHeader {
+  id: string; name: string; key: string; active: boolean;
+  branding?: Branding;
+  summary?: TenantSummary;
+}
+
 export interface TenantData {
   id: string; name: string; key: string; active: boolean;
+  /** marca por instancia (logo/color). */
+  branding?: Branding;
   members: UiMember[]; lifecycles: Lifecycle[]; templates: Template[];
   slas: Sla[]; groups: Group[]; tickets: StoredTicket[];
   /** activos / CMDB (módulo D). Subcolección en la nube: tenants/{tid}/assets. */
@@ -465,6 +510,7 @@ const seg = (state: string, agoMinFrom: number, agoMinTo: number | null, now: nu
 export function makeSeed(now: number): DB {
   const it: TenantData = {
     id: 'diglo-it', name: 'Diglo ITSM', key: 'itdesk', active: true,
+    branding: { primaryColor: '#4f46e5', loginTagline: 'Soporte IT interno de Diglo' },
     members: [
       { uid: 'u-admin', email: 'vnavarro@digloservicer.com', name: 'Vicente Navarro', color: '#4f46e5', role: 'tenant_admin', status: 'active', external: false, roleName: 'SDAdmin', groupIds: ['g-n1', 'g-red'], site: 'Madrid - Sede central', department: 'Sistemas', userGroups: ['Todos los empleados'], enabled: true },
       { uid: 'u-elena', email: 'eandres@digloservicer.com', name: 'Elena Andrés', color: '#0f766e', role: 'technician', status: 'active', external: false, roleName: 'SDCo-ordinator', groupIds: ['g-n1'], site: 'Madrid - Sede central', department: 'Soporte a usuarios', userGroups: ['Todos los empleados'], enabled: true },
@@ -529,6 +575,7 @@ export function makeSeed(now: number): DB {
 
   const leasys: TenantData = {
     id: 'leasys', name: 'Diglo Leasys', key: 'leasys', active: true,
+    branding: { primaryColor: '#0f766e', loginTagline: 'Portal de servicios Leasys', logoUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%230f766e'/%3E%3Ctext x='20' y='28' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='white' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E" },
     members: [
       { uid: 'u-javier', email: 'jquesada@digloservicer.com', name: 'Javier Quesada', color: '#15803d', role: 'tenant_admin', status: 'active', external: false, roleName: 'SDAdmin', groupIds: ['g-lea'], site: 'Sede Leasys', department: 'Portal', userGroups: ['Gestores'], enabled: true },
       { uid: 'u-marta', email: 'marta@leasys.com', name: 'Marta Ruiz', color: '#4338ca', role: 'technician', status: 'active', external: true, roleName: 'SDCo-ordinator', groupIds: ['g-lea'], site: 'Remoto', department: 'Facturación', userGroups: ['Gestores'] },

@@ -89,23 +89,61 @@ async function syncTickets() {
   console.log(`${DRY ? '[DRY] ' : ''}tickets: ${created} nuevos, ${updated} actualizados · ${preserved} campos Atenza preservados · ${autoCat} auto-categorizados · ${remapped} identidades remapeadas.`);
 }
 
+// Campos de miembro que SON DECISIÓN DE ATENZA (rol/permisos/alta), no de SDP:
+// si el doc ya existe con estos valores, NO se pisan al re-sincronizar (si no,
+// el sync degradaría a «technician» a quien un admin hubiera ascendido, p. ej.).
+const MEMBER_OWNED = ['role', 'roleName', 'enabled', 'caps'] as const;
+
 async function syncMembers() {
-  // Solo miembros de referencia que NO estén mapeados a una cuenta real (merge
-  // para no pisar campos como `enabled`/roleName si el doc ya existía).
+  // Solo miembros de referencia que NO estén mapeados a una cuenta real.
   const ref = members.filter((m) => !idMap[m.uid as string]);
-  let n = 0; const skipped = members.length - ref.length;
+  let n = 0, preserved = 0; const skipped = members.length - ref.length;
   for (let i = 0; i < ref.length; i += 300) {
+    const slice = ref.slice(i, i + 300);
+    const refs = slice.map((m) => db.doc(`tenants/${TENANT}/members/${m.uid}`));
+    const snaps = await db.getAll(...refs);
     const batch = db.batch();
-    for (const m of ref.slice(i, i + 300)) { if (!DRY) batch.set(db.doc(`tenants/${TENANT}/members/${m.uid}`), m, { merge: true }); n++; }
+    slice.forEach((m, j) => {
+      const prev = (snaps[j]!.exists ? snaps[j]!.data() : {}) as Record<string, unknown>;
+      const next = { ...m } as Record<string, unknown>;
+      for (const f of MEMBER_OWNED) if (prev[f] !== undefined) { next[f] = prev[f]; preserved++; } // no degradar rol/permisos fijados en Atenza
+      if (!DRY) batch.set(refs[j]!, next, { merge: true }); n++;
+    });
     if (!DRY) await batch.commit();
   }
-  console.log(`${DRY ? '[DRY] ' : ''}members: ${n} de referencia (merge), ${skipped} omitidos por estar en el mapa de identidad.`);
+  console.log(`${DRY ? '[DRY] ' : ''}members: ${n} de referencia (merge) · ${preserved} campos de rol/permiso preservados · ${skipped} omitidos por estar en el mapa de identidad.`);
+}
+
+// Cifras de cabecera para el PANEL DE PLATAFORMA (Fase 1.4): se estampan en el
+// doc del tenant al terminar el sync, por conteo de agregación (barato, no lee
+// los ~23k del archivo). Mejor esfuerzo: si falla, no rompe el sync.
+async function stampSummary() {
+  try {
+    const tk = db.collection(`tenants/${TENANT}/tickets`);
+    const [act, arch, mem] = await Promise.all([
+      tk.where('archived', '==', false).count().get(),
+      tk.where('archived', '==', true).count().get(),
+      db.collection(`tenants/${TENANT}/members`).count().get(),
+    ]);
+    const summary = {
+      ticketsActive: act.data().count,
+      ticketsArchived: arch.data().count,
+      members: mem.data().count,
+      lastSyncAt: Date.now(),
+      lastSyncStatus: 'ok' as const,
+    };
+    if (!DRY) await db.doc(`tenants/${TENANT}`).set({ summary }, { merge: true });
+    console.log(`${DRY ? '[DRY] ' : ''}summary: ${summary.ticketsActive} activos · ${summary.ticketsArchived} archivo · ${summary.members} personas · lastSyncAt=${summary.lastSyncAt}`);
+  } catch (e) {
+    console.error('summary: no se pudo estampar (no crítico):', (e as Error).message);
+  }
 }
 
 async function main() {
   console.log(`${DRY ? '=== DRY-RUN (no escribe nada) === ' : ''}Sync SDP → Atenza · tenant ${TENANT} · ${tickets.length} tickets · ${Object.keys(idMap).length} identidades mapeadas.`);
   await syncMembers();
   await syncTickets();
+  await stampSummary();
   if (DRY) console.log('DRY-RUN completado: NADA se escribió. Quita DRY_RUN para aplicar.');
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

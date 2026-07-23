@@ -7,6 +7,7 @@ import { useStore, buildUser, tenantsForUser, lifecycleOfTicket, type Role } fro
 import { firebaseEnabled } from '../firebase.js';
 import { useAuth, doSignOut } from '../auth/auth.js';
 import { Login } from './Login.js';
+import { ErrorBoundary } from './ErrorBoundary.js';
 import { Icon } from './Icon.js';
 import { stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
@@ -22,7 +23,9 @@ import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
-import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap } from '../data/seed.js';
+import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap, type Branding, type TenantHeader, type PlatformAuditEntry } from '../data/seed.js';
+
+const AUDIT_LABEL: Record<string, string> = { provision: 'Provisión', approve: 'Aprobación', reject: 'Rechazo', revoke: 'Revocación' };
 
 const CAT: Record<SlaCategory, [string, string, string]> = {
   in_progress: ['En curso', 'var(--ok)', 'var(--ok-bg)'],
@@ -213,6 +216,179 @@ function GlobalSearch({ tenant, onOpen }: { tenant: TenantData; onOpen: (id: str
   </div>;
 }
 
+// Landing/selector de instancia: tarjetas con la marca (logo/color) de cada
+// instancia a la que el usuario tiene acceso, su rol y unas cifras rápidas.
+function InstancePicker({ tenants, user, onPick, onPlatform }: { tenants: TenantData[]; user: ReturnType<typeof buildUser>; onPick: (id: string) => void; onPlatform?: () => void }) {
+  const roleLabel = (t: TenantData) => user.platformAdmin
+    ? 'Administrador de plataforma'
+    : ({ tenant_admin: 'Administrador', technician: 'Técnico', requester: 'Solicitante' }[user.memberships[t.id]?.role ?? 'requester']);
+  return (
+    <div className="pick-wrap">
+      <div className="pick-inner">
+        <div className="pick-head"><span className="glyph">A</span> <b>Atenza</b>{onPlatform && <button className="pick-platlink" onClick={onPlatform}>▦ Portal de plataforma</button>}</div>
+        <h1 className="pick-title">Elige una instancia</h1>
+        <p className="pick-sub">Tienes acceso a {tenants.length} instancias.</p>
+        <div className="pick-grid">
+          {tenants.map((t) => {
+            const accent = t.branding?.primaryColor ?? '#2f6bff';
+            return (
+              <button key={t.id} className="pick-inst" style={{ ['--accent']: accent } as CSS} onClick={() => onPick(t.id)}>
+                <div className="pick-logo">
+                  {t.branding?.logoUrl
+                    ? <img src={t.branding.logoUrl} alt="" />
+                    : <span className="pick-glyph" style={{ background: accent }}>{(t.name || 'A').slice(0, 1)}</span>}
+                </div>
+                <div className="pick-inst-name">{t.name}</div>
+                <div className="pick-inst-role">{roleLabel(t)}</div>
+                <div className="pick-inst-meta">{t.tickets.length} activos · {t.members.length} personas</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Provisión directa de acceso por email (portal de plataforma). Cierra el caso
+// de un usuario que ya inició sesión pero no tiene acceso: le concede la ficha
+// en la instancia + rol elegidos vía Cloud Function (resuelve email→uid).
+function DirectProvision({ headers }: { headers: TenantHeader[] }) {
+  const provision = useStore((s) => s.provisionAccess);
+  const [email, setEmail] = useState('');
+  const [tid, setTid] = useState(headers[0]?.id ?? '');
+  const [role, setRole] = useState<Role>('technician');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const submit = async () => {
+    setMsg(null); setBusy(true);
+    try {
+      const r = await provision(email.trim(), tid, role);
+      setMsg({ ok: true, text: `Acceso concedido a ${r.name}. Ya puede entrar (que recargue la página).` });
+      setEmail('');
+    } catch (e) {
+      setMsg({ ok: false, text: (e as { message?: string })?.message || 'No se pudo provisionar el acceso.' });
+    }
+    setBusy(false);
+  };
+  return <div className="card" style={{ padding: 16, marginBottom: 14 }}>
+    <div className="section-t">Provisionar acceso directo</div>
+    <p className="cfg-lead">Concede acceso a alguien por su email sin esperar a que lo solicite. La persona debe haber iniciado sesión en Atenza al menos una vez.</p>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <input type="email" placeholder="email@empresa.com" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
+      <select value={tid} onChange={(e) => setTid(e.target.value)} title="Instancia">{headers.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
+      <select value={role} onChange={(e) => setRole(e.target.value as Role)} title="Rol">{(['tenant_admin', 'technician', 'requester'] as Role[]).map((x) => <option key={x} value={x}>{ROLE_LABEL[x]}</option>)}</select>
+      <button className="primary" disabled={busy || !email.trim() || !tid} onClick={submit}>{busy ? 'Provisionando…' : 'Conceder acceso'}</button>
+    </div>
+    {msg && <div style={{ marginTop: 10, fontSize: 12.5, color: msg.ok ? 'var(--ok)' : 'var(--crit)' }}>{msg.text}</div>}
+  </div>;
+}
+
+// Portal de plataforma (solo admin de plataforma): estado de TODAS las instancias.
+// Cabeceras ligeras (registro) + cifras derivadas de la instancia cargada como
+// respaldo mientras el job no estampe `summary`.
+function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: TenantHeader[]; loaded: TenantData[]; onEnter: (id: string) => void; onClose: () => void }) {
+  const accessRequests = useStore((s) => s.accessRequests);
+  const approve = useStore((s) => s.approveAccess);
+  const reject = useStore((s) => s.rejectAccess);
+  const fetchAudit = useStore((s) => s.fetchPlatformAudit);
+  const [tab, setTab] = useState<'inst' | 'acc' | 'audit'>('inst');
+  const [sel, setSel] = useState<Record<string, { tid: string; role: Role }>>({});
+  const [audit, setAudit] = useState<PlatformAuditEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  useEffect(() => { if (tab === 'audit') { setAuditLoading(true); fetchAudit().then(setAudit).catch(() => setAudit([])).finally(() => setAuditLoading(false)); } }, [tab, fetchAudit]);
+  const rel = (ts?: number) => {
+    if (!ts) return '—';
+    const s = Math.max(0, (Date.now() - ts) / 1000);
+    if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+    if (s < 86400) return `hace ${Math.round(s / 3600)} h`;
+    return `hace ${Math.round(s / 86400)} d`;
+  };
+  const sorted = [...headers].sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <div className="pick-wrap">
+      <div className="pick-inner" style={{ maxWidth: 940 }}>
+        <div className="plat-top">
+          <div className="pick-head"><span className="glyph">A</span> <b>Atenza</b> · Plataforma</div>
+          <button className="ghost" onClick={onClose}>← Volver</button>
+        </div>
+        <div className="plat-tabs">
+          <button className={tab === 'inst' ? 'on' : ''} onClick={() => setTab('inst')}>Instancias</button>
+          <button className={tab === 'acc' ? 'on' : ''} onClick={() => setTab('acc')}>Accesos{accessRequests.length ? ` (${accessRequests.length})` : ''}</button>
+          <button className={tab === 'audit' ? 'on' : ''} onClick={() => setTab('audit')}>Auditoría</button>
+        </div>
+        {tab === 'audit' ? <>
+          <h1 className="pick-title">Auditoría de plataforma</h1>
+          <p className="pick-sub">Acciones transversales (conceder, aprobar, rechazar, revocar acceso), más recientes primero.</p>
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            {auditLoading ? <div className="empty" style={{ padding: 24 }}>Cargando…</div>
+              : audit.length === 0 ? <div className="empty" style={{ padding: 24 }}>Sin registros de auditoría.</div>
+                : <table className="tbl plat-audit"><thead><tr><th>Cuándo</th><th>Acción</th><th>Actor</th><th>Destinatario</th><th>Instancia</th></tr></thead>
+                  <tbody>{audit.map((e) => <tr key={e.id}>
+                    <td>{fmtDate(e.at)}</td>
+                    <td><span className={'aud-act aud-' + e.action}>{AUDIT_LABEL[e.action] ?? e.action}</span>{e.detail ? ` · ${ROLE_LABEL[e.detail as Role] ?? e.detail}` : ''}</td>
+                    <td>{e.actorName ?? e.actorUid.slice(0, 8)}</td>
+                    <td>{e.targetEmail ?? '—'}</td>
+                    <td>{e.tenantId ?? '—'}</td>
+                  </tr>)}</tbody></table>}
+          </div>
+        </> : tab === 'acc' ? <>
+          <h1 className="pick-title">Gestión de acceso</h1>
+          <p className="pick-sub">Concede acceso directo por email, o aprueba/rechaza las solicitudes pendientes.</p>
+          <DirectProvision headers={sorted} />
+          <div className="section-t" style={{ margin: '4px 0 8px' }}>Solicitudes pendientes{accessRequests.length ? ` (${accessRequests.length})` : ''}</div>
+          {accessRequests.length === 0 && <div className="card"><div className="empty" style={{ padding: 24 }}>No hay solicitudes de acceso pendientes.</div></div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {accessRequests.slice().sort((a, b) => b.at - a.at).map((r) => {
+              const c = sel[r.uid] ?? { tid: sorted[0]?.id ?? '', role: 'technician' as Role };
+              return <div key={r.uid} className="card plat-req">
+                <span className="av" style={{ background: 'var(--accent)' }}>{(r.name || r.email)[0]?.toUpperCase()}</span>
+                <span style={{ flex: 1, minWidth: 160 }}><b style={{ fontSize: 13 }}>{r.name || r.email}</b><span style={{ display: 'block', fontSize: 11.5, color: 'var(--ink-faint)' }}>{r.email} · {fmtDate(r.at)}</span></span>
+                <select value={c.tid} onChange={(e) => setSel({ ...sel, [r.uid]: { ...c, tid: e.target.value } })} title="Instancia">{sorted.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
+                <select value={c.role} onChange={(e) => setSel({ ...sel, [r.uid]: { ...c, role: e.target.value as Role } })} title="Rol">{(['tenant_admin', 'technician', 'requester'] as Role[]).map((x) => <option key={x} value={x}>{ROLE_LABEL[x]}</option>)}</select>
+                <button className="primary" disabled={!c.tid} onClick={() => approve(r.uid, c.tid, c.role)}>Aprobar</button>
+                <button className="ghost" style={{ color: 'var(--crit)' }} onClick={() => reject(r.uid)}>Rechazar</button>
+              </div>;
+            })}
+          </div>
+        </> : <>
+        <h1 className="pick-title">Instancias</h1>
+        <p className="pick-sub">{headers.length} instancias en la plataforma.</p>
+        <div className="plat-grid">
+          {sorted.map((h) => {
+            const ld = loaded.find((t) => t.id === h.id);
+            const accent = h.branding?.primaryColor ?? '#2f6bff';
+            const active = h.summary?.ticketsActive ?? ld?.tickets.length;
+            const archived = h.summary?.ticketsArchived;
+            const members = h.summary?.members ?? ld?.members.length;
+            return (
+              <div key={h.id} className="plat-card" style={{ ['--accent']: accent } as CSS}>
+                <div className="plat-card-h">
+                  {h.branding?.logoUrl
+                    ? <img className="plat-logo" src={h.branding.logoUrl} alt="" />
+                    : <span className="pick-glyph" style={{ background: accent, width: 38, height: 38, fontSize: 18 }}>{(h.name || 'A').slice(0, 1)}</span>}
+                  <div className="plat-idn"><div className="plat-name">{h.name}</div><div className="plat-key">{h.key}</div></div>
+                  <span className={'plat-badge' + (h.active ? ' on' : ' off')}>{h.active ? 'Activa' : 'Inactiva'}</span>
+                </div>
+                <div className="plat-kpis">
+                  <div><b>{active ?? '—'}</b><span>activos</span></div>
+                  <div><b>{archived ?? '—'}</b><span>archivo</span></div>
+                  <div><b>{members ?? '—'}</b><span>personas</span></div>
+                </div>
+                <div className="plat-foot">
+                  <span className="plat-sync">Sinc.: {rel(h.summary?.lastSyncAt)}</span>
+                  <button className="primary" onClick={() => onEnter(h.id)}>Entrar</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        </>}
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const db = useStore((s) => s.db);
   const currentUserId = useStore((s) => s.currentUserId);
@@ -220,6 +396,7 @@ export function App() {
   const setUser = useStore((s) => s.setUser);
   const select = useStore((s) => s.select);
   const setTenant = useStore((s) => s.setTenant);
+  const enterTenant = useStore((s) => s.enterTenant);
   const cloudReady = useStore((s) => s.cloudReady);
   const hasAccess = useStore((s) => s.hasAccess);
   const startCloud = useStore((s) => s.startCloud);
@@ -227,6 +404,7 @@ export function App() {
   const accessRequests = useStore((s) => s.accessRequests);
   const setAdminSec = useStore((s) => s.setAdminSec);
   const [accessRequested, setAccessRequested] = useState(false);
+  const [accessError, setAccessError] = useState('');
   const authUser = useAuth((s) => s.user);
   const authReady = useAuth((s) => s.ready);
   useEffect(() => { void useAuth.getState().init(); }, []);
@@ -236,6 +414,12 @@ export function App() {
   const [dismissedAnn, setDismissedAnn] = useState<string[]>([]);
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
+  // Landing de selección de instancia: se muestra una vez por sesión a quien tiene
+  // ≥2 instancias (clic en el logo del topbar para volver a ella).
+  const [instanceChosen, setInstanceChosen] = useState(false);
+  // Portal de plataforma (solo admins de plataforma): panel de estado de instancias.
+  const [showPlatform, setShowPlatform] = useState(false);
+  const platformTenants = useStore((s) => s.platformTenants);
 
   // Identidad: en la nube = uid del usuario autenticado (los docs de miembro van
   // keyados por ese uid); en local = selector de personas (demo).
@@ -277,8 +461,13 @@ export function App() {
         </>
         : <>
           <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>Sin acceso todavía.<br /><b>{authUser?.email}</b> no pertenece a ninguna instancia.</p>
+          {accessError && <p style={{ margin: '0 0 12px', color: 'var(--crit)', fontSize: 13 }}>{accessError}</p>}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-            <button className="primary" onClick={async () => { await requestAccess(authUser?.email ?? ''); setAccessRequested(true); }}>Solicitar acceso</button>
+            <button className="primary" onClick={async () => {
+              setAccessError('');
+              try { await requestAccess(authUser?.email ?? ''); setAccessRequested(true); }
+              catch { setAccessError('No se pudo enviar la solicitud. Recarga la página e inténtalo de nuevo; si persiste, avisa a un administrador.'); }
+            }}>Solicitar acceso</button>
             <button className="ghost" onClick={() => doSignOut()}>Salir</button>
           </div>
         </>}
@@ -286,6 +475,22 @@ export function App() {
   );
   if (firebaseEnabled && !tenant) return card('Sincronizando datos…');
   if (!tenant) return card('Sin datos.');
+  // «Entrar como»: la instancia activa aún no está cargada (suscripción on-demand).
+  if (firebaseEnabled && activeTenantId && !db.tenants.some((t) => t.id === activeTenantId)) return card('Cargando instancia…');
+  // Portal de plataforma (solo admin de plataforma) — tiene prioridad sobre el
+  // selector para poder abrirse también desde la landing.
+  if (showPlatform && user.platformAdmin) return (
+    <PlatformPortal
+      headers={platformTenants.length ? platformTenants : myTenants.map((t) => ({ id: t.id, name: t.name, key: t.key, active: t.active, branding: t.branding }))}
+      loaded={db.tenants}
+      onEnter={(id) => { void enterTenant(id); setInstanceChosen(true); setShowPlatform(false); }}
+      onClose={() => setShowPlatform(false)} />
+  );
+  // Landing/selector: quien tiene ≥2 instancias elige antes de entrar.
+  if (myTenants.length > 1 && !instanceChosen) return (
+    <InstancePicker tenants={myTenants} user={user} onPick={(id) => { setTenant(id); setInstanceChosen(true); }}
+      onPlatform={user.platformAdmin ? () => setShowPlatform(true) : undefined} />
+  );
 
   const isReq = role === 'requester';
   const caps = capsOf(tenant, effectiveUserId, !!user.platformAdmin);
@@ -298,7 +503,15 @@ export function App() {
   return (
     <div>
       <div className="top">
-        <div className="brand"><span className="glyph">A</span> Atenza <small>{firebaseEnabled ? 'nube' : 'local'}</small></div>
+        <div className={'brand' + (myTenants.length > 1 ? ' brand-clic' : '')}
+          onClick={() => { if (myTenants.length > 1) setInstanceChosen(false); }}
+          title={myTenants.length > 1 ? 'Cambiar de instancia' : ''}>
+          {tenant.branding?.logoUrl
+            ? <img className="brand-logo" src={tenant.branding.logoUrl} alt="" />
+            : <span className="glyph" style={tenant.branding?.primaryColor ? { background: tenant.branding.primaryColor } : undefined}>{(tenant.name || 'A').slice(0, 1)}</span>}
+          <span className="brand-name">{tenant.name}</span>
+          <small>Atenza · {firebaseEnabled ? 'nube' : 'local'}</small>
+        </div>
         {myTenants.length > 1 && (
           <select className="instsel" value={tenant.id} onChange={(e) => setTenant(e.target.value)} title="Instancia">
             {myTenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -308,6 +521,7 @@ export function App() {
         <div className="spring" />
         <button className="newtop" onClick={() => setShowNew(true)} title={readOnly ? 'Ver el catálogo que ve este usuario (solo lectura)' : ''}>＋ Nueva solicitud</button>
         <Bell tenant={tenant} meUid={effectiveUserId} accessCount={user.platformAdmin ? accessRequests.length : 0} onReviewAccess={() => { setAdminSec('accesos'); setView('admin'); }} />
+        {user.platformAdmin && <button className="iconbtn" onClick={() => setShowPlatform(true)} title="Portal de plataforma" aria-label="Portal de plataforma">▦</button>}
         <button className="iconbtn" onClick={toggleTheme} title="Tema" aria-label="Cambiar tema">◐</button>
         {firebaseEnabled ? <>
           <span className="who-mini">{displayMember?.name ?? authUser?.email}</span>
@@ -319,6 +533,11 @@ export function App() {
         )}
         <span className="rolebadge">{role === 'tenant_admin' ? 'Admin' : role === 'technician' ? 'Técnico' : 'Solicitante'}</span>
       </div>
+
+      {user.platformAdmin && !user.memberships[tenant.id] && <div className="imp-banner plat-vbanner">
+        <span>▦ Estás viendo <b>{tenant.name}</b> como administrador de plataforma (no eres miembro de esta instancia).</span>
+        <button className="ghost" onClick={() => setShowPlatform(true)}>Volver al portal</button>
+      </div>}
 
       {readOnly && <div className="imp-banner">
         <span><Icon name="eye" size={13} /> Estás viendo el portal <b>como {displayMember?.name ?? effectiveUserId}</b> ({role === 'requester' ? 'Solicitante' : role === 'technician' ? 'Técnico' : 'Admin'}) · solo lectura</span>
@@ -364,16 +583,21 @@ export function App() {
             <div style={{ flex: 1 }}><b>{a.title}</b><div className="ann-b">{a.body}</div></div>
             <button className="xbtn" onClick={() => setDismissedAnn([...dismissedAnn, a.id])} aria-label="Descartar">✕</button>
           </div>)}
-          {activeView === 'home' && !isReq && (caps.includes('viewReports')
-            ? <Dashboard tenant={tenant} user={user} go={(v, f) => { if (f) setFilter(f); setView(v); }} />
-            : <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />)}
-          {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" caps={caps} readOnly={readOnly} />}
-          {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />}
-          {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" caps={caps} readOnly={readOnly} />}
-          {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester' && !readOnly} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
-          {activeView === 'activos' && !isReq && <AssetsModule tenant={tenant} canManage={!readOnly} onOpenTicket={(id) => { useStore.getState().select(id); setView('tickets'); }} />}
-          {activeView === 'archivo' && <Archive tenant={tenant} role={role} user={user} caps={caps} meName={tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo'} meUid={user.uid} cloud={firebaseEnabled} />}
-          {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
+          {/* Aísla el fallo de una vista: si un visual/módulo revienta al renderizar,
+              muestra un fallback en lugar de tumbar toda la app. La `key` por vista
+              reinicia el boundary al navegar, de modo que cambiar de sección se recupera. */}
+          <ErrorBoundary key={activeView} label={`view:${activeView}`}>
+            {activeView === 'home' && !isReq && (caps.includes('viewReports')
+              ? <Dashboard tenant={tenant} user={user} go={(v, f) => { if (f) setFilter(f); setView(v); }} />
+              : <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />)}
+            {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" caps={caps} readOnly={readOnly} />}
+            {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />}
+            {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" caps={caps} readOnly={readOnly} />}
+            {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester' && !readOnly} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
+            {activeView === 'activos' && !isReq && <AssetsModule tenant={tenant} canManage={!readOnly} onOpenTicket={(id) => { useStore.getState().select(id); setView('tickets'); }} />}
+            {activeView === 'archivo' && <Archive tenant={tenant} role={role} user={user} caps={caps} meName={tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo'} meUid={user.uid} cloud={firebaseEnabled} />}
+            {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
+          </ErrorBoundary>
         </main>
       </div>
 
@@ -1986,7 +2210,7 @@ function NotifAdmin({ tenant }: { tenant: TenantData }) {
 
 // Administración = landing de configuración por áreas (como SDP), no pestañas.
 const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
-  ['Configuraciones de instancia', 'server', [['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
+  ['Configuraciones de instancia', 'server', [['Marca (logo y color)', 'marca'], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', 'users', [['Usuarios', 'miembros'], ['Solicitudes de acceso', 'accesos'], ['Roles', 'roles'], ['Grupos de usuarios', 'gruposusuarios'], ['Grupos de soporte', 'gruposoporte'], ['Acceso específico', null]]],
   ['Personalización', 'sliders', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
   ['Plantillas y formularios', 'file-text', [['Categorías de servicio', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
@@ -1995,7 +2219,7 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuración del correo', 'mail', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', 'shield', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
+const ADMIN_TITLE: Record<string, string> = { marca: 'Marca de la instancia', plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -2353,6 +2577,96 @@ function KbModule({ tenant, canManage, meName }: { tenant: TenantData; canManage
   </div>;
 }
 
+// ---- Marca por instancia: logo (incrustado y reescalado) + color + tagline ----
+function readAsDataURL(f: File): Promise<string> {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result as string); r.onerror = () => rej(new Error('read')); r.readAsDataURL(f); });
+}
+// Reescala una imagen de mapa de bits a `maxPx` (lado mayor) y la exporta como
+// PNG data URI, para no incrustar un logo pesado en el documento del tenant.
+async function downscaleImage(f: File, maxPx: number): Promise<string> {
+  const src = await readAsDataURL(f);
+  const img = new Image(); await new Promise((res, rej) => { img.onload = () => res(null); img.onerror = () => rej(new Error('img')); img.src = src; });
+  const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+  const w = Math.max(1, Math.round(img.width * scale)), h = Math.max(1, Math.round(img.height * scale));
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  c.getContext('2d')!.drawImage(img, 0, 0, w, h);
+  return c.toDataURL('image/png');
+}
+// Quita claves vacías (Firestore no admite `undefined`).
+function cleanBranding(b: Branding): Branding {
+  const o: Branding = {};
+  if (b.logoUrl) o.logoUrl = b.logoUrl;
+  if (b.logoMarkUrl) o.logoMarkUrl = b.logoMarkUrl;
+  if (b.primaryColor) o.primaryColor = b.primaryColor;
+  if (b.loginTagline) o.loginTagline = b.loginTagline;
+  return o;
+}
+function BrandingAdmin({ tenant }: { tenant: TenantData }) {
+  const setBranding = useStore((s) => s.setBranding);
+  const cur = useMemo(() => cleanBranding(tenant.branding ?? {}), [tenant.branding]);
+  const [draft, setDraft] = useState<Branding>(cur);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  useEffect(() => { setDraft(cleanBranding(tenant.branding ?? {})); }, [tenant.id]); // reset al cambiar de instancia
+  const dirty = JSON.stringify(cleanBranding(draft)) !== JSON.stringify(cur);
+  const accent = draft.primaryColor || '#2f6bff';
+  const initial = (tenant.name || 'A').slice(0, 1);
+
+  const onFile = async (f: File | undefined) => {
+    setErr(''); if (!f) return;
+    if (!f.type.startsWith('image/')) { setErr('El archivo debe ser una imagen.'); return; }
+    if (f.size > 1_000_000) { setErr('Imagen demasiado grande (máx. 1 MB).'); return; }
+    setBusy(true);
+    try {
+      if (f.type === 'image/svg+xml' && f.size >= 100_000) throw new Error('svg');
+      const url = f.type === 'image/svg+xml' ? await readAsDataURL(f) : await downscaleImage(f, 160);
+      setDraft((d) => ({ ...d, logoUrl: url }));
+    } catch { setErr('No se pudo procesar la imagen (¿SVG > 100 KB?).'); }
+    setBusy(false);
+  };
+
+  return <>
+    <div className="banner" style={{ marginBottom: 14 }}>La <b>marca</b> de esta instancia (logo y color) se muestra en la barra superior, en la pantalla de selección de instancia y en el acceso. El logo se <b>incrusta reescalado</b> para que sea ligero.</div>
+    <div className="work" style={{ gridTemplateColumns: '1fr 300px', gap: 18 }}>
+      <div className="card" style={{ display: 'grid', gap: 18, alignContent: 'start' }}>
+        <label>Logo
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginTop: 8 }}>
+            <div className="brand-logo-slot">{draft.logoUrl ? <img src={draft.logoUrl} alt="" /> : <span className="pick-glyph" style={{ background: accent, width: 46, height: 46, fontSize: 22 }}>{initial}</span>}</div>
+            <label className="btn-file">{busy ? 'Procesando…' : 'Subir imagen'}<input type="file" accept="image/*" hidden disabled={busy} onChange={(e) => onFile(e.target.files?.[0])} /></label>
+            {draft.logoUrl && <button className="ghost" onClick={() => setDraft((d) => ({ ...d, logoUrl: undefined }))}>Quitar</button>}
+          </div>
+        </label>
+        <label>Color de marca
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+            <input type="color" value={accent} onChange={(e) => setDraft((d) => ({ ...d, primaryColor: e.target.value }))} style={{ width: 46, height: 32, padding: 2 }} />
+            <input value={draft.primaryColor ?? ''} placeholder="#2f6bff" onChange={(e) => setDraft((d) => ({ ...d, primaryColor: e.target.value || undefined }))} style={{ width: 130 }} />
+          </div>
+        </label>
+        <label>Frase de acceso (opcional)
+          <input value={draft.loginTagline ?? ''} placeholder="p. ej. Portal de servicios" onChange={(e) => setDraft((d) => ({ ...d, loginTagline: e.target.value || undefined }))} style={{ marginTop: 8, width: '100%', boxSizing: 'border-box' }} />
+        </label>
+        {err && <div style={{ color: 'var(--crit)', fontSize: 12 }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="primary" disabled={!dirty || busy} onClick={() => setBranding(cleanBranding(draft))}>Guardar cambios</button>
+          <button className="ghost" disabled={!dirty} onClick={() => setDraft(cur)}>Descartar</button>
+        </div>
+      </div>
+      <div className="card" style={{ alignSelf: 'start' }}>
+        <div className="lbl" style={{ marginBottom: 12 }}>Vista previa</div>
+        <div className="brand-prev-top">
+          {draft.logoUrl ? <img className="brand-logo" src={draft.logoUrl} alt="" /> : <span className="glyph" style={{ background: accent }}>{initial}</span>}
+          <span className="brand-name">{tenant.name}</span><small>Atenza</small>
+        </div>
+        <div className="pick-inst brand-prev-card" style={{ ['--accent']: accent } as CSS}>
+          <div className="pick-logo">{draft.logoUrl ? <img src={draft.logoUrl} alt="" /> : <span className="pick-glyph" style={{ background: accent }}>{initial}</span>}</div>
+          <div className="pick-inst-name">{tenant.name}</div>
+          {draft.loginTagline && <div className="pick-inst-meta">{draft.loginTagline}</div>}
+        </div>
+      </div>
+    </div>
+  </>;
+}
+
 const ADMIN_FIRST = ADMIN_AREAS.flatMap((a) => a[2]).find(([, k]) => k)?.[1] ?? 'catservicio';
 function AdminConfig({ tenant }: { tenant: TenantData }) {
   // Sección activa en el store (adminSec) para poder navegar desde fuera (p. ej. la
@@ -2369,6 +2683,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     </nav>
     <div className="adm-pane">
       <div className="adm-crumb">{ADMIN_TITLE[sec] ?? sec}</div>
+    {sec === 'marca' && <BrandingAdmin tenant={tenant} />}
     {sec === 'categoria' && <CategoryAdmin tenant={tenant} />}
     {sec === 'estado' && <StatusAdmin tenant={tenant} />}
     {sec === 'valores' && <ValuesAdmin tenant={tenant} />}
@@ -2789,6 +3104,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
   const addMember = useStore((s) => s.addMember);
   const updateMember = useStore((s) => s.updateMember);
   const removeMember = useStore((s) => s.removeMember);
+  const revokeAccess = useStore((s) => s.revokeAccess);
   const setMembersEnabled = useStore((s) => s.setMembersEnabled);
   const setImpersonate = useStore((s) => s.setImpersonate);
   const [q, setQ] = useState(''); const [fGroup, setFGroup] = useState(''); const [fRole, setFRole] = useState(''); const [fStatus, setFStatus] = useState('');
@@ -2866,6 +3182,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
           </div>
           <label className="te-vis"><span>Traspasado a Atenza (trabaja aquí, no en SDP)</span><button className={'toggle' + (sel.enabled ? ' on' : '')} onClick={() => updateMember(sel.uid, { enabled: !sel.enabled })} aria-label="En Atenza" /></label>
           <label className="te-vis"><span>Usuario externo (fuera del dominio {corp})</span><button className={'toggle' + (sel.external ? ' on' : '')} onClick={() => updateMember(sel.uid, { external: !sel.external })} aria-label="Externo" /></label>
+          {sel.status !== 'disabled' && <button className="ghost" style={{ color: 'var(--crit)', alignSelf: 'flex-start' }} onClick={() => { if (confirm(`¿Revocar el acceso de ${sel.name} a ${tenant.name}? Se deshabilita su ficha y deja de poder entrar a esta instancia.`)) revokeAccess(sel.uid); }}>Revocar acceso a la instancia</button>}
           <div><div className="k" style={{ marginBottom: 4 }}>Grupos de soporte</div>
             {(() => { const assigned = groups.filter((g) => (sel.groupIds ?? []).includes(g.id)); const avail = groups.filter((g) => !(sel.groupIds ?? []).includes(g.id)).slice().sort((a, b) => a.name.localeCompare(b.name, 'es')); return <>
               {assigned.length === 0 ? <span className="soft" style={{ fontSize: 12 }}>Sin asignar grupos de soporte.</span>

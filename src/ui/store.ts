@@ -13,7 +13,7 @@ import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
 import { webhooksFor } from '../webhooks.js';
 import { canTransition, initialState } from '../lifecycle.js';
-import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours } from '../data/seed.js';
+import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type StoredTicket, type UiMember, type Group, type CatNode, type Picklists, type PickVal, type PriorityMatrix, type BusinessHours, type Branding, type TenantHeader, type PlatformAuditEntry } from '../data/seed.js';
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
 
@@ -44,14 +44,20 @@ interface State {
   cloudReady: boolean;
   hasAccess: boolean;
   accessRequests: AccessRequest[];
+  /** cabeceras de TODAS las instancias (solo se llena para admins de plataforma). */
+  platformTenants: TenantHeader[];
   layouts: Record<string, Record<string, { x: number; y: number }>>;
   startCloud: (uid: string) => Promise<void>;
   requestAccess: (email: string, name?: string, note?: string) => Promise<void>;
   approveAccess: (uid: string, tenantId: string, role: Role) => Promise<void>;
   rejectAccess: (uid: string) => Promise<void>;
+  provisionAccess: (email: string, tenantId: string, role: Role) => Promise<{ ok: boolean; uid: string; name: string }>;
+  revokeAccess: (uid: string) => Promise<void>;
+  fetchPlatformAudit: () => Promise<PlatformAuditEntry[]>;
   setUser: (uid: string) => void;
   setImpersonate: (uid: string | null) => void;
   setTenant: (id: string) => void;
+  enterTenant: (id: string) => Promise<void>;
   setAdminSec: (s: string) => void;
   setAdminLc: (i: number) => void;
   select: (id: string | null) => void;
@@ -60,6 +66,7 @@ interface State {
   transition: (ticketId: string, to: string) => void;
   setStatus: (ticketId: string, statusName: string) => void;
   setStatuses: (list: StatusDef[]) => void;
+  setBranding: (b: Branding) => void;
   setPicklist: (key: keyof Picklists, list: PickVal[]) => void;
   setPriorityMatrix: (matrix: PriorityMatrix) => void;
   setBusinessHours: (bh: BusinessHours) => void;
@@ -195,6 +202,19 @@ export const useStore = create<State>()(
       const activeT = (s: State) => s.db.tenants.find((t) => t.id === s.activeTenantId);
       const curLc = (s: State): Lifecycle | undefined => { const t = activeT(s); return t?.lifecycles[Math.min(s.adminLcIndex, (t?.lifecycles.length ?? 1) - 1)]; };
       const syncCurLc = () => { if (!CLOUD) return; const s = get(); const t = activeT(s); const lc = curLc(s); if (t && lc?.id) void cloud.writeLifecycle(t.id, lc).catch(errlog); };
+      // Auditoría de plataforma (mejor esfuerzo; solo escribe si el llamante es
+      // admin de plataforma — lo imponen las reglas). Sin claves undefined.
+      const auditPlatform = (action: 'provision' | 'approve' | 'reject' | 'revoke', extra: { tenantId?: string; targetEmail?: string; detail?: string }) => {
+        if (!CLOUD) return;
+        const s = get();
+        const actorName = s.db.tenants.flatMap((t) => t.members).find((m) => m.uid === s.currentUserId)?.name;
+        const entry: Record<string, unknown> = { at: Date.now(), actorUid: s.currentUserId, action };
+        if (actorName) entry.actorName = actorName;
+        if (extra.tenantId) entry.tenantId = extra.tenantId;
+        if (extra.targetEmail) entry.targetEmail = extra.targetEmail;
+        if (extra.detail) entry.detail = extra.detail;
+        void cloud.writePlatformAudit(entry as Omit<PlatformAuditEntry, 'id'>).catch(() => undefined);
+      };
 
       // Motor de notificaciones: en cada evento evalúa las reglas del tenant,
       // resuelve destinatarios (solicitante / técnico / grupo) y crea un aviso en
@@ -267,6 +287,7 @@ export const useStore = create<State>()(
         db: seed,
         currentUserId: 'u-admin',
         impersonateUid: null,
+        platformTenants: [],
         activeTenantId: 'diglo-it',
         adminSec: 'lifecycle',
         adminLcIndex: 0,
@@ -282,7 +303,7 @@ export const useStore = create<State>()(
             cloud.isPlatformAdmin(uid).catch(() => false),
             cloud.getUserTenantIds(uid).catch(() => [] as string[]),
           ]);
-          set({ db: { tenants: [], platformAdmins: pa ? [uid] : [] }, currentUserId: uid, cloudReady: true, hasAccess: pa || tids.length > 0, activeTenantId: tids[0] ?? '', accessRequests: [] });
+          set({ db: { tenants: [], platformAdmins: pa ? [uid] : [] }, currentUserId: uid, cloudReady: true, hasAccess: pa || tids.length > 0, activeTenantId: tids[0] ?? '', accessRequests: [], platformTenants: [] });
           for (const tid of tids) {
             const role = await cloud.getMemberRole(tid, uid).catch(() => null);
             const filter = role === 'requester' ? uid : null;
@@ -291,14 +312,18 @@ export const useStore = create<State>()(
             }, uid);
             unsubs.push(un);
           }
-          // Superadmin: cola de solicitudes de acceso (para la bandeja de aprobaciones + campana).
-          if (pa) { const un = await cloud.subscribeAccessRequests((rs) => set({ accessRequests: rs })).catch(() => (() => {})); unsubs.push(un); }
+          // Superadmin: cola de solicitudes de acceso (para la bandeja de aprobaciones + campana)
+          // + registro de TODAS las instancias para el panel de plataforma (no depende de userTenants).
+          if (pa) {
+            const un = await cloud.subscribeAccessRequests((rs) => set({ accessRequests: rs })).catch(() => (() => {})); unsubs.push(un);
+            void cloud.listTenantHeaders().then((hs) => set({ platformTenants: hs })).catch(errlog);
+          }
         },
 
         // Solicitar acceso (usuario sin ficha, en la pantalla «Sin acceso»).
         requestAccess: async (email, name, note) => {
-          const uid = get().currentUserId; if (!uid) return;
-          if (CLOUD) await cloud.requestAccess(uid, email, name, note).catch(errlog);
+          const uid = get().currentUserId; if (!uid) throw new Error('Sesión no disponible.');
+          if (CLOUD) await cloud.requestAccess(uid, email, name, note); // propaga el error para que la UI lo muestre (no silenciar como antes)
         },
         // Aprobar: crea el miembro en el tenant + userTenants + borra la solicitud.
         approveAccess: async (uid, tenantId, role) => {
@@ -311,9 +336,31 @@ export const useStore = create<State>()(
             external: !req.email.toLowerCase().endsWith('@' + corp.toLowerCase()),
             color: palette[(t?.members.length ?? 0) % palette.length]!, caps: memberCaps({ role }, t?.roles), enabled: true,
           };
-          if (CLOUD) { await cloud.writeMember(tenantId, member).catch(errlog); await cloud.addUserTenant(uid, tenantId).catch(errlog); await cloud.deleteAccessRequest(uid).catch(errlog); }
+          if (CLOUD) { await cloud.writeMember(tenantId, member).catch(errlog); await cloud.addUserTenant(uid, tenantId).catch(errlog); await cloud.deleteAccessRequest(uid).catch(errlog); void auditPlatform('approve', { tenantId, targetEmail: req.email, detail: role }); }
         },
-        rejectAccess: async (uid) => { if (CLOUD) await cloud.deleteAccessRequest(uid).catch(errlog); },
+        rejectAccess: async (uid) => {
+          const req = get().accessRequests.find((r) => r.uid === uid);
+          if (CLOUD) { await cloud.deleteAccessRequest(uid).catch(errlog); void auditPlatform('reject', { targetEmail: req?.email }); }
+        },
+        // Provisión directa por email (admin de plataforma) vía Cloud Function.
+        provisionAccess: async (email, tenantId, role) => {
+          if (!CLOUD) throw new Error('Disponible solo en la nube.');
+          return cloud.adminProvisionAccess(email, tenantId, role);
+        },
+        // Revoca el acceso de un miembro a la instancia activa: deshabilita su ficha
+        // y lo quita de userTenants (no volverá a cargar la instancia).
+        revokeAccess: async (uid) => {
+          const tid = get().activeTenantId;
+          const targetEmail = get().db.tenants.find((x) => x.id === tid)?.members.find((x) => x.uid === uid)?.email;
+          set((s) => ({ db: mapTenant(s.db, tid, (t) => ({ ...t, members: t.members.map((m) => m.uid === uid ? { ...m, status: 'disabled', enabled: false } : m) })) }));
+          if (CLOUD) {
+            const m = get().db.tenants.find((x) => x.id === tid)?.members.find((x) => x.uid === uid);
+            if (m) await cloud.writeMember(tid, m).catch(errlog);
+            await cloud.removeUserTenant(uid, tid).catch(errlog);
+            void auditPlatform('revoke', { tenantId: tid, targetEmail });
+          }
+        },
+        fetchPlatformAudit: async () => (CLOUD ? cloud.listPlatformAudit(100) : []),
 
         setUser: (uid) => {
           const db = get().db; const u = buildUser(db, uid); const ts = tenantsForUser(db, u);
@@ -321,6 +368,21 @@ export const useStore = create<State>()(
         },
         setImpersonate: (uid) => set({ impersonateUid: uid, selectedTicketId: null }),
         setTenant: (id) => set({ activeTenantId: id, selectedTicketId: null }),
+        // «Entrar como» (admin de plataforma): abre una instancia aunque NO esté en
+        // userTenants. Si aún no está cargada, se suscribe on-demand (misma vía que
+        // startCloud) y se añade a db.tenants; la suscripción se limpia con el resto.
+        enterTenant: async (id) => {
+          set({ selectedTicketId: null, activeTenantId: id });
+          if (!CLOUD) return;
+          if (get().db.tenants.some((t) => t.id === id)) return; // ya cargada
+          const uid = get().currentUserId;
+          const role = await cloud.getMemberRole(id, uid).catch(() => null);
+          const filter = role === 'requester' ? uid : null;
+          const un = await cloud.subscribeTenant(id, filter, (tdata) => {
+            set((s) => ({ db: { ...s.db, tenants: [...s.db.tenants.filter((t) => t.id !== id), tdata] } }));
+          }, uid).catch((e) => { errlog(e); return (() => {}); });
+          unsubs.push(un);
+        },
         setAdminSec: (s) => set({ adminSec: s }),
         setAdminLc: (i) => set({ adminLcIndex: i }),
         select: (id) => set({ selectedTicketId: id }),
@@ -441,6 +503,10 @@ export const useStore = create<State>()(
         setStatuses: (list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, statuses: list })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { statuses: list }).catch(errlog); }
+        },
+        setBranding: (b) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, branding: b })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.writeBranding(t.id, b).catch(errlog); }
         },
         setPicklist: (key, list) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, picklists: { ...(t.picklists as Picklists), [key]: list } })) }));

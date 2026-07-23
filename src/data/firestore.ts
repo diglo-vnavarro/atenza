@@ -23,7 +23,7 @@ import type { Webhook } from '../webhooks.js';
 import type { KbArticle } from '../kb.js';
 import type { Announcement } from '../announce.js';
 import type { AuditEntry } from '../audit.js';
-import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode, Picklists, PriorityMatrix, BusinessHours, RoleDef, ServiceCategoryDef } from './seed.js';
+import type { TenantData, UiMember, Group, StoredTicket, Capacity, CatNode, Picklists, PriorityMatrix, BusinessHours, RoleDef, ServiceCategoryDef, Branding, TenantHeader, TenantSummary, PlatformAuditEntry } from './seed.js';
 import type { QueryConstraint } from 'firebase/firestore';
 
 let _fs: Awaited<ReturnType<typeof loadFs>> | null = null;
@@ -35,7 +35,7 @@ async function loadFs() {
 async function fs() { return (_fs ??= await loadFs()); }
 
 // ---- config del tenant que vive en el doc raíz ----
-interface TenantDoc { name: string; key: string; active: boolean; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; picklists?: Picklists; priorityMatrix?: PriorityMatrix; businessHours?: BusinessHours; holidays?: string[]; sites?: string[]; departments?: string[]; userGroups?: string[]; roles?: RoleDef[]; notifRules?: NotifRule[]; closureRules?: ClosureRules; replyTemplates?: ReplyTemplate[]; businessRules?: BusinessRule[]; formRules?: FormRule[]; webhooks?: Webhook[]; kbArticles?: KbArticle[]; announcements?: Announcement[]; customFields?: FieldDef[]; serviceCategoryIcons?: Record<string, string>; organizateGroupIds?: string[]; serviceCategories?: ServiceCategoryDef[]; operationMode?: 'classic' | 'simplified'; inboundEnabled?: boolean; capacity: Record<string, Capacity>; counter: number }
+interface TenantDoc { name: string; key: string; active: boolean; branding?: Branding; summary?: TenantSummary; categories: string[]; categoryTree?: CatNode[]; statuses?: StatusDef[]; picklists?: Picklists; priorityMatrix?: PriorityMatrix; businessHours?: BusinessHours; holidays?: string[]; sites?: string[]; departments?: string[]; userGroups?: string[]; roles?: RoleDef[]; notifRules?: NotifRule[]; closureRules?: ClosureRules; replyTemplates?: ReplyTemplate[]; businessRules?: BusinessRule[]; formRules?: FormRule[]; webhooks?: Webhook[]; kbArticles?: KbArticle[]; announcements?: Announcement[]; customFields?: FieldDef[]; serviceCategoryIcons?: Record<string, string>; organizateGroupIds?: string[]; serviceCategories?: ServiceCategoryDef[]; operationMode?: 'classic' | 'simplified'; inboundEnabled?: boolean; capacity: Record<string, Capacity>; counter: number }
 
 /** Rol del usuario en un tenant (para decidir el filtro de tickets al suscribir). */
 export async function getMemberRole(tid: string, uid: string): Promise<string | null> {
@@ -50,7 +50,7 @@ export async function seedTenantToFirestore(t: TenantData): Promise<void> {
   const { m, db } = await fs();
   const batch = m.writeBatch(db);
   const tRef = m.doc(db, 'tenants', t.id);
-  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, categories: t.categories, categoryTree: t.categoryTree ?? [], statuses: t.statuses ?? [], picklists: t.picklists, priorityMatrix: t.priorityMatrix, businessHours: t.businessHours, holidays: t.holidays ?? [], sites: t.sites ?? [], departments: t.departments ?? [], userGroups: t.userGroups ?? [], roles: t.roles ?? [], notifRules: t.notifRules ?? [], closureRules: t.closureRules, replyTemplates: t.replyTemplates ?? [], businessRules: t.businessRules ?? [], formRules: t.formRules ?? [], webhooks: t.webhooks ?? [], kbArticles: t.kbArticles ?? [], announcements: t.announcements ?? [], customFields: t.customFields ?? [], serviceCategoryIcons: t.serviceCategoryIcons ?? {}, organizateGroupIds: t.organizateGroupIds ?? [], serviceCategories: t.serviceCategories ?? [], operationMode: t.operationMode ?? 'simplified', inboundEnabled: t.inboundEnabled ?? false, capacity: t.capacity, counter: t.counter };
+  const tdoc: TenantDoc = { name: t.name, key: t.key, active: t.active, ...(t.branding ? { branding: t.branding } : {}), categories: t.categories, categoryTree: t.categoryTree ?? [], statuses: t.statuses ?? [], picklists: t.picklists, priorityMatrix: t.priorityMatrix, businessHours: t.businessHours, holidays: t.holidays ?? [], sites: t.sites ?? [], departments: t.departments ?? [], userGroups: t.userGroups ?? [], roles: t.roles ?? [], notifRules: t.notifRules ?? [], closureRules: t.closureRules, replyTemplates: t.replyTemplates ?? [], businessRules: t.businessRules ?? [], formRules: t.formRules ?? [], webhooks: t.webhooks ?? [], kbArticles: t.kbArticles ?? [], announcements: t.announcements ?? [], customFields: t.customFields ?? [], serviceCategoryIcons: t.serviceCategoryIcons ?? {}, organizateGroupIds: t.organizateGroupIds ?? [], serviceCategories: t.serviceCategories ?? [], operationMode: t.operationMode ?? 'simplified', inboundEnabled: t.inboundEnabled ?? false, capacity: t.capacity, counter: t.counter };
   batch.set(tRef, tdoc);
   for (const mem of t.members) batch.set(m.doc(db, `tenants/${t.id}/members`, mem.uid), mem);
   for (const tk of t.tickets) batch.set(m.doc(db, `tenants/${t.id}/tickets`, tk.id), tk);
@@ -67,6 +67,11 @@ export async function addUserTenant(uid: string, tenantId: string): Promise<void
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, 'userTenants', uid), { tenantIds: m.arrayUnion(tenantId) }, { merge: true });
 }
+/** Revoca el acceso de un usuario a una instancia (lo quita de su índice). */
+export async function removeUserTenant(uid: string, tenantId: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, 'userTenants', uid), { tenantIds: m.arrayRemove(tenantId) }, { merge: true });
+}
 
 /** Lee los tenants a los que pertenece el usuario (índice userTenants). */
 export async function getUserTenantIds(uid: string): Promise<string[]> {
@@ -79,6 +84,42 @@ export async function getUserTenantIds(uid: string): Promise<string[]> {
 export async function isPlatformAdmin(uid: string): Promise<boolean> {
   const { m, db } = await fs();
   return (await m.getDoc(m.doc(db, 'platformAdmins', uid))).exists();
+}
+
+/** Provisión directa de acceso por email (llama a la Cloud Function callable;
+ *  el cliente no puede resolver email→uid). Solo funciona si el llamante es
+ *  admin de plataforma (lo valida la función). */
+export async function adminProvisionAccess(email: string, tenantId: string, role: string): Promise<{ ok: boolean; uid: string; name: string }> {
+  const app = getFirebaseApp()!;
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const fns = getFunctions(app, 'europe-west1');
+  const res = await httpsCallable(fns, 'adminProvisionAccess')({ email, tenantId, role });
+  return res.data as { ok: boolean; uid: string; name: string };
+}
+
+/** Auditoría de plataforma (append-only). La escritura solo la permite el
+ *  isPlatformAdmin (reglas); si el llamante no lo es, se ignora el fallo. */
+export async function writePlatformAudit(entry: Omit<PlatformAuditEntry, 'id'>): Promise<void> {
+  const { m, db } = await fs();
+  const ref = m.doc(m.collection(db, 'platformAudit'));
+  await m.setDoc(ref, { ...entry, id: ref.id });
+}
+export async function listPlatformAudit(max = 100): Promise<PlatformAuditEntry[]> {
+  const { m, db } = await fs();
+  const snap = await m.getDocs(m.query(m.collection(db, 'platformAudit'), m.orderBy('at', 'desc'), m.limit(max)));
+  return snap.docs.map((d) => d.data() as PlatformAuditEntry);
+}
+
+/** Registro de instancias para el PANEL DE PLATAFORMA: cabeceras ligeras de TODAS
+ *  las instancias (sin cargar tickets/config). El `list` de /tenants solo lo
+ *  permiten las reglas a isPlatformAdmin. No depende de userTenants. */
+export async function listTenantHeaders(): Promise<TenantHeader[]> {
+  const { m, db } = await fs();
+  const snap = await m.getDocs(m.collection(db, 'tenants'));
+  return snap.docs.map((d) => {
+    const t = d.data() as TenantDoc;
+    return { id: d.id, name: t.name ?? d.id, key: t.key ?? d.id, active: t.active ?? true, branding: t.branding, summary: t.summary };
+  });
 }
 
 /** Crea/actualiza la solicitud de acceso del usuario actual (sin ficha aún). */
@@ -115,7 +156,7 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
 
   subs.push(m.onSnapshot(m.doc(db, 'tenants', tid), (d) => {
     const t = d.data() as TenantDoc | undefined;
-    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.categories = t.categories ?? []; acc.categoryTree = t.categoryTree ?? []; acc.statuses = t.statuses ?? []; acc.picklists = t.picklists; acc.priorityMatrix = t.priorityMatrix; acc.businessHours = t.businessHours; acc.holidays = t.holidays ?? []; acc.sites = t.sites ?? []; acc.departments = t.departments ?? []; acc.userGroups = t.userGroups ?? []; acc.roles = t.roles ?? []; acc.notifRules = t.notifRules ?? []; acc.closureRules = t.closureRules; acc.replyTemplates = t.replyTemplates ?? []; acc.businessRules = t.businessRules ?? []; acc.formRules = t.formRules ?? []; acc.webhooks = t.webhooks ?? []; acc.kbArticles = t.kbArticles ?? []; acc.announcements = t.announcements ?? []; acc.customFields = t.customFields ?? []; acc.serviceCategoryIcons = t.serviceCategoryIcons ?? {}; acc.organizateGroupIds = t.organizateGroupIds ?? []; acc.serviceCategories = t.serviceCategories ?? []; acc.operationMode = t.operationMode ?? 'simplified'; acc.inboundEnabled = t.inboundEnabled ?? false; acc.capacity = t.capacity ?? {}; acc.counter = t.counter ?? 1000; }
+    if (t) { acc.name = t.name; acc.key = t.key; acc.active = t.active; acc.branding = t.branding; acc.categories = t.categories ?? []; acc.categoryTree = t.categoryTree ?? []; acc.statuses = t.statuses ?? []; acc.picklists = t.picklists; acc.priorityMatrix = t.priorityMatrix; acc.businessHours = t.businessHours; acc.holidays = t.holidays ?? []; acc.sites = t.sites ?? []; acc.departments = t.departments ?? []; acc.userGroups = t.userGroups ?? []; acc.roles = t.roles ?? []; acc.notifRules = t.notifRules ?? []; acc.closureRules = t.closureRules; acc.replyTemplates = t.replyTemplates ?? []; acc.businessRules = t.businessRules ?? []; acc.formRules = t.formRules ?? []; acc.webhooks = t.webhooks ?? []; acc.kbArticles = t.kbArticles ?? []; acc.announcements = t.announcements ?? []; acc.customFields = t.customFields ?? []; acc.serviceCategoryIcons = t.serviceCategoryIcons ?? {}; acc.organizateGroupIds = t.organizateGroupIds ?? []; acc.serviceCategories = t.serviceCategories ?? []; acc.operationMode = t.operationMode ?? 'simplified'; acc.inboundEnabled = t.inboundEnabled ?? false; acc.capacity = t.capacity ?? {}; acc.counter = t.counter ?? 1000; }
     emit();
   }));
   subs.push(m.onSnapshot(col('members'), (s) => { acc.members = s.docs.map((d) => d.data() as UiMember); emit(); }));
@@ -231,6 +272,12 @@ export async function removeTemplateDoc(tid: string, id: string): Promise<void> 
 export async function patchTenantDoc(tid: string, patch: Partial<TenantDoc>): Promise<void> {
   const { m, db } = await fs();
   await m.setDoc(m.doc(db, 'tenants', tid), patch, { merge: true });
+}
+/** Marca de instancia: updateDoc REEMPLAZA el mapa completo (a diferencia de
+ *  setDoc+merge, que fusiona mapas y no permitiría borrar el logo). */
+export async function writeBranding(tid: string, branding: Branding): Promise<void> {
+  const { m, db } = await fs();
+  await m.updateDoc(m.doc(db, 'tenants', tid), { branding });
 }
 export async function writeSla(tid: string, s: Sla): Promise<void> {
   const { m, db } = await fs();
