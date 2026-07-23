@@ -81,6 +81,17 @@ export async function isPlatformAdmin(uid: string): Promise<boolean> {
   return (await m.getDoc(m.doc(db, 'platformAdmins', uid))).exists();
 }
 
+/** Provisión directa de acceso por email (llama a la Cloud Function callable;
+ *  el cliente no puede resolver email→uid). Solo funciona si el llamante es
+ *  admin de plataforma (lo valida la función). */
+export async function adminProvisionAccess(email: string, tenantId: string, role: string): Promise<{ ok: boolean; uid: string; name: string }> {
+  const app = getFirebaseApp()!;
+  const { getFunctions, httpsCallable } = await import('firebase/functions');
+  const fns = getFunctions(app, 'europe-west1');
+  const res = await httpsCallable(fns, 'adminProvisionAccess')({ email, tenantId, role });
+  return res.data as { ok: boolean; uid: string; name: string };
+}
+
 /** Registro de instancias para el PANEL DE PLATAFORMA: cabeceras ligeras de TODAS
  *  las instancias (sin cargar tickets/config). El `list` de /tenants solo lo
  *  permiten las reglas a isPlatformAdmin. No depende de userTenants. */

@@ -51,6 +51,7 @@ interface State {
   requestAccess: (email: string, name?: string, note?: string) => Promise<void>;
   approveAccess: (uid: string, tenantId: string, role: Role) => Promise<void>;
   rejectAccess: (uid: string) => Promise<void>;
+  provisionAccess: (email: string, tenantId: string, role: Role) => Promise<{ ok: boolean; uid: string; name: string }>;
   setUser: (uid: string) => void;
   setImpersonate: (uid: string | null) => void;
   setTenant: (id: string) => void;
@@ -323,6 +324,11 @@ export const useStore = create<State>()(
           if (CLOUD) { await cloud.writeMember(tenantId, member).catch(errlog); await cloud.addUserTenant(uid, tenantId).catch(errlog); await cloud.deleteAccessRequest(uid).catch(errlog); }
         },
         rejectAccess: async (uid) => { if (CLOUD) await cloud.deleteAccessRequest(uid).catch(errlog); },
+        // Provisión directa por email (admin de plataforma) vía Cloud Function.
+        provisionAccess: async (email, tenantId, role) => {
+          if (!CLOUD) throw new Error('Disponible solo en la nube.');
+          return cloud.adminProvisionAccess(email, tenantId, role);
+        },
 
         setUser: (uid) => {
           const db = get().db; const u = buildUser(db, uid); const ts = tenantsForUser(db, u);

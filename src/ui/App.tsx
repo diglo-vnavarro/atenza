@@ -247,6 +247,40 @@ function InstancePicker({ tenants, user, onPick, onPlatform }: { tenants: Tenant
   );
 }
 
+// Provisión directa de acceso por email (portal de plataforma). Cierra el caso
+// de un usuario que ya inició sesión pero no tiene acceso: le concede la ficha
+// en la instancia + rol elegidos vía Cloud Function (resuelve email→uid).
+function DirectProvision({ headers }: { headers: TenantHeader[] }) {
+  const provision = useStore((s) => s.provisionAccess);
+  const [email, setEmail] = useState('');
+  const [tid, setTid] = useState(headers[0]?.id ?? '');
+  const [role, setRole] = useState<Role>('technician');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const submit = async () => {
+    setMsg(null); setBusy(true);
+    try {
+      const r = await provision(email.trim(), tid, role);
+      setMsg({ ok: true, text: `Acceso concedido a ${r.name}. Ya puede entrar (que recargue la página).` });
+      setEmail('');
+    } catch (e) {
+      setMsg({ ok: false, text: (e as { message?: string })?.message || 'No se pudo provisionar el acceso.' });
+    }
+    setBusy(false);
+  };
+  return <div className="card" style={{ padding: 16, marginBottom: 14 }}>
+    <div className="section-t">Provisionar acceso directo</div>
+    <p className="cfg-lead">Concede acceso a alguien por su email sin esperar a que lo solicite. La persona debe haber iniciado sesión en Atenza al menos una vez.</p>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+      <input type="email" placeholder="email@empresa.com" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
+      <select value={tid} onChange={(e) => setTid(e.target.value)} title="Instancia">{headers.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
+      <select value={role} onChange={(e) => setRole(e.target.value as Role)} title="Rol">{(['tenant_admin', 'technician', 'requester'] as Role[]).map((x) => <option key={x} value={x}>{ROLE_LABEL[x]}</option>)}</select>
+      <button className="primary" disabled={busy || !email.trim() || !tid} onClick={submit}>{busy ? 'Provisionando…' : 'Conceder acceso'}</button>
+    </div>
+    {msg && <div style={{ marginTop: 10, fontSize: 12.5, color: msg.ok ? 'var(--ok)' : 'var(--crit)' }}>{msg.text}</div>}
+  </div>;
+}
+
 // Portal de plataforma (solo admin de plataforma): estado de TODAS las instancias.
 // Cabeceras ligeras (registro) + cifras derivadas de la instancia cargada como
 // respaldo mientras el job no estampe `summary`.
@@ -276,8 +310,10 @@ function PlatformPortal({ headers, loaded, onEnter, onClose }: { headers: Tenant
           <button className={tab === 'acc' ? 'on' : ''} onClick={() => setTab('acc')}>Accesos{accessRequests.length ? ` (${accessRequests.length})` : ''}</button>
         </div>
         {tab === 'acc' ? <>
-          <h1 className="pick-title">Solicitudes de acceso</h1>
-          <p className="pick-sub">Personas que han iniciado sesión y pedido acceso. Al <b>aprobar</b> se crea su usuario en la instancia elegida con el rol indicado y obtiene acceso.</p>
+          <h1 className="pick-title">Gestión de acceso</h1>
+          <p className="pick-sub">Concede acceso directo por email, o aprueba/rechaza las solicitudes pendientes.</p>
+          <DirectProvision headers={sorted} />
+          <div className="section-t" style={{ margin: '4px 0 8px' }}>Solicitudes pendientes{accessRequests.length ? ` (${accessRequests.length})` : ''}</div>
           {accessRequests.length === 0 && <div className="card"><div className="empty" style={{ padding: 24 }}>No hay solicitudes de acceso pendientes.</div></div>}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {accessRequests.slice().sort((a, b) => b.at - a.at).map((r) => {
