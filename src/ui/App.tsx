@@ -7,6 +7,7 @@ import { useStore, buildUser, tenantsForUser, lifecycleOfTicket, type Role } fro
 import { firebaseEnabled } from '../firebase.js';
 import { useAuth, doSignOut } from '../auth/auth.js';
 import { Login } from './Login.js';
+import { ErrorBoundary } from './ErrorBoundary.js';
 import { Icon } from './Icon.js';
 import { stateOf } from '../lifecycle.js';
 import { slaStatus } from '../sla.js';
@@ -634,16 +635,21 @@ export function App() {
             <div style={{ flex: 1 }}><b>{a.title}</b><div className="ann-b">{a.body}</div></div>
             <button className="xbtn" onClick={() => setDismissedAnn([...dismissedAnn, a.id])} aria-label="Descartar">✕</button>
           </div>)}
-          {activeView === 'home' && !isReq && (caps.includes('viewReports')
-            ? <Dashboard tenant={tenant} user={user} go={(v, f) => { if (f) setFilter(f); setView(v); }} />
-            : <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />)}
-          {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" caps={caps} readOnly={readOnly} />}
-          {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />}
-          {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" caps={caps} readOnly={readOnly} />}
-          {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester' && !readOnly} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
-          {activeView === 'activos' && !isReq && <AssetsModule tenant={tenant} canManage={!readOnly} onOpenTicket={(id) => { useStore.getState().select(id); setView('tickets'); }} />}
-          {activeView === 'archivo' && <Archive tenant={tenant} role={role} user={user} caps={caps} meName={tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo'} meUid={user.uid} cloud={firebaseEnabled} />}
-          {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
+          {/* Aísla el fallo de una vista: si un visual/módulo revienta al renderizar,
+              muestra un fallback en lugar de tumbar toda la app. La `key` por vista
+              reinicia el boundary al navegar, de modo que cambiar de sección se recupera. */}
+          <ErrorBoundary key={activeView} label={`view:${activeView}`}>
+            {activeView === 'home' && !isReq && (caps.includes('viewReports')
+              ? <Dashboard tenant={tenant} user={user} go={(v, f) => { if (f) setFilter(f); setView(v); }} />
+              : <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />)}
+            {activeView === 'tickets' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="queue" caps={caps} readOnly={readOnly} />}
+            {activeView === 'assigned' && !isReq && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="assigned" caps={caps} readOnly={readOnly} />}
+            {activeView === 'requests' && <Workspace tenant={tenant} role={role} user={user} filter={filter} setFilter={setFilter} scope="requester" caps={caps} readOnly={readOnly} />}
+            {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester' && !readOnly} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
+            {activeView === 'activos' && !isReq && <AssetsModule tenant={tenant} canManage={!readOnly} onOpenTicket={(id) => { useStore.getState().select(id); setView('tickets'); }} />}
+            {activeView === 'archivo' && <Archive tenant={tenant} role={role} user={user} caps={caps} meName={tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo'} meUid={user.uid} cloud={firebaseEnabled} />}
+            {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
+          </ErrorBoundary>
         </main>
       </div>
 
