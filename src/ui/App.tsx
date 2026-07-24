@@ -219,34 +219,42 @@ function GlobalSearch({ tenant, onOpen }: { tenant: TenantData; onOpen: (id: str
 
 // Landing/selector de instancia: tarjetas con la marca (logo/color) de cada
 // instancia a la que el usuario tiene acceso, su rol y unas cifras rápidas.
-function InstancePicker({ tenants, user, onPick, onPlatform }: { tenants: TenantData[]; user: ReturnType<typeof buildUser>; onPick: (id: string) => void; onPlatform?: () => void }) {
+function InstancePicker({ tenants, user, onPick, onPlatform, meLabel }: { tenants: TenantData[]; user: ReturnType<typeof buildUser>; onPick: (id: string) => void; onPlatform?: () => void; meLabel?: string }) {
   const roleLabel = (t: TenantData) => user.platformAdmin
     ? 'Administrador de plataforma'
     : ({ tenant_admin: 'Administrador', technician: 'Técnico', requester: 'Solicitante' }[user.memberships[t.id]?.role ?? 'requester']);
+  const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
   return (
-    <div className="pick-wrap">
-      <div className="pick-inner">
-        <div className="pick-head"><span className="glyph">A</span> <b>Atenza</b>{onPlatform && <button className="pick-platlink" onClick={onPlatform}>▦ Portal de plataforma</button>}</div>
+    <div className="pick-page">
+      <header className="top">
+        <div className="brand"><span className="glyph">A</span> Atenza</div>
+        <div className="spring" />
+        {onPlatform && <button className="ghost" onClick={onPlatform}>▦ Portal de plataforma</button>}
+        {meLabel && <span className="who-mini">{meLabel}</span>}
+        <button className="ghost" onClick={() => doSignOut()}>Salir</button>
+      </header>
+      <main className="pick-body">
         <h1 className="pick-title">Elige una instancia</h1>
-        <p className="pick-sub">Tienes acceso a {tenants.length} instancias.</p>
+        <p className="pick-sub">Tienes acceso a {plural(tenants.length, 'instancia', 'instancias')}. Selecciona en cuál quieres trabajar.</p>
         <div className="pick-grid">
           {tenants.map((t) => {
             const accent = t.branding?.primaryColor ?? '#2f6bff';
             return (
               <button key={t.id} className="pick-inst" style={{ ['--accent']: accent } as CSS} onClick={() => onPick(t.id)}>
-                <div className="pick-logo">
-                  {t.branding?.logoUrl
-                    ? <img src={t.branding.logoUrl} alt="" />
-                    : <span className="pick-glyph" style={{ background: accent }}>{(t.name || 'A').slice(0, 1)}</span>}
-                </div>
-                <div className="pick-inst-name">{t.name}</div>
-                <div className="pick-inst-role">{roleLabel(t)}</div>
-                <div className="pick-inst-meta">{t.tickets.length} activos · {t.members.length} personas</div>
+                {t.branding?.logoUrl
+                  ? <img className="pick-logo" src={t.branding.logoUrl} alt="" />
+                  : <span className="pick-glyph" style={{ background: accent }}>{(t.name || 'A').slice(0, 1)}</span>}
+                <span className="pick-inst-main">
+                  <span className="pick-inst-name">{t.name}</span>
+                  <span className="pick-inst-role">{roleLabel(t)}</span>
+                  <span className="pick-inst-meta">{plural(t.tickets.length, 'activo', 'activos')} · {plural(t.members.length, 'persona', 'personas')}</span>
+                </span>
+                <span className="pick-inst-go" aria-hidden="true">→</span>
               </button>
             );
           })}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
@@ -541,7 +549,8 @@ export function App() {
   // Landing/selector: quien tiene ≥2 instancias elige antes de entrar.
   if (myTenants.length > 1 && !instanceChosen) return (
     <InstancePicker tenants={myTenants} user={user} onPick={(id) => { setTenant(id); setInstanceChosen(true); }}
-      onPlatform={user.platformAdmin ? () => setShowPlatform(true) : undefined} />
+      onPlatform={user.platformAdmin ? () => setShowPlatform(true) : undefined}
+      meLabel={authUser?.email ?? displayMember?.name} />
   );
 
   const isReq = role === 'requester';
