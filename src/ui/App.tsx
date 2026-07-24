@@ -361,12 +361,13 @@ function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail }: { header
   };
   const sorted = [...headers].sort((a, b) => a.name.localeCompare(b.name));
   return (
-    <div className="pick-wrap">
-      <div className="pick-inner" style={{ maxWidth: 940 }}>
-        <div className="plat-top">
-          <div className="pick-head"><span className="glyph">A</span> <b>Atenza</b> · Plataforma</div>
-          <button className="ghost" onClick={onClose}>← Volver</button>
-        </div>
+    <div className="pick-page">
+      <header className="top">
+        <div className="brand"><span className="glyph">A</span> Atenza <small>Plataforma</small></div>
+        <div className="spring" />
+        <button className="ghost" onClick={onClose}>← Volver a mi instancia</button>
+      </header>
+      <main className="pick-body" style={{ maxWidth: 980 }}>
         <div className="plat-tabs">
           <button className={tab === 'inst' ? 'on' : ''} onClick={() => setTab('inst')}>Instancias</button>
           <button className={tab === 'acc' ? 'on' : ''} onClick={() => setTab('acc')}>Accesos{accessRequests.length ? ` (${accessRequests.length})` : ''}</button>
@@ -443,7 +444,42 @@ function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail }: { header
           })}
         </div>
         </>}
-      </div>
+      </main>
+    </div>
+  );
+}
+
+// Menú de usuario: avatar con iniciales (color del miembro) que despliega la
+// identidad, el rol, el cambio de tema y cerrar sesión. Agrupa lo que antes
+// estaba suelto y redundante en la topbar.
+function UserMenu({ name, email, roleLabel, color, onToggleTheme, onSignOut, demo }: {
+  name: string; email?: string; roleLabel: string; color: string;
+  onToggleTheme: () => void; onSignOut?: () => void;
+  demo?: { people: UiMember[]; currentUserId: string; onSwitch: (uid: string) => void };
+}) {
+  const [open, setOpen] = useState(false);
+  const initials = ((name || email || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? '').join('') || '?').toUpperCase();
+  return (
+    <div className="usermenu">
+      <button className="avatar-btn" style={{ background: color }} onClick={() => setOpen((o) => !o)} aria-label="Cuenta" title={name}>{initials}</button>
+      {open && <>
+        <div className="menu-backdrop" onClick={() => setOpen(false)} />
+        <div className="usermenu-dd" role="menu">
+          <div className="um-head">
+            <span className="avatar-lg" style={{ background: color }}>{initials}</span>
+            <span className="um-id"><b>{name}</b>{email && <span>{email}</span>}<span className="um-rolechip">{roleLabel}</span></span>
+          </div>
+          <div className="um-sep" />
+          {demo && <div className="um-demo">
+            <label>Ver como (demo)</label>
+            <select value={demo.currentUserId} onChange={(e) => { demo.onSwitch(e.target.value); setOpen(false); }}>
+              {demo.people.map((p) => <option key={p.uid} value={p.uid}>{p.name} · {p.role === 'tenant_admin' ? 'Admin' : p.role === 'technician' ? 'Técnico' : 'Solic.'}</option>)}
+            </select>
+          </div>}
+          <button className="um-item" role="menuitem" onClick={onToggleTheme}>◐ Cambiar tema</button>
+          {onSignOut && <button className="um-item um-danger" role="menuitem" onClick={onSignOut}>Cerrar sesión</button>}
+        </div>
+      </>}
     </div>
   );
 }
@@ -564,6 +600,7 @@ export function App() {
   return (
     <div>
       <div className="top">
+        {user.platformAdmin && <button className="iconbtn plat-launch" onClick={() => setShowPlatform(true)} title="Portal de plataforma" aria-label="Portal de plataforma">▦</button>}
         <div className={'brand' + (myTenants.length > 1 ? ' brand-clic' : '')}
           onClick={() => { if (myTenants.length > 1) setInstanceChosen(false); }}
           title={myTenants.length > 1 ? 'Cambiar de instancia' : ''}>
@@ -571,28 +608,20 @@ export function App() {
             ? <img className="brand-logo" src={tenant.branding.logoUrl} alt="" />
             : <span className="glyph" style={tenant.branding?.primaryColor ? { background: tenant.branding.primaryColor } : undefined}>{(tenant.name || 'A').slice(0, 1)}</span>}
           <span className="brand-name">{tenant.name}</span>
-          <small>Atenza · {firebaseEnabled ? 'nube' : 'local'}</small>
+          {myTenants.length > 1 && <span className="brand-caret" aria-hidden="true">⌄</span>}
         </div>
-        {myTenants.length > 1 && (
-          <select className="instsel" value={tenant.id} onChange={(e) => setTenant(e.target.value)} title="Instancia">
-            {myTenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
-        )}
         <GlobalSearch tenant={tenant} onOpen={(id) => { select(id); setView(isReq ? 'requests' : 'tickets'); }} />
         <div className="spring" />
         <button className="newtop" onClick={() => setShowNew(true)} title={readOnly ? 'Ver el catálogo que ve este usuario (solo lectura)' : ''}>＋ Nueva solicitud</button>
         <Bell tenant={tenant} meUid={effectiveUserId} accessCount={user.platformAdmin ? accessRequests.length : 0} onReviewAccess={() => { setAdminSec('accesos'); setView('admin'); }} />
-        {user.platformAdmin && <button className="iconbtn" onClick={() => setShowPlatform(true)} title="Portal de plataforma" aria-label="Portal de plataforma">▦</button>}
-        <button className="iconbtn" onClick={toggleTheme} title="Tema" aria-label="Cambiar tema">◐</button>
-        {firebaseEnabled ? <>
-          <span className="who-mini">{displayMember?.name ?? authUser?.email}</span>
-          <button className="ghost" onClick={() => doSignOut()}>Salir</button>
-        </> : (
-          <select value={currentUserId} onChange={(e) => { setUser(e.target.value); setView('home'); }} title="Identidad (demo)">
-            {people.map((p) => <option key={p.uid} value={p.uid}>{p.name}</option>)}
-          </select>
-        )}
-        <span className="rolebadge">{role === 'tenant_admin' ? 'Admin' : role === 'technician' ? 'Técnico' : 'Solicitante'}</span>
+        <UserMenu
+          name={displayMember?.name ?? authUser?.email ?? 'Usuario'}
+          email={firebaseEnabled ? (authUser?.email ?? undefined) : displayMember?.email}
+          roleLabel={role === 'tenant_admin' ? 'Administrador' : role === 'technician' ? 'Técnico' : 'Solicitante'}
+          color={displayMember?.color ?? tenant.branding?.primaryColor ?? '#4f46e5'}
+          onToggleTheme={toggleTheme}
+          onSignOut={firebaseEnabled ? () => doSignOut() : undefined}
+          demo={!firebaseEnabled ? { people, currentUserId, onSwitch: (uid) => { setUser(uid); setView('home'); } } : undefined} />
       </div>
 
       {user.platformAdmin && !user.memberships[tenant.id] && <div className="imp-banner plat-vbanner">
