@@ -449,6 +449,39 @@ function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail, account, s
 // Menú de usuario: avatar con iniciales (color del miembro) que despliega la
 // identidad, el rol, el cambio de tema y cerrar sesión. Agrupa lo que antes
 // estaba suelto y redundante en la topbar.
+// Conmutador de instancia en la topbar: la marca (logo + nombre + ⌄) despliega
+// la lista de instancias del usuario para cambiar en el sitio. Sustituye al viejo
+// «clic en la marca → landing a pantalla completa» (poco descubrible como selector).
+function BrandSwitcher({ tenant, tenants, onSwitch }: { tenant: TenantData; tenants: TenantData[]; onSwitch: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const multi = tenants.length > 1;
+  return (
+    <div className="brandsw">
+      <button className={'brand' + (multi ? ' brand-clic' : '')} onClick={() => multi && setOpen((o) => !o)} title={multi ? 'Cambiar de instancia' : tenant.name} disabled={!multi}>
+        {tenant.branding?.logoUrl
+          ? <img className="brand-logo" src={tenant.branding.logoUrl} alt={tenant.name} />
+          : <><span className="glyph" style={tenant.branding?.primaryColor ? { background: tenant.branding.primaryColor } : undefined}>{(tenant.name || 'A').slice(0, 1)}</span><span className="brand-name">{tenant.name}</span></>}
+        {multi && <span className="brand-caret" aria-hidden="true">⌄</span>}
+      </button>
+      {open && multi && <>
+        <div className="menu-backdrop" onClick={() => setOpen(false)} />
+        <div className="brandsw-dd" role="menu">
+          <div className="bsw-label">Cambiar de instancia</div>
+          {tenants.map((t) => (
+            <button key={t.id} className={'bsw-item' + (t.id === tenant.id ? ' on' : '')} role="menuitem" onClick={() => { onSwitch(t.id); setOpen(false); }}>
+              {t.branding?.logoUrl
+                ? <img className="bsw-logo" src={t.branding.logoUrl} alt="" />
+                : <span className="bsw-glyph" style={{ background: t.branding?.primaryColor ?? 'var(--accent)' }}>{(t.name || 'A').slice(0, 1)}</span>}
+              <span className="bsw-name">{t.name}</span>
+              {t.id === tenant.id && <span className="bsw-check" aria-hidden="true">✓</span>}
+            </button>
+          ))}
+        </div>
+      </>}
+    </div>
+  );
+}
+
 interface Account { name: string; email?: string; roleLabel?: string; color: string; onToggleTheme: () => void; onSignOut?: () => void; demo?: { people: UiMember[]; currentUserId: string; onSwitch: (uid: string) => void } }
 function UserMenu({ name, email, roleLabel, color, onToggleTheme, onSignOut, demo }: Account) {
   const [open, setOpen] = useState(false);
@@ -605,14 +638,7 @@ export function App() {
     <div>
       <div className="top">
         {user.platformAdmin && <button className="iconbtn plat-launch" onClick={() => setShowPlatform(true)} title="Portal de plataforma" aria-label="Portal de plataforma">▦</button>}
-        <div className={'brand' + (myTenants.length > 1 ? ' brand-clic' : '')}
-          onClick={() => { if (myTenants.length > 1) setInstanceChosen(false); }}
-          title={myTenants.length > 1 ? 'Cambiar de instancia' : ''}>
-          {tenant.branding?.logoUrl
-            ? <img className="brand-logo" src={tenant.branding.logoUrl} alt={tenant.name} />
-            : <><span className="glyph" style={tenant.branding?.primaryColor ? { background: tenant.branding.primaryColor } : undefined}>{(tenant.name || 'A').slice(0, 1)}</span><span className="brand-name">{tenant.name}</span></>}
-          {myTenants.length > 1 && <span className="brand-caret" aria-hidden="true">⌄</span>}
-        </div>
+        <BrandSwitcher tenant={tenant} tenants={myTenants} onSwitch={(id) => { setTenant(id); setInstanceChosen(true); }} />
         <GlobalSearch tenant={tenant} onOpen={(id) => { select(id); setView(isReq ? 'requests' : 'tickets'); }} />
         <div className="spring" />
         <button className="newtop" onClick={() => setShowNew(true)} title={readOnly ? 'Ver el catálogo que ve este usuario (solo lectura)' : ''}>＋ Nueva solicitud</button>

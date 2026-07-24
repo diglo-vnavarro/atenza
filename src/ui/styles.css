@@ -948,3 +948,17 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .um-item{display:block; width:100%; text-align:left; background:transparent; border:none; padding:8px; border-radius:7px; font-size:13px; color:var(--ink); cursor:pointer;}
 .um-item:hover{background:var(--sink);}
 .um-danger{color:var(--crit);}
+
+/* --- conmutador de instancia (marca desplegable) --- */
+.brandsw{position:relative; display:flex;}
+.brandsw .brand{background:transparent; border:none; padding:2px 6px; margin:0 -6px;}
+.brandsw .brand:disabled{cursor:default;}
+.brandsw-dd{position:absolute; left:0; top:40px; z-index:41; min-width:234px; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:0 16px 42px -14px rgba(10,12,24,.32); padding:6px;}
+.bsw-label{font-size:10.5px; color:var(--ink-faint); padding:6px 8px 5px; text-transform:uppercase; letter-spacing:.05em;}
+.bsw-item{display:flex; align-items:center; gap:10px; width:100%; text-align:left; background:transparent; border:none; border-radius:8px; padding:8px; cursor:pointer; color:var(--ink);}
+.bsw-item:hover{background:var(--sink);}
+.bsw-item.on{background:var(--accent-soft);}
+.bsw-logo{height:20px; width:auto; max-width:104px; object-fit:contain; background:#fff; border:1px solid var(--line); border-radius:4px; padding:1px 5px; flex:none;}
+.bsw-glyph{width:26px; height:26px; border-radius:7px; display:grid; place-items:center; color:#fff; font-weight:800; font-size:12px; flex:none;}
+.bsw-name{flex:1; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.bsw-check{color:var(--accent-deep); font-weight:700;}
