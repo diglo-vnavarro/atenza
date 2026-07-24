@@ -605,9 +605,8 @@ export function App() {
           onClick={() => { if (myTenants.length > 1) setInstanceChosen(false); }}
           title={myTenants.length > 1 ? 'Cambiar de instancia' : ''}>
           {tenant.branding?.logoUrl
-            ? <img className="brand-logo" src={tenant.branding.logoUrl} alt="" />
-            : <span className="glyph" style={tenant.branding?.primaryColor ? { background: tenant.branding.primaryColor } : undefined}>{(tenant.name || 'A').slice(0, 1)}</span>}
-          <span className="brand-name">{tenant.name}</span>
+            ? <img className="brand-logo" src={tenant.branding.logoUrl} alt={tenant.name} />
+            : <><span className="glyph" style={tenant.branding?.primaryColor ? { background: tenant.branding.primaryColor } : undefined}>{(tenant.name || 'A').slice(0, 1)}</span><span className="brand-name">{tenant.name}</span></>}
           {myTenants.length > 1 && <span className="brand-caret" aria-hidden="true">⌄</span>}
         </div>
         <GlobalSearch tenant={tenant} onOpen={(id) => { select(id); setView(isReq ? 'requests' : 'tickets'); }} />

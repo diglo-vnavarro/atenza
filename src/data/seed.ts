@@ -575,7 +575,7 @@ export function makeSeed(now: number): DB {
 
   const leasys: TenantData = {
     id: 'leasys', name: 'Diglo Leasys', key: 'leasys', active: true,
-    branding: { primaryColor: '#0f766e', loginTagline: 'Portal de servicios Leasys', logoUrl: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='9' fill='%230f766e'/%3E%3Ctext x='20' y='28' font-family='Arial,sans-serif' font-size='22' font-weight='bold' fill='white' text-anchor='middle'%3EL%3C/text%3E%3C/svg%3E" },
+    branding: { primaryColor: '#002c5d', loginTagline: 'Portal de servicios Leasys', logoUrl: '/logos/leasys.svg' },
     members: [
       { uid: 'u-javier', email: 'jquesada@digloservicer.com', name: 'Javier Quesada', color: '#15803d', role: 'tenant_admin', status: 'active', external: false, roleName: 'SDAdmin', groupIds: ['g-lea'], site: 'Sede Leasys', department: 'Portal', userGroups: ['Gestores'], enabled: true },
       { uid: 'u-marta', email: 'marta@leasys.com', name: 'Marta Ruiz', color: '#4338ca', role: 'technician', status: 'active', external: true, roleName: 'SDCo-ordinator', groupIds: ['g-lea'], site: 'Remoto', department: 'Facturación', userGroups: ['Gestores'] },
