@@ -219,19 +219,15 @@ function GlobalSearch({ tenant, onOpen }: { tenant: TenantData; onOpen: (id: str
 
 // Landing/selector de instancia: tarjetas con la marca (logo/color) de cada
 // instancia a la que el usuario tiene acceso, su rol y unas cifras rápidas.
-function InstancePicker({ tenants, user, onPick, onPlatform, meLabel }: { tenants: TenantData[]; user: ReturnType<typeof buildUser>; onPick: (id: string) => void; onPlatform?: () => void; meLabel?: string }) {
-  const roleLabel = (t: TenantData) => user.platformAdmin
-    ? 'Administrador de plataforma'
-    : ({ tenant_admin: 'Administrador', technician: 'Técnico', requester: 'Solicitante' }[user.memberships[t.id]?.role ?? 'requester']);
+function InstancePicker({ tenants, user, onPick, account }: { tenants: TenantData[]; user: ReturnType<typeof buildUser>; onPick: (id: string) => void; account: Account }) {
+  const roleLabel = (t: TenantData) => ({ tenant_admin: 'Administrador', technician: 'Técnico', requester: 'Solicitante' }[user.memberships[t.id]?.role ?? 'requester']);
   const plural = (n: number, s: string, p: string) => `${n} ${n === 1 ? s : p}`;
   return (
     <div className="pick-page">
       <header className="top">
         <div className="brand"><span className="glyph">A</span> Atenza</div>
         <div className="spring" />
-        {onPlatform && <button className="ghost" onClick={onPlatform}>▦ Portal de plataforma</button>}
-        {meLabel && <span className="who-mini">{meLabel}</span>}
-        <button className="ghost" onClick={() => doSignOut()}>Salir</button>
+        <UserMenu {...account} />
       </header>
       <main className="pick-body">
         <h1 className="pick-title">Elige una instancia</h1>
@@ -341,7 +337,7 @@ function NewInstanceWizard({ meEmail, onClose, onCreated }: { meEmail?: string; 
   </div>;
 }
 
-function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail }: { headers: TenantHeader[]; loaded: TenantData[]; onEnter: (id: string) => void; onClose: () => void; meEmail?: string }) {
+function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail, account, showBack }: { headers: TenantHeader[]; loaded: TenantData[]; onEnter: (id: string) => void; onClose: () => void; meEmail?: string; account: Account; showBack?: boolean }) {
   const accessRequests = useStore((s) => s.accessRequests);
   const approve = useStore((s) => s.approveAccess);
   const reject = useStore((s) => s.rejectAccess);
@@ -365,7 +361,8 @@ function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail }: { header
       <header className="top">
         <div className="brand"><span className="glyph">A</span> Atenza <small>Plataforma</small></div>
         <div className="spring" />
-        <button className="ghost" onClick={onClose}>← Volver a mi instancia</button>
+        {showBack && <button className="ghost" onClick={onClose}>← Volver a mi instancia</button>}
+        <UserMenu {...account} />
       </header>
       <main className="pick-body" style={{ maxWidth: 980 }}>
         <div className="plat-tabs">
@@ -452,11 +449,8 @@ function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail }: { header
 // Menú de usuario: avatar con iniciales (color del miembro) que despliega la
 // identidad, el rol, el cambio de tema y cerrar sesión. Agrupa lo que antes
 // estaba suelto y redundante en la topbar.
-function UserMenu({ name, email, roleLabel, color, onToggleTheme, onSignOut, demo }: {
-  name: string; email?: string; roleLabel: string; color: string;
-  onToggleTheme: () => void; onSignOut?: () => void;
-  demo?: { people: UiMember[]; currentUserId: string; onSwitch: (uid: string) => void };
-}) {
+interface Account { name: string; email?: string; roleLabel?: string; color: string; onToggleTheme: () => void; onSignOut?: () => void; demo?: { people: UiMember[]; currentUserId: string; onSwitch: (uid: string) => void } }
+function UserMenu({ name, email, roleLabel, color, onToggleTheme, onSignOut, demo }: Account) {
   const [open, setOpen] = useState(false);
   const initials = ((name || email || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0] ?? '').join('') || '?').toUpperCase();
   return (
@@ -467,7 +461,7 @@ function UserMenu({ name, email, roleLabel, color, onToggleTheme, onSignOut, dem
         <div className="usermenu-dd" role="menu">
           <div className="um-head">
             <span className="avatar-lg" style={{ background: color }}>{initials}</span>
-            <span className="um-id"><b>{name}</b>{email && <span>{email}</span>}<span className="um-rolechip">{roleLabel}</span></span>
+            <span className="um-id"><b>{name}</b>{email && <span>{email}</span>}{roleLabel && <span className="um-rolechip">{roleLabel}</span>}</span>
           </div>
           <div className="um-sep" />
           {demo && <div className="um-demo">
@@ -572,21 +566,31 @@ export function App() {
   if (!tenant) return card('Sin datos.');
   // «Entrar como»: la instancia activa aún no está cargada (suscripción on-demand).
   if (firebaseEnabled && activeTenantId && !db.tenants.some((t) => t.id === activeTenantId)) return card('Cargando instancia…');
-  // Portal de plataforma (solo admin de plataforma) — tiene prioridad sobre el
-  // selector para poder abrirse también desde la landing.
-  if (showPlatform && user.platformAdmin) return (
+  // Cuenta (para el menú de usuario de landing/portal).
+  const account: Account = {
+    name: displayMember?.name ?? authUser?.email ?? 'Usuario',
+    email: firebaseEnabled ? (authUser?.email ?? undefined) : displayMember?.email,
+    roleLabel: user.platformAdmin ? 'Administrador de plataforma' : undefined,
+    color: displayMember?.color ?? '#4f46e5',
+    onToggleTheme: toggleTheme,
+    onSignOut: firebaseEnabled ? () => doSignOut() : undefined,
+    demo: !firebaseEnabled ? { people, currentUserId, onSwitch: (uid) => { setUser(uid); setView('home'); } } : undefined,
+  };
+  // UNIFICADO: para el admin de plataforma, el PORTAL es su pantalla de instancias
+  // (misma pantalla como entrada y como acceso vía ▦). Los usuarios normales con
+  // ≥2 instancias ven el selector simple. Así cada usuario ve UNA sola pantalla.
+  if (user.platformAdmin && (showPlatform || (myTenants.length > 1 && !instanceChosen))) return (
     <PlatformPortal
       headers={platformTenants.length ? platformTenants : myTenants.map((t) => ({ id: t.id, name: t.name, key: t.key, active: t.active, branding: t.branding }))}
       loaded={db.tenants}
       onEnter={(id) => { void enterTenant(id); setInstanceChosen(true); setShowPlatform(false); }}
       onClose={() => setShowPlatform(false)}
-      meEmail={authUser?.email ?? displayMember?.email} />
+      meEmail={authUser?.email ?? displayMember?.email}
+      account={account}
+      showBack={instanceChosen} />
   );
-  // Landing/selector: quien tiene ≥2 instancias elige antes de entrar.
-  if (myTenants.length > 1 && !instanceChosen) return (
-    <InstancePicker tenants={myTenants} user={user} onPick={(id) => { setTenant(id); setInstanceChosen(true); }}
-      onPlatform={user.platformAdmin ? () => setShowPlatform(true) : undefined}
-      meLabel={authUser?.email ?? displayMember?.name} />
+  if (!user.platformAdmin && myTenants.length > 1 && !instanceChosen) return (
+    <InstancePicker tenants={myTenants} user={user} onPick={(id) => { setTenant(id); setInstanceChosen(true); }} account={account} />
   );
 
   const isReq = role === 'requester';
