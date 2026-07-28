@@ -2332,13 +2332,13 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuraciones de instancia', 'server', [['Marca (logo y color)', 'marca'], ['Sitios', 'maestros'], ['Horas operativas', 'horario'], ['Grupos de días festivos', 'horario'], ['Departamentos', 'maestros'], ['Moneda', null]]],
   ['Usuarios y permisos', 'users', [['Usuarios', 'miembros'], ['Solicitudes de acceso', 'accesos'], ['Roles', 'roles'], ['Grupos de usuarios', 'gruposusuarios'], ['Grupos de soporte', 'gruposoporte'], ['Acceso específico', null]]],
   ['Personalización', 'sliders', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
-  ['Plantillas y formularios', 'file-text', [['Categorías de servicio', 'catservicio'], ['Reglas del formulario', 'formreglas']]],
+  ['Plantillas y formularios', 'file-text', [['Categorías de servicio', 'catservicio'], ['Clasificación (Área › Servicio › Elemento)', 'clasificacion'], ['Reglas del formulario', 'formreglas']]],
   ['Autoservicio y anuncios', 'megaphone', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
   ['Automatización', 'settings', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', 'mail', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', 'shield', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { marca: 'Marca de la instancia', plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio' };
+const ADMIN_TITLE: Record<string, string> = { marca: 'Marca de la instancia', plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio', clasificacion: 'Clasificación · Área › Servicio › Elemento' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -2642,6 +2642,85 @@ function CategoryAdmin({ tenant }: { tenant: TenantData }) {
   </>;
 }
 
+// Editor del árbol de CLASIFICACIÓN v3: Área › Servicio › Elemento (Fase 3). El grupo
+// se hereda (elemento→servicio→área); la ACL de solicitante se fija en el servicio.
+function ClassificationAdmin({ tenant }: { tenant: TenantData }) {
+  type A = import('../model.js').AreaNode; type S = import('../model.js').ServiceNode;
+  const setTree = useStore((s) => s.setClassificationTree);
+  const tree = (tenant.classificationTree ?? []) as A[];
+  const [selA, setSelA] = useState<string | null>(tree[0]?.id ?? null);
+  const [selS, setSelS] = useState<string | null>(null);
+  const [selE, setSelE] = useState<string | null>(null);
+  const [na, setNa] = useState(''); const [nsv, setNsv] = useState(''); const [nel, setNel] = useState('');
+  const area = tree.find((a) => a.id === selA) ?? null;
+  const svc = area?.services.find((s) => s.id === selS) ?? null;
+  const el = svc?.elements?.find((e) => e.id === selE) ?? null;
+
+  const mapA = (id: string, fn: (a: A) => A) => setTree(tree.map((a) => (a.id === id ? fn(a) : a)));
+  const mapS = (aid: string, sid: string, fn: (s: S) => S) => mapA(aid, (a) => ({ ...a, services: a.services.map((s) => (s.id === sid ? fn(s) : s)) }));
+  const setGroup = <T extends { groupId?: string }>(o: T, v: string): T => { const n = { ...o }; if (v) n.groupId = v; else delete n.groupId; return n; };
+
+  const addArea = () => { const n = na.trim(); if (!n) return; const id = 'ar-' + Date.now(); setTree([...tree, { id, name: n, services: [], sortIndex: tree.length + 1 }]); setNa(''); setSelA(id); setSelS(null); setSelE(null); };
+  const rmArea = (id: string) => { if (!confirm('¿Eliminar el área y todo su contenido?')) return; setTree(tree.filter((a) => a.id !== id)); if (selA === id) { setSelA(null); setSelS(null); setSelE(null); } };
+  const addSvc = () => { const n = nsv.trim(); if (!area || !n) return; const id = 'sv-' + Date.now(); mapA(area.id, (a) => ({ ...a, services: [...a.services, { id, name: n, sortIndex: a.services.length + 1 }] })); setNsv(''); setSelS(id); setSelE(null); };
+  const rmSvc = (id: string) => { if (!area) return; mapA(area.id, (a) => ({ ...a, services: a.services.filter((s) => s.id !== id) })); if (selS === id) { setSelS(null); setSelE(null); } };
+  const addEl = () => { const n = nel.trim(); if (!area || !svc || !n) return; const id = 'el-' + Date.now(); mapS(area.id, svc.id, (s) => ({ ...s, elements: [...(s.elements ?? []), { id, name: n }] })); setNel(''); };
+  const rmEl = (id: string) => { if (!area || !svc) return; mapS(area.id, svc.id, (s) => ({ ...s, elements: (s.elements ?? []).filter((e) => e.id !== id) })); if (selE === id) setSelE(null); };
+
+  const pill = (n: { inactive?: boolean }) => n.inactive ? <span className="pill" style={{ marginLeft: 6 }}>inactivo</span> : null;
+  const gname = (gid?: string) => tenant.groups?.find((g) => g.id === gid)?.name ?? gid;
+  const groupSel = (val: string | undefined, on: (v: string) => void) => <select value={val ?? ''} onChange={(e) => on(e.target.value)}>
+    <option value="">— hereda / sin grupo —</option>{(tenant.groups ?? []).map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}</select>;
+  const inactiveChk = (v: boolean, on: (b: boolean) => void) => <label className="chipsel" style={{ cursor: 'pointer' }}><input type="checkbox" checked={v} onChange={(e) => on(e.target.checked)} style={{ marginRight: 5 }} />Inactivo (oculto, conserva histórico)</label>;
+
+  return <>
+    <div className="banner" style={{ marginBottom: 14 }}>Clasificación de 3 niveles <b>Área › Servicio › Elemento</b>. El <b>grupo de soporte</b> se hereda del nivel más específico (elemento → servicio → área); la <b>visibilidad del solicitante</b> se fija en el <b>servicio</b>. «Inactivo» oculta sin borrar.</div>
+    <div className="tree">
+      <div className="tcol"><div className="tcol-h">Área</div>
+        {tree.map((a) => <div key={a.id} className={'titem' + (selA === a.id ? ' on' : '')}>
+          <button className="titem-b" onClick={() => { setSelA(a.id); setSelS(null); setSelE(null); }}>{a.name}{pill(a)}</button>
+          <button className="xbtn" onClick={() => rmArea(a.id)} aria-label="Eliminar">✕</button><span className="chev">›</span></div>)}
+        <div className="tadd"><input value={na} onChange={(e) => setNa(e.target.value)} placeholder="Añadir área…" onKeyDown={(e) => e.key === 'Enter' && addArea()} /><button className="ghost" onClick={addArea}>＋</button></div>
+      </div>
+      <div className="tcol"><div className="tcol-h">Servicio</div>
+        {!area ? <div className="empty">Elige un área.</div> : <>
+          {area.services.map((s) => <div key={s.id} className={'titem' + (selS === s.id ? ' on' : '')}>
+            <button className="titem-b" onClick={() => { setSelS(s.id); setSelE(null); }}>{s.name}{pill(s)}{s.groupId && <span className="soft" style={{ fontSize: 11, marginLeft: 6 }}>· {gname(s.groupId)}</span>}</button>
+            <button className="xbtn" onClick={() => rmSvc(s.id)} aria-label="Eliminar">✕</button><span className="chev">›</span></div>)}
+          <div className="tadd"><input value={nsv} onChange={(e) => setNsv(e.target.value)} placeholder="Añadir servicio…" onKeyDown={(e) => e.key === 'Enter' && addSvc()} /><button className="ghost" onClick={addSvc}>＋</button></div>
+        </>}
+      </div>
+      <div className="tcol"><div className="tcol-h">Elemento</div>
+        {!svc ? <div className="empty">Elige un servicio.</div> : <>
+          {(svc.elements ?? []).map((e) => <div key={e.id} className={'titem' + (selE === e.id ? ' on' : '')}>
+            <button className="titem-b" onClick={() => setSelE(e.id)}>{e.name}{pill(e)}</button>
+            <button className="xbtn" onClick={() => rmEl(e.id)} aria-label="Eliminar">✕</button></div>)}
+          <div className="tadd"><input value={nel} onChange={(e) => setNel(e.target.value)} placeholder="Añadir elemento…" onKeyDown={(e) => e.key === 'Enter' && addEl()} /><button className="ghost" onClick={addEl}>＋</button></div>
+        </>}
+      </div>
+    </div>
+    {area && <div className="card" style={{ padding: 16, marginTop: 14 }}>
+      {el && svc ? <>
+        <div className="rule-row"><span className="rule-lbl">Elemento</span><input style={{ flex: 1 }} value={el.name} onChange={(e) => mapS(area.id, svc.id, (s) => ({ ...s, elements: (s.elements ?? []).map((x) => (x.id === el.id ? { ...x, name: e.target.value } : x)) }))} /></div>
+        <div className="rule-row"><span className="rule-lbl">Grupo (override)</span>{groupSel(el.groupId, (v) => mapS(area.id, svc.id, (s) => ({ ...s, elements: (s.elements ?? []).map((x) => (x.id === el.id ? setGroup(x, v) : x)) })))}</div>
+        <div className="rule-row">{inactiveChk(!!el.inactive, (v) => mapS(area.id, svc.id, (s) => ({ ...s, elements: (s.elements ?? []).map((x) => (x.id === el.id ? { ...x, inactive: v } : x)) })))}</div>
+      </> : svc ? <>
+        <div className="rule-row"><span className="rule-lbl">Servicio</span><input style={{ flex: 1 }} value={svc.name} onChange={(e) => mapS(area.id, svc.id, (s) => ({ ...s, name: e.target.value }))} /></div>
+        <div className="rule-row"><span className="rule-lbl">Grupo de soporte</span>{groupSel(svc.groupId, (v) => mapS(area.id, svc.id, (s) => setGroup(s, v)))}</div>
+        <div className="soft" style={{ fontSize: 12, paddingLeft: 74 }}>Sus técnicos ven, cogen y reciben la asignación. Vacío = hereda del área.</div>
+        <div className="rule-row" style={{ marginTop: 8 }}><span className="rule-lbl">Lo ven (solicitante)</span><ChipMulti options={tenant.userGroups ?? []} selected={svc.userGroups ?? []} onChange={(ug) => mapS(area.id, svc.id, (s) => ({ ...s, userGroups: ug }))} /></div>
+        {(svc.userGroups ?? []).length === 0 && <div className="soft" style={{ fontSize: 12, paddingLeft: 74 }}>vacío = lo ven todos</div>}
+        <div className="rule-row" style={{ marginTop: 8 }}><span className="rule-lbl">Tipos</span>{(['incident', 'service_request'] as const).map((tp) => { const cur = svc.allowedTypes ?? []; const on = cur.includes(tp); return <label key={tp} className="chipsel" style={{ cursor: 'pointer', marginRight: 6 }}><input type="checkbox" checked={on} onChange={() => { const next = on ? cur.filter((x) => x !== tp) : [...cur, tp]; mapS(area.id, svc.id, (s) => ({ ...s, allowedTypes: next })); }} style={{ marginRight: 4 }} />{typeIcon(tp)} {typeLabel(tp)}</label>; })}<span className="soft" style={{ fontSize: 12 }}>vacío = ambos</span></div>
+        <div className="rule-row" style={{ marginTop: 8 }}>{inactiveChk(!!svc.inactive, (v) => mapS(area.id, svc.id, (s) => ({ ...s, inactive: v })))}</div>
+      </> : <>
+        <div className="rule-row"><span className="rule-lbl">Área</span><input style={{ flex: 1 }} value={area.name} onChange={(e) => mapA(area.id, (a) => ({ ...a, name: e.target.value }))} /></div>
+        <div className="rule-row"><span className="rule-lbl">Grupo por defecto</span>{groupSel(area.groupId, (v) => mapA(area.id, (a) => setGroup(a, v)))}</div>
+        <div className="rule-row">{inactiveChk(!!area.inactive, (v) => mapA(area.id, (a) => ({ ...a, inactive: v })))}</div>
+      </>}
+    </div>}
+  </>;
+}
+
 function KbModule({ tenant, canManage, meName }: { tenant: TenantData; canManage: boolean; meName: string }) {
   const save = useStore((s) => s.saveKbArticle);
   const remove = useStore((s) => s.removeKbArticle);
@@ -2829,6 +2908,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'sync' && <SyncAdmin tenant={tenant} />}
     {sec === 'organizate' && <OrganizateAdmin tenant={tenant} />}
     {sec === 'catservicio' && <ServiceCategoriesAdmin tenant={tenant} />}
+    {sec === 'clasificacion' && <ClassificationAdmin tenant={tenant} />}
     </div>
   </div>;
 }

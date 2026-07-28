@@ -99,6 +99,7 @@ interface State {
   setOrganizateGroups: (ids: string[]) => void;
   setOperationMode: (mode: 'classic' | 'simplified') => void;
   setServiceCategories: (list: import('../data/seed.js').ServiceCategoryDef[]) => void;
+  setClassificationTree: (tree: import('../model.js').AreaNode[]) => void;
   autoAssign: (ticketId: string) => string | null;
   setWebhooks: (list: Webhook[]) => void;
   setCustomFields: (list: FieldDef[]) => void;
@@ -859,6 +860,10 @@ export const useStore = create<State>()(
           const categories = tree.map((c) => c.name);
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, categoryTree: tree, categories })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { categoryTree: tree, categories }).catch(errlog); }
+        },
+        setClassificationTree: (tree) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, classificationTree: tree })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { classificationTree: tree }).catch(errlog); }
         },
         addTemplate: (name, type, lifecycleId) => {
           const defs: FieldDef[] = [
