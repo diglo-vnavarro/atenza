@@ -10,6 +10,7 @@ import { applyBusinessRules } from '../rules.js';
 import type { FormRule } from '../formrules.js';
 import { pickByLoad } from '../assign.js';
 import { findPath, resolveGroup, lifecycleFor } from '../classification.js';
+import { reconcileOwner } from '../owner.js';
 import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
 import { webhooksFor } from '../webhooks.js';
@@ -475,6 +476,8 @@ export const useStore = create<State>()(
             ...merged, status: finalStatus,
             // archived explícito (la suscripción en vivo filtra archived==false) + createdAt.
             archived: isArchivedStatus(finalStatus), createdAt: now,
+            // histórico de propiedad: primer segmento (grupo/técnico inicial).
+            ownerHistory: [{ group: merged.groupId ?? null, tech: merged.technicianId ?? null, from: now, to: null }],
             // SLA por TIPO: la Incidencia lleva SLA de resolución por prioridad; la
             // Petición no lleva reloj de resolución (SDP: SLA por tipo). Configurable a futuro.
             slaId: type === 'incident' ? (SLA_BY_PRIORITY[merged.priority ?? ''] ?? null) : null,
@@ -503,8 +506,9 @@ export const useStore = create<State>()(
             hist = [...hist.map((h) => (h.to == null ? { ...h, to: now } : h)), { state: 'assigned', from: now, to: null }];
             status = 'assigned';
           }
-          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, technicianId: techUid, status, statusHistory: hist } : x)) })) }));
-          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { technicianId: techUid, status, statusHistory: hist }).catch(errlog);
+          const ownerHistory = reconcileOwner(tk.ownerHistory, { group: tk.groupId ?? null, tech: techUid }, Date.now(), tk.createdAt ?? Date.now());
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, technicianId: techUid, status, statusHistory: hist, ownerHistory } : x)) })) }));
+          if (CLOUD) void cloud.patchTicket(t.id, ticketId, { technicianId: techUid, status, statusHistory: hist, ownerHistory }).catch(errlog);
           if (techUid) { emitNotifs(t, 'assigned', { ...tk, technicianId: techUid, status }); logAudit(t, 'ticket.assign', `${tk.id} → ${t.members.find((m) => m.uid === techUid)?.name ?? techUid}`, tk.id); }
         },
 

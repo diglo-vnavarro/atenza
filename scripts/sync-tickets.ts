@@ -22,6 +22,8 @@ import { dirname, join } from 'node:path';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { isArchivedStatus } from '../src/model.js';
+import type { OwnerSegment } from '../src/model.js';
+import { reconcileOwner } from '../src/owner.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const importer = join(here, '..', 'importer');
@@ -81,6 +83,11 @@ async function syncTickets() {
       // archived se DERIVA del estado (SDP es fuente de verdad); createdAt se conserva.
       next.archived = isArchivedStatus(next.status as string);
       next.createdAt = (prev.createdAt as number | undefined) ?? (t.statusHistory as { from?: number }[] | undefined)?.[0]?.from ?? Date.now();
+      // Histórico de PROPIEDAD: siembra en la 1ª sync y añade segmento si SDP reasignó
+      // (cambio de grupo/técnico). Así se construye el histórico durante la convivencia.
+      next.ownerHistory = reconcileOwner(prev.ownerHistory as OwnerSegment[] | undefined,
+        { group: (next.groupId as string | null) ?? null, tech: (next.technicianId as string | null) ?? null },
+        Date.now(), next.createdAt as number);
       if (!DRY) batch.set(refs[j]!, next); // set completo pero con los campos Atenza reinyectados
       if (snap.exists) updated++; else created++;
     });

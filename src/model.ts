@@ -109,6 +109,9 @@ export interface Ticket {
   resolveDueAt?: number | null;
   /** historial de estados, para calcular el tiempo que consume SLA. */
   statusHistory?: StatusSegment[];
+  /** histórico de PROPIEDAD (grupo/técnico) con marcas de tiempo. Lo alimentan la sync
+   *  (reasignaciones en SDP) y las acciones nativas (crear/asignar). Base del enrutado vivo. */
+  ownerHistory?: OwnerSegment[];
   /** texto de resolución (pestaña Resolución). */
   resolution?: string;
   /** hilo de conversación (pestaña Conversaciones). */
@@ -376,6 +379,14 @@ export interface Sla {
 }
 
 /** Tramo de permanencia en un estado. `to` null = tramo aún abierto. */
+/** Segmento de PROPIEDAD del ticket: quién (grupo/técnico) lo tuvo entre `from` y `to`
+ *  (to=null = segmento abierto/actual). Espejo de StatusSegment. */
+export interface OwnerSegment {
+  group?: string | null;
+  tech?: string | null;
+  from: number;
+  to: number | null;
+}
 export interface StatusSegment {
   state: string;
   from: number; // epoch ms
