@@ -1,6 +1,7 @@
 // Datos semilla del piloto (local-first). Dos instancias, reflejando la
 // realidad de Diglo: una interna completa y un cliente externo (Leasys).
-import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, ApprovalLevelDef, Asset } from '../model.js';
+import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, ApprovalLevelDef, Asset, AreaNode } from '../model.js';
+import { DIGLO_CLASSIFICATION_V3 } from './classification-seed.js';
 
 // Catálogo de campos adicionales (ad-hoc) de ejemplo para diglo-it.
 export const DEFAULT_CUSTOM_FIELDS: FieldDef[] = [
@@ -242,8 +243,11 @@ export interface TenantData {
   assets?: Asset[];
   /** lista plana (compat); se deriva de categoryTree cuando existe. */
   categories: string[];
-  /** árbol Categoría › Subcategoría › Artículo. */
+  /** árbol Categoría › Subcategoría › Artículo (legacy). */
   categoryTree?: CatNode[];
+  /** árbol de clasificación v3 (Área → Servicio → Elemento). Convive con el legacy;
+   *  activo cuando classificationVersion='v3'. Ver docs/propuesta-taxonomia-3-niveles.md. */
+  classificationTree?: AreaNode[];
   /** catálogo de estados reales (nombre · temporizador · color). */
   statuses?: StatusDef[];
   /** catálogos de valores (prioridad, impacto, urgencia, nivel, modo, tipos). */
@@ -554,7 +558,7 @@ export function makeSeed(now: number): DB {
         ] },
     ], slas: itSlas,
     groups: [{ id: 'g-n1', name: 'Soporte N1' }, { id: 'g-n2', name: 'Soporte N2' }, { id: 'g-red', name: 'Redes' }],
-    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, formRules: DEFAULT_FORM_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES, announcements: DEFAULT_ANNOUNCEMENTS, customFields: DEFAULT_CUSTOM_FIELDS,
+    categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, classificationTree: DIGLO_CLASSIFICATION_V3, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, formRules: DEFAULT_FORM_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES, announcements: DEFAULT_ANNOUNCEMENTS, customFields: DEFAULT_CUSTOM_FIELDS,
     serviceCategoryIcons: { 'Incidencias': '🛠️', 'Solicitudes de servicio': '📥' },
     organizateGroupIds: ['g-n1'],
     serviceCategories: DEFAULT_SERVICE_CATEGORIES, operationMode: 'simplified', classificationVersion: 'legacy',

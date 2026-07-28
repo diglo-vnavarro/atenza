@@ -309,6 +309,54 @@ export interface FieldDef {
   options?: string[];
 }
 
+// ============================================================================
+// Clasificación v3: Área → Servicio → Elemento. Convive con el `categoryTree`
+// legacy; se activa por tenant con `classificationVersion:'v3'`. Ver
+// docs/propuesta-taxonomia-3-niveles.md y docs/plan-implementacion-3-niveles.md.
+//   · El GRUPO de soporte se hereda de lo más específico: elemento→servicio→área.
+//   · La ACL de SOLICITANTE es por SERVICIO (como `user_groups` de la plantilla SDP).
+// ============================================================================
+/** N3 — Elemento (aplicación afectada). Opcional; puede sobreescribir el grupo. */
+export interface ElementNode {
+  id: string;
+  name: string;
+  /** override del grupo de soporte (si falta, hereda del servicio/área). */
+  groupId?: string;
+  /** inactivo: no seleccionable para tickets nuevos; conserva el histórico. */
+  inactive?: boolean;
+}
+/** N2 — Servicio (equivale a la «plantilla»/categoría de servicio de SDP). Aquí
+ *  cuelgan el grupo de soporte y los permisos. */
+export interface ServiceNode {
+  id: string;
+  name: string;
+  /** grupo de soporte que lo atiende (sus técnicos reciben/cogen el ticket). */
+  groupId?: string;
+  /** ACL del SOLICITANTE: grupos de usuario que pueden levantarlo. Vacío/ausente
+   *  = lo ven todos (sin restricción). */
+  userGroups?: string[];
+  /** tipos permitidos (Incidencia/Petición). Vacío/ausente = ambos. */
+  allowedTypes?: TicketType[];
+  /** ciclo de vida por tipo (id de Lifecycle; null = sin flujo). */
+  lifecycleByType?: Partial<Record<TicketType, string | null>>;
+  /** campos propios del servicio. */
+  fields?: FieldDef[];
+  approvalLevels?: ApprovalLevelDef[];
+  inactive?: boolean;
+  sortIndex?: number;
+  elements?: ElementNode[];
+}
+/** N1 — Área (categoría de servicio al alto nivel: IT/Operaciones/BI/Negocio). */
+export interface AreaNode {
+  id: string;
+  name: string;
+  /** grupo por defecto del área (fallback si el servicio no fija el suyo). */
+  groupId?: string;
+  inactive?: boolean;
+  sortIndex?: number;
+  services: ServiceNode[];
+}
+
 export interface Sla {
   id: string;
   name: string;
