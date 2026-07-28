@@ -43,6 +43,13 @@ beforeEach(async () => {
     // tenant del cliente externo
     await setDoc(doc(db, 'tenants/leasys/members/u-tech-leasys'),
       { role: 'technician', status: 'active', email: 'ext@leasys.com', external: true });
+    // Visibilidad por grupo: técnico externo acotado a REO + tickets de distintos grupos.
+    await setDoc(doc(db, 'tenants/diglo-it/members/u-ext-reo'),
+      { role: 'technician', status: 'active', email: 'reo@omega.com', external: true, groupIds: ['g-reo'] });
+    await setDoc(doc(db, 'tenants/diglo-it/tickets/t-reo'),
+      { type: 'incident', subject: 'reo', requesterId: 'u-req-1', technicianId: null, groupId: 'g-reo' });
+    await setDoc(doc(db, 'tenants/diglo-it/tickets/t-bi'),
+      { type: 'incident', subject: 'bi', requesterId: 'u-req-1', technicianId: null, groupId: 'g-bi' });
   });
 });
 
@@ -65,5 +72,17 @@ describe('reglas reales · aislamiento entre tenants', () => {
   it('técnico externo (dominio ajeno) SÍ opera en su tenant', async () => {
     await assertSucceeds(getDoc(doc(ctxOf('u-tech-leasys'), 'tenants/leasys/members/u-tech-leasys')));
     await assertFails(getDoc(doc(ctxOf('u-tech-leasys'), 'tenants/diglo-it/tickets/t1')));
+  });
+});
+
+describe('reglas reales · visibilidad de técnico por grupo (Fase 5)', () => {
+  it('técnico externo (scope groups por defecto) lee SOLO tickets de sus grupos', async () => {
+    await assertSucceeds(getDoc(doc(ctxOf('u-ext-reo'), 'tenants/diglo-it/tickets/t-reo')));   // su grupo
+    await assertFails(getDoc(doc(ctxOf('u-ext-reo'), 'tenants/diglo-it/tickets/t-bi')));        // otro grupo
+    await assertFails(getDoc(doc(ctxOf('u-ext-reo'), 'tenants/diglo-it/tickets/t1')));          // sin grupo
+  });
+  it('técnico interno (scope all por defecto) lee cualquier grupo', async () => {
+    await assertSucceeds(getDoc(doc(ctxOf('u-tech-it'), 'tenants/diglo-it/tickets/t-reo')));
+    await assertSucceeds(getDoc(doc(ctxOf('u-tech-it'), 'tenants/diglo-it/tickets/t-bi')));
   });
 });

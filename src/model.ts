@@ -45,6 +45,9 @@ export interface Member {
   external: boolean;
   /** colas de soporte a las que pertenece (solo relevante para técnicos). */
   groupIds?: string[];
+  /** visibilidad de tickets del técnico: 'all' = todo el tenant; 'groups' = solo los de
+   *  sus grupos. Ausente = 'groups' si es external, si no 'all'. Aplicado en reglas + cliente. */
+  visibilityScope?: 'all' | 'groups';
 }
 
 /** Documento de tenant: tenants/{tenantId} */

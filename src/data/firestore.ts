@@ -195,9 +195,21 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
   // tickets EN VIVO: solo NO archivados (los ~23k terminales van a la vista Archivo,
   // no se suscriben, para que la bandeja sea rápida). Técnico/admin => todos los
   // activos; solicitante => solo los suyos activos.
+  // Visibilidad de técnico por GRUPO: un miembro acotado (external, o visibilityScope
+  // 'groups') solo se suscribe a los tickets de SUS grupos (coincide con las reglas de servidor).
+  let scopeGroups: string[] | null = null;
+  if (!requesterFilterUid && meUid) {
+    try {
+      const md = (await m.getDoc(m.doc(db, `tenants/${tid}/members`, meUid))).data() as UiMember | undefined;
+      const scope = md?.visibilityScope ?? (md?.external ? 'groups' : 'all');
+      if (scope === 'groups') scopeGroups = (md?.groupIds ?? []).slice(0, 10);
+    } catch { /* si falla la lectura, no acotamos en cliente (el get de reglas sigue protegiendo) */ }
+  }
   const tq = requesterFilterUid
     ? m.query(col('tickets'), m.where('requesterId', '==', requesterFilterUid), m.where('archived', '==', false))
-    : m.query(col('tickets'), m.where('archived', '==', false));
+    : scopeGroups
+      ? m.query(col('tickets'), m.where('archived', '==', false), m.where('groupId', 'in', scopeGroups.length ? scopeGroups : ['__none__']))
+      : m.query(col('tickets'), m.where('archived', '==', false));
   subs.push(m.onSnapshot(tq, (s) => { acc.tickets = s.docs.map((d) => ({ ...(d.data() as StoredTicket), id: d.id })); emit(); }));
 
   // avisos en pantalla para el usuario actual (los más recientes primero)

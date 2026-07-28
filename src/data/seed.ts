@@ -169,6 +169,8 @@ export interface UiMember {
   external: boolean;
   /** ids de grupos de soporte a los que pertenece (perfilado de asignación). */
   groupIds?: string[];
+  /** visibilidad de tickets del técnico: 'all' | 'groups' (ausente = 'groups' si external). */
+  visibilityScope?: 'all' | 'groups';
   /** grupos de usuarios (perfilado de catálogo: qué plantillas ve). */
   userGroups?: string[];
   /** rol granular (nombre del catálogo de roles del tenant); role sigue siendo el nivel base. */

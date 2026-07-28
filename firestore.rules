@@ -31,6 +31,21 @@ service cloud.firestore {
     // "técnico" incluye a tenant_admin (superconjunto operativo sobre tickets)
     function isTech(tid) { return isMember(tid) && roleIn(tid) in ['technician', 'tenant_admin']; }
     function isRequester(tid) { return isMember(tid) && roleIn(tid) == 'requester'; }
+    // Visibilidad de técnico por GRUPO: scope 'groups' (o external por defecto) limita al
+    // técnico a los tickets de SUS grupos. scope 'all' (por defecto para internos) = todo.
+    function memberScope(tid) {
+      return ('visibilityScope' in memberData(tid)) ? memberData(tid).visibilityScope
+        : (memberData(tid).external == true ? 'groups' : 'all');
+    }
+    function memberGroups(tid) { return ('groupIds' in memberData(tid)) ? memberData(tid).groupIds : []; }
+    function ticketInScope(tid) {
+      return memberScope(tid) == 'all'
+        || (('groupId' in resource.data) && (resource.data.groupId in memberGroups(tid)));
+    }
+    function parentInScope(tid, ticketId) {
+      return memberScope(tid) == 'all'
+        || (('groupId' in ticketData(tid, ticketId)) && (ticketData(tid, ticketId).groupId in memberGroups(tid)));
+    }
     // Capacidad granular del rol. Si el miembro trae `caps` (denormalizadas), se
     // consultan; si NO (miembros previos / seed), se cae al nivel base: solo
     // tenant_admin tiene capacidades de gestión. El fallback evita bloquear a los
@@ -110,7 +125,7 @@ service cloud.firestore {
       // --- tickets ---
       match /tickets/{ticketId} {
         // Técnico/admin ven todo el tenant; el solicitante solo SUS tickets.
-        allow get: if isTech(tid)
+        allow get: if (isTech(tid) && ticketInScope(tid))
           || (isMember(tid) && resource.data.requesterId == uid())
           || isPlatformAdmin();
 
@@ -118,7 +133,9 @@ service cloud.firestore {
         // inspeccionar el filtro de la consulta. Por eso el listado libre queda
         // para técnico/admin; el solicitante recupera "sus" tickets vía una
         // consulta acotada validada en Cloud Function (o un índice por usuario).
-        allow list: if isTech(tid) || isPlatformAdmin();
+        // list: un técnico acotado ('groups') DEBE consultar filtrando por groupId ∈ sus
+        // grupos; Firestore rechaza la consulta amplia porque la regla referencia groupId.
+        allow list: if (isTech(tid) && ticketInScope(tid)) || isPlatformAdmin();
 
         // Crear: cualquier miembro activo. El solicitante solo puede crear
         // tickets a su propio nombre; técnico/admin pueden crear en nombre de otro.
@@ -139,7 +156,7 @@ service cloud.firestore {
         // Sub-colecciones del ticket (conversaciones, trabajo, adjuntos):
         // mismo criterio de visibilidad que el ticket padre.
         match /{sub}/{docId} {
-          allow read: if isTech(tid)
+          allow read: if (isTech(tid) && parentInScope(tid, ticketId))
             || (isMember(tid) && ticketData(tid, ticketId).requesterId == uid())
             || isPlatformAdmin();
           allow create: if isTech(tid)
