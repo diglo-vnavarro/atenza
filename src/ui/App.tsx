@@ -2068,23 +2068,37 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const [catId, setCatId] = useState('');
   const cat = cats.find((c) => c.id === catId) ?? cats[0];
   useEffect(() => { if (!cats.some((c) => c.id === catId)) setCatId(cats[0]?.id ?? ''); }, [tipo, cats, catId]);
+  // --- Clasificación v3 (Área → Servicio → Elemento), tras el flag classificationVersion ---
+  const v3 = tenant.classificationVersion === 'v3';
+  const clsAreas = (tenant.classificationTree ?? []).filter((a) => !a.inactive).map((a) => ({
+    ...a, services: a.services.filter((s) => !s.inactive && (role !== 'requester' || !s.userGroups?.length || s.userGroups.some((g) => myUG.includes(g)))),
+  })).filter((a) => a.services.length);
+  const [areaId, setAreaId] = useState(''); const [serviceId, setServiceId] = useState(''); const [elementId, setElementId] = useState('');
+  const clsArea = clsAreas.find((a) => a.id === areaId) ?? clsAreas[0];
+  const clsSvc = clsArea?.services.find((s) => s.id === serviceId) ?? clsArea?.services[0];
+  const clsEls = (clsSvc?.elements ?? []).filter((e) => !e.inactive);
+  const allowT = (v3 && clsSvc?.allowedTypes?.length ? clsSvc.allowedTypes : ['incident', 'service_request']) as readonly ('incident' | 'service_request')[];
+  useEffect(() => { if (v3 && clsSvc && !allowT.includes(tipo)) setTipo(allowT[0]!); }, [v3, clsSvc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const lcId = cat ? cat[tipo]?.lifecycleId ?? null : null;
+  const lcId = v3 ? (clsSvc?.lifecycleByType?.[tipo] ?? null) : (cat ? cat[tipo]?.lifecycleId ?? null : null);
   const lcName = lcId ? tenant.lifecycles.find((l) => l.id === lcId)?.name ?? lcId : null;
-  const catFields = cat?.fields ?? [];
+  const catFields = ((v3 ? clsSvc?.fields : cat?.fields) ?? []) as FieldDef[];
   // Reglas del formulario POR CATEGORÍA: se evalúan en vivo sobre los valores de los
   // campos de la categoría (muestran/ocultan/obligan/deshabilitan).
   const frValues: Record<string, string> = {}; for (const f of catFields) frValues[f.id] = udf[f.id] ?? '';
-  const effects: FieldEffects = cat ? evaluateFormRules(tenant.formRules, { templateId: 'unified', serviceCategoryId: cat.id, role, values: frValues }) : {};
+  const effects: FieldEffects = (!v3 && cat) ? evaluateFormRules(tenant.formRules, { templateId: 'unified', serviceCategoryId: cat.id, role, values: frValues }) : {};
   const isHidden = (f: FieldDef) => effects[f.id]?.hidden === true;
   const isMand = (f: FieldDef) => effects[f.id]?.mandatory ?? !!f.mandatory;
   const isDis = (f: FieldDef) => effects[f.id]?.disabled === true;
   const visCatFields = catFields.filter((f) => !isHidden(f));
   const missingCat = visCatFields.some((f) => isMand(f) && !(udf[f.id] ?? '').trim());
-  const canSubmit = !!subject.trim() && !!cat && !missingCat && !readOnly;
+  const canSubmit = !!subject.trim() && (v3 ? !!clsSvc : !!cat) && !missingCat && !readOnly;
   const submit = async () => {
-    if (!canSubmit || !cat) return;
-    const id = create({ subject, description, category, subcategory: subcategory || undefined, item: item || undefined, priority, site: site || undefined, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, assetIds: assetIds.length ? assetIds : undefined, requesterId, serviceCategoryId: cat.id, type: tipo, udf });
+    if (!canSubmit) return;
+    const common = { subject, description, priority, site: site || undefined, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, assetIds: assetIds.length ? assetIds : undefined, requesterId, type: tipo, udf };
+    const id = v3
+      ? (clsArea && clsSvc ? create({ ...common, area: clsArea.id, service: clsSvc.id, element: elementId || undefined }) : '')
+      : (cat ? create({ ...common, category, subcategory: subcategory || undefined, item: item || undefined, serviceCategoryId: cat.id }) : '');
     if (id) for (const f of files) { try { await uploadAttachment(id, f, meName); } catch { /* ignora fallo de subida individual */ } }
     onClose();
   };
@@ -2111,11 +2125,28 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
           <div className="nf-sec">
             <label>Tipo de solicitud
               <div className="seg" style={{ marginTop: 4 }}>
-                <button type="button" className={tipo === 'incident' ? 'on' : ''} onClick={() => setTipo('incident')}>{typeIcon('incident')} Incidencia</button>
-                <button type="button" className={tipo === 'service_request' ? 'on' : ''} onClick={() => setTipo('service_request')}>{typeIcon('service_request')} Petición</button>
+                <button type="button" className={tipo === 'incident' ? 'on' : ''} disabled={!allowT.includes('incident')} onClick={() => setTipo('incident')}>{typeIcon('incident')} Incidencia</button>
+                <button type="button" className={tipo === 'service_request' ? 'on' : ''} disabled={!allowT.includes('service_request')} onClick={() => setTipo('service_request')}>{typeIcon('service_request')} Petición</button>
               </div>
             </label>
-            <label>Categoría de servicio
+            {v3 ? <>
+              <label>Área
+                <select value={clsArea?.id ?? ''} onChange={(e) => { setAreaId(e.target.value); setServiceId(''); setElementId(''); }}>
+                  {clsAreas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {clsAreas.length === 0 && <option value="">— sin áreas disponibles —</option>}
+                </select>
+              </label>
+              <label>Servicio
+                <select value={clsSvc?.id ?? ''} onChange={(e) => { setServiceId(e.target.value); setElementId(''); }}>
+                  {(clsArea?.services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </label>
+              {clsEls.length > 0 && <label>Elemento (aplicación)
+                <select value={elementId} onChange={(e) => setElementId(e.target.value)}>
+                  <option value="">— Seleccionar —</option>{clsEls.map((el) => <option key={el.id} value={el.id}>{el.name}</option>)}
+                </select>
+              </label>}
+            </> : <label>Categoría de servicio
               <span className="cat-pick">
                 {cat && <span className="cat-pick-ic">{catIconEl(cat, 22)}</span>}
                 <select value={cat?.id ?? ''} onChange={(e) => setCatId(e.target.value)}>
@@ -2123,7 +2154,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
                   {cats.length === 0 && <option value="">— sin categorías para este tipo —</option>}
                 </select>
               </span>
-            </label>
+            </label>}
             {lcName ? <div className="lc-hint"><Icon name="branch" size={13} /> Ciclo de vida: <b>{lcName}</b></div> : cat && <div className="lc-hint"><Icon name="branch" size={13} /> Sin flujo (estado libre)</div>}
           </div>
           <div className="nf-sec">
@@ -2132,19 +2163,19 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
             <div className="nf-cols">
               <div className="nf-col">
                 <label>{fcap('Prioridad', true)}<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
-                <label>{fcap('Categoría')}<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>
-                {subNode && subNode.items.length > 0 && <label>{fcap('Artículo')}<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
+                {!v3 && <label>{fcap('Categoría')}<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>}
+                {!v3 && subNode && subNode.items.length > 0 && <label>{fcap('Artículo')}<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
               </div>
               <div className="nf-col">
                 {(tenant.sites ?? []).length > 0 && <label>{fcap('Sede')}<select value={site} onChange={(e) => setSite(e.target.value)}>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
-                {catNode && catNode.subs.length > 0 && <label>{fcap('Subcategoría')}<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((sn) => <option key={sn.name} value={sn.name}>{sn.name}</option>)}</select></label>}
+                {!v3 && catNode && catNode.subs.length > 0 && <label>{fcap('Subcategoría')}<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((sn) => <option key={sn.name} value={sn.name}>{sn.name}</option>)}</select></label>}
               </div>
             </div>
             {role !== 'requester' && <label>{fcap('Solicitante')}<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
             <label>{fcap('Descripción')}<RichText value={description} onChange={setDescription} placeholder="Describe la solicitud con detalle…" disabled={readOnly} /></label>
           </div>
           {visCatFields.length > 0 && <div className="nf-sec">
-            <div className="nf-sec-h">Campos de la categoría · {cat?.name}</div>
+            <div className="nf-sec-h">Campos {v3 ? 'del servicio' : 'de la categoría'} · {v3 ? clsSvc?.name : cat?.name}</div>
             <div className="nf-cols">
               <div className="nf-col">{visCatFields.filter((f) => (f.col ?? 1) === 1).map((f) => <label key={f.id}>{fcap(f.label, isMand(f))}{widget(f)}</label>)}</div>
               <div className="nf-col">{visCatFields.filter((f) => f.col === 2).map((f) => <label key={f.id}>{fcap(f.label, isMand(f))}{widget(f)}</label>)}</div>

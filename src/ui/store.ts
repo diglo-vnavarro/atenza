@@ -9,6 +9,7 @@ import type { BusinessRule } from '../rules.js';
 import { applyBusinessRules } from '../rules.js';
 import type { FormRule } from '../formrules.js';
 import { pickByLoad } from '../assign.js';
+import { findPath, resolveGroup, lifecycleFor } from '../classification.js';
 import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
 import { webhooksFor } from '../webhooks.js';
@@ -22,7 +23,7 @@ export interface ImportSnapshot { categories: string[]; templates: Template[]; s
 export type Role = 'tenant_admin' | 'technician' | 'requester';
 
 interface NewTicket {
-  subject: string; description: string; category: string; subcategory?: string; item?: string;
+  subject: string; description: string; category?: string; subcategory?: string; item?: string;
   priority: string; impact?: string; urgency?: string; mode?: string; level?: string; site?: string;
   notifyEmails?: string; impactDetails?: string; assets?: string; assetIds?: string[];
   requesterId: string; technicianId?: string | null;
@@ -31,6 +32,8 @@ interface NewTicket {
   /** Modo simplificado: categoría de servicio elegida + tipo (Incidencia/Petición). */
   serviceCategoryId?: string;
   type?: 'incident' | 'service_request';
+  /** v3: clasificación Área→Servicio→Elemento (ids del árbol). */
+  area?: string; service?: string; element?: string;
 }
 
 interface State {
@@ -417,9 +420,14 @@ export const useStore = create<State>()(
           // Modo SIMPLIFICADO: el ticket nace de una CATEGORÍA de servicio + tipo (el
           // ciclo se toma de la categoría según el tipo). Modo CLÁSICO: de una plantilla.
           const cat = nt.serviceCategoryId ? (t.serviceCategories ?? []).find((c) => c.id === nt.serviceCategoryId) : undefined;
-          const tpl = cat ? undefined : (t.templates.find((x) => x.id === nt.templateId) ?? t.templates[0]);
+          // v3 (tras flag): clasificación Área→Servicio→Elemento. Grupo y ciclo salen del árbol.
+          const v3 = t.classificationVersion === 'v3' && !!nt.area && !!nt.service;
+          const v3path = v3 ? findPath(t.classificationTree ?? [], nt.area, nt.service, nt.element) : null;
+          const v3svc = v3path?.service;
+          const v3group = v3path ? resolveGroup(v3path) : undefined;
+          const tpl = (cat || v3) ? undefined : (t.templates.find((x) => x.id === nt.templateId) ?? t.templates[0]);
           const type: 'incident' | 'service_request' = nt.type ?? tpl?.type ?? 'incident';
-          const lcId = cat ? ((type === 'incident' ? cat.incident?.lifecycleId : cat.service_request?.lifecycleId) ?? null) : (tpl?.lifecycleId ?? null);
+          const lcId = v3svc ? (lifecycleFor(v3svc, type) ?? null) : cat ? ((type === 'incident' ? cat.incident?.lifecycleId : cat.service_request?.lifecycleId) ?? null) : (tpl?.lifecycleId ?? null);
           const lc = lcId ? t.lifecycles.find((l) => l.id === lcId) ?? null : null;
           // Con ciclo: primer estado del flujo. Sin ciclo: nace «Abierta» (flujo por
           // defecto Abierta → En curso → Cerrada/Cancelada, gestionado en la UI).
@@ -434,10 +442,11 @@ export const useStore = create<State>()(
             ...(nt.impactDetails && nt.impactDetails.trim() ? { impactDetails: nt.impactDetails.trim() } : {}),
             ...(nt.assets && nt.assets.trim() ? { assets: nt.assets.trim() } : {}),
             ...(nt.assetIds && nt.assetIds.length ? { assetIds: nt.assetIds } : {}),
-            templateId: cat ? 'unified' : (tpl?.id ?? 'tpl-inc'), status: init,
+            templateId: (cat || v3) ? 'unified' : (tpl?.id ?? 'tpl-inc'), status: init,
             ...(cat ? { serviceCategoryId: cat.id, serviceCategory: cat.name } : {}),
-            // Grupo de soporte de la categoría (una regla de negocio puede sobrescribirlo).
-            ...(cat?.groupId ? { groupId: cat.groupId } : {}),
+            ...(v3 ? { area: nt.area, service: nt.service, ...(nt.element ? { element: nt.element } : {}) } : {}),
+            // Grupo de soporte (v3: heredado del árbol; legacy: de la categoría). Una regla de negocio puede sobrescribirlo.
+            ...(v3group ? { groupId: v3group } : cat?.groupId ? { groupId: cat.groupId } : {}),
             ...(nt.udf && Object.keys(nt.udf).length ? { udf: nt.udf } : {}),
           };
           // Reglas de negocio: aplican patch (prioridad/grupo/estado/técnico) al crear.
@@ -455,7 +464,7 @@ export const useStore = create<State>()(
           const reqName = t.members.find((m) => m.uid === nt.requesterId)?.name ?? nt.requesterId;
           // Secuencial: solo el nivel 1 arranca 'pending'; los siguientes quedan 'waiting'
           // hasta que se complete el nivel anterior (ver decideApproval).
-          const tplApprovals = (tpl?.approvalLevels ?? cat?.approvalLevels ?? []).flatMap((lv, li) => lv.approverUids.map((uid, i) => ({
+          const tplApprovals = (tpl?.approvalLevels ?? cat?.approvalLevels ?? v3svc?.approvalLevels ?? []).flatMap((lv, li) => lv.approverUids.map((uid, i) => ({
             id: `ap-${id}-${li}-${i}`, approverUid: uid, approverName: t.members.find((m) => m.uid === uid)?.name ?? uid,
             status: (li === 0 ? 'pending' : 'waiting') as 'pending' | 'waiting', requestedBy: nt.requesterId, requestedByName: reqName, requestedAt: now, level: li + 1, note: lv.name || undefined,
           })));
