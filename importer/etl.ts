@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import type { Lifecycle } from '../src/model.js';
 import type { StoredTicket, UiMember } from '../src/data/seed.js';
+import { classifyToV3 } from '../src/data/classification-map.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..');
@@ -75,7 +76,7 @@ function statusKey(templateId: string, statusName: string): string {
 const ms = (t: { value?: string } | null | undefined) => (t?.value ? Number(t.value) : undefined);
 
 interface SdpReqLite { id: string; display_id?: string; subject?: string; is_service_request?: boolean; description?: unknown;
-  template?: { id?: string }; status?: { name?: string }; created_time?: { value?: string }; due_by_time?: { value?: string };
+  template?: { id?: string; name?: string }; status?: { name?: string }; created_time?: { value?: string }; due_by_time?: { value?: string };
   priority?: { name?: string } | null; category?: { name?: string } | null; subcategory?: { name?: string } | null; item?: { name?: string } | null;
   requester?: SdpPerson | null; technician?: SdpPerson | null; group?: { id?: string; name?: string } | null }
 // Campos que pedimos EN BLOQUE en el listado (evita una llamada de detalle por
@@ -168,6 +169,7 @@ async function main() {
     const state = r.status?.name ?? 'Abierta'; // NOMBRE real de SDP (casa con el catálogo de estados)
     const created = ms(r.created_time) ?? Date.now();
     const desc = typeof r.description === 'string' ? r.description : '';
+    const v3 = classifyToV3({ template: r.template?.name, item: r.item?.name });
     tickets.push({
       id: `#${r.display_id ?? r.id}`,
       type: r.is_service_request ? 'service_request' : 'incident',
@@ -179,6 +181,7 @@ async function main() {
       category: r.category?.name ?? '',
       subcategory: r.subcategory?.name ?? undefined,
       item: r.item?.name ?? undefined,
+      area: v3.area, service: v3.service, ...(v3.element ? { element: v3.element } : {}),
       priority: mapPriority(r.priority?.name),
       templateId,
       status: state,

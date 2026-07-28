@@ -67,6 +67,12 @@ export interface Ticket {
   category?: string;
   subcategory?: string;
   item?: string;
+  /** clasificación v3 (ids del árbol Área→Servicio→Elemento). Conviven con los
+   *  legacy category/subcategory/item y serviceCategoryId; se rellenan en la sync
+   *  vía classification-map. area='sin-clasificar' = no mapeado (fallback). */
+  area?: string;
+  service?: string;
+  element?: string;
   priority?: string;
   impact?: string;
   urgency?: string;
