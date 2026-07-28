@@ -295,6 +295,11 @@ export interface TenantData {
    *  en 'simplified' (1 plantilla + categoría-eje). Campo conservado por compatibilidad
    *  de datos; ya no se ramifica sobre él en la UI. */
   operationMode?: 'classic' | 'simplified';
+  /** versión de la clasificación de tickets. 'legacy' = categoría de servicio + árbol
+   *  actuales; 'v3' = taxonomía Área→Servicio→Elemento (ver docs/propuesta-taxonomia-3-niveles.md
+   *  y docs/plan-implementacion-3-niveles.md). Aditivo y reversible: por defecto 'legacy';
+   *  cambiar a 'v3' NO borra la config anterior (rollback = volver a 'legacy'). */
+  classificationVersion?: 'legacy' | 'v3';
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
@@ -552,7 +557,7 @@ export function makeSeed(now: number): DB {
     categories: IT_CATEGORIES, categoryTree: IT_CAT_TREE, statuses: SDP_STATUSES, picklists: SDP_PICKLISTS, priorityMatrix: DEFAULT_PRIORITY_MATRIX, businessHours: DEFAULT_BUSINESS_HOURS, holidays: DEFAULT_HOLIDAYS, sites: IT_SITES, departments: IT_DEPARTMENTS, userGroups: IT_USER_GROUPS, roles: SDP_ROLES, notifRules: DEFAULT_NOTIF_RULES, notifications: [], closureRules: DEFAULT_CLOSURE_RULES, replyTemplates: DEFAULT_REPLY_TEMPLATES, businessRules: DEFAULT_BUSINESS_RULES, formRules: DEFAULT_FORM_RULES, webhooks: [], kbArticles: DEFAULT_KB_ARTICLES, announcements: DEFAULT_ANNOUNCEMENTS, customFields: DEFAULT_CUSTOM_FIELDS,
     serviceCategoryIcons: { 'Incidencias': '🛠️', 'Solicitudes de servicio': '📥' },
     organizateGroupIds: ['g-n1'],
-    serviceCategories: DEFAULT_SERVICE_CATEGORIES, operationMode: 'simplified',
+    serviceCategories: DEFAULT_SERVICE_CATEGORIES, operationMode: 'simplified', classificationVersion: 'legacy',
     capacity: {
       'u-elena': { used: 34, cap: 40 }, 'u-oscar': { used: 41, cap: 40 },
       'u-sergio': { used: 19, cap: 40 }, 'u-bea': { used: 0, cap: 40, off: 'Vacaciones' },

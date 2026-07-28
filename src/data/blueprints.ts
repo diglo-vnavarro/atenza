@@ -121,6 +121,6 @@ export function materializeTenant(spec: InstanceSpec, admin: UiMember): TenantDa
     picklists: { ...SDP_PICKLISTS, priority: bp.priorities },
     sites: [], departments: [], userGroups: [], roles: [],
     serviceCategories: bp.serviceCategories, serviceCategoryIcons: {},
-    operationMode: 'simplified', capacity: {}, counter: 1000,
+    operationMode: 'simplified', classificationVersion: 'legacy', capacity: {}, counter: 1000,
   };
 }
