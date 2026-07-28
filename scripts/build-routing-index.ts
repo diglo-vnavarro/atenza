@@ -48,7 +48,7 @@ async function api(path: string): Promise<Record<string, unknown>> {
 const q = (o: object) => encodeURIComponent(JSON.stringify(o));
 const norm = (s?: string) => (s ?? '').trim();
 
-interface Lite { template?: { name?: string }; item?: { name?: string }; group?: { name?: string }; status?: { name?: string }; created_time?: { value?: string } }
+interface Lite { template?: { name?: string }; item?: { name?: string }; group?: { name?: string }; technician?: { name?: string }; status?: { name?: string }; created_time?: { value?: string } }
 
 // NOTA: se indexa por NOMBRE de grupo (legible + estable en SDP). Al aplicar a la instancia
 // real, el árbol de clasificación debe usar el mismo espacio de claves para el `groupId`
@@ -64,8 +64,9 @@ async function main(): Promise<void> {
   await refresh();
   const RESOLVED = new Set(['Resuelta', 'Cerrada']);
   const byService: RoutingStats['byService'] = {};
+  const byServiceTech: RoutingStats['byService'] = {};
   const rows = 100; let start = 1, total: number | null = null, n = 0, used = 0;
-  const FIELDS = ['template', 'item', 'group', 'status', 'created_time'];
+  const FIELDS = ['template', 'item', 'group', 'technician', 'status', 'created_time'];
   for (let page = 0; page < 600; page++) {
     const j = await api(`requests?input_data=${q({ list_info: { row_count: rows, start_index: start, get_total_count: true, fields_required: FIELDS } })}`);
     const arr = (j.requests as Lite[]) ?? [];
@@ -78,13 +79,14 @@ async function main(): Promise<void> {
       if (isUnclassified(v3)) continue;
       const at = r.created_time?.value ? Number(r.created_time.value) : 0;
       bump(byService, v3.service, grp, at >= NOW - YEAR, at);
+      const tech = norm(r.technician?.name); if (tech) bump(byServiceTech, v3.service, tech, at >= NOW - YEAR, at);
       used++;
     }
     const li = j.list_info as { has_more_rows?: boolean } | undefined;
     if (!li?.has_more_rows || arr.length === 0) break;
     start += rows; if (n % 3000 < rows) { console.error(`  ${n}…`); await sleep(150); }
   }
-  const stats: RoutingStats = { byService, generatedAt: NOW };
+  const stats: RoutingStats = { byService, byServiceTech, generatedAt: NOW };
 
   console.log(`\n===== ÍNDICE DE ENRUTADO VIVO (${used} tickets resueltos usados) =====`);
   for (const [svc, groups] of Object.entries(byService).sort()) {
@@ -92,6 +94,8 @@ async function main(): Promise<void> {
     const top = Object.entries(groups).sort((a, b) => b[1].resolved - a[1].resolved).slice(0, 3)
       .map(([g, s]) => `${g} ${Math.round((s.resolved / tot) * 100)}% (${s.resolved}/${s.recent}rec)`).join(' · ');
     console.log(`■ ${NAME[svc] ?? svc}  [${tot}]  → ${top}`);
+    const tg = byServiceTech[svc];
+    if (tg) console.log(`    técnicos: ${Object.entries(tg).sort((a, b) => b[1].resolved - a[1].resolved).slice(0, 3).map(([g, s]) => `${g} ${s.resolved}`).join(' · ')}`);
   }
 
   if (APPLY) {

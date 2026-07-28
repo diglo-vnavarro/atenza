@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickByLoad, loadRatio } from '../src/assign.js';
+import { pickByLoad, loadRatio, pickBySkillAndLoad } from '../src/assign.js';
 import type { Capacity } from '../src/data/seed.js';
 
 const cap: Record<string, Capacity> = {
@@ -35,5 +35,23 @@ describe('pickByLoad', () => {
   it('sin datos de capacidad (Infinity) solo si no hay mejor', () => {
     const c: Record<string, Capacity> = { z: { used: 30, cap: 40 } };
     expect(pickByLoad(['nuevo', 'z'], c)).toBe('z'); // z (0.75) mejor que nuevo (Infinity)
+  });
+});
+
+describe('pickBySkillAndLoad (Fase 8)', () => {
+  it('sin señal de afinidad → delega en pickByLoad (menos cargado)', () => {
+    expect(pickBySkillAndLoad(['elena', 'oscar', 'sergio'], cap, {})).toBe('sergio');
+  });
+  it('la afinidad gana pese a más carga (experto saturado pero muy afín)', () => {
+    const c: Record<string, Capacity> = { exp: { used: 38, cap: 40 }, rook: { used: 4, cap: 40 } };
+    expect(pickBySkillAndLoad(['exp', 'rook'], c, { exp: 0.9, rook: 0 })).toBe('exp');
+  });
+  it('la carga gana cuando la afinidad es modesta y el experto está saturado', () => {
+    const c: Record<string, Capacity> = { exp: { used: 40, cap: 40 }, rook: { used: 4, cap: 40 } };
+    expect(pickBySkillAndLoad(['exp', 'rook'], c, { exp: 0.5, rook: 0 })).toBe('rook');
+  });
+  it('descarta a quien está de vacaciones aunque tenga afinidad', () => {
+    const c: Record<string, Capacity> = { exp: { used: 4, cap: 40, off: 'Vacaciones' }, rook: { used: 4, cap: 40 } };
+    expect(pickBySkillAndLoad(['exp', 'rook'], c, { exp: 0.9, rook: 0.1 })).toBe('rook');
   });
 });

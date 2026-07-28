@@ -8,7 +8,7 @@ import { isClosingStatus, closureBlockers } from '../closure.js';
 import type { BusinessRule } from '../rules.js';
 import { applyBusinessRules } from '../rules.js';
 import type { FormRule } from '../formrules.js';
-import { pickByLoad } from '../assign.js';
+import { pickByLoad, pickBySkillAndLoad } from '../assign.js';
 import { findPath, resolveGroup, lifecycleFor } from '../classification.js';
 import { reconcileOwner } from '../owner.js';
 import { pickGroupLive } from '../routing-live.js';
@@ -187,6 +187,17 @@ function techsOfGroup(t: TenantData, groupId?: string | null): string[] {
   const staff = t.members.filter((m) => m.role === 'technician' || m.role === 'tenant_admin');
   if (groupId) { const inGroup = staff.filter((m) => (m.groupIds ?? []).includes(groupId)); if (inGroup.length) return inGroup.map((m) => m.uid); }
   return staff.map((m) => m.uid);
+}
+/** Afinidad [0,1] por técnico para un servicio, desde routingStats.byServiceTech (Fase 8).
+ *  Cuota histórica (recency-weighted) de cada técnico; vacío si no hay índice. */
+function affinityForNode(t: TenantData, serviceId?: string): Record<string, number> {
+  const node = serviceId ? t.routingStats?.byServiceTech?.[serviceId] : undefined;
+  if (!node) return {};
+  const tot = Object.values(node).reduce((a, s) => a + (s.recent || s.resolved || 0), 0);
+  if (!tot) return {};
+  const out: Record<string, number> = {};
+  for (const [k, s] of Object.entries(node)) out[k] = (s.recent || s.resolved || 0) / tot;
+  return out;
 }
 const mapTenant = (db: DB, id: string, fn: (t: TenantData) => TenantData): DB => ({ ...db, tenants: db.tenants.map((t) => (t.id === id ? fn(t) : t)) });
 const genId = (t: TenantData): string => (t.id === 'leasys' ? 'SR-' : 'INC-') + String(t.counter).padStart(4, '0');
@@ -463,7 +474,7 @@ export const useStore = create<State>()(
           let autoAssigned = false;
           if (ro.autoAssign && !merged.technicianId) {
             const cand = techsOfGroup(t, ro.autoAssign.groupId ?? merged.groupId);
-            const pick = pickByLoad(cand, t.capacity);
+            const pick = t.liveRouting ? pickBySkillAndLoad(cand, t.capacity, affinityForNode(t, nt.service)) : pickByLoad(cand, t.capacity);
             if (pick) { merged.technicianId = pick; autoAssigned = true; }
           }
           let finalStatus = merged.status ?? init;
@@ -836,7 +847,8 @@ export const useStore = create<State>()(
         // Auto-asigna al técnico MENOS cargado (OrganiZate) del grupo del ticket.
         autoAssign: (ticketId) => {
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return null;
-          const pick = pickByLoad(techsOfGroup(t, tk.groupId), t.capacity);
+          const cand = techsOfGroup(t, tk.groupId);
+          const pick = t.liveRouting ? pickBySkillAndLoad(cand, t.capacity, affinityForNode(t, tk.service)) : pickByLoad(cand, t.capacity);
           if (pick) get().assign(ticketId, pick);
           return pick;
         },

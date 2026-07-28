@@ -378,6 +378,8 @@ export interface GroupStat { resolved: number; recent: number; reassignedOut?: n
 export interface RoutingStats {
   byService: Record<string, Record<string, GroupStat>>;
   byElement?: Record<string, Record<string, GroupStat>>;
+  /** afinidad por TÉCNICO y servicio (Fase 8): quién resolvió de verdad cada servicio. */
+  byServiceTech?: Record<string, Record<string, GroupStat>>;
   generatedAt?: number;
 }
 
