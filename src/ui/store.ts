@@ -11,6 +11,7 @@ import type { FormRule } from '../formrules.js';
 import { pickByLoad } from '../assign.js';
 import { findPath, resolveGroup, lifecycleFor } from '../classification.js';
 import { reconcileOwner } from '../owner.js';
+import { pickGroupLive } from '../routing-live.js';
 import { parseInbound } from '../inbound.js';
 import type { Webhook } from '../webhooks.js';
 import { webhooksFor } from '../webhooks.js';
@@ -426,6 +427,10 @@ export const useStore = create<State>()(
           const v3path = v3 ? findPath(t.classificationTree ?? [], nt.area, nt.service, nt.element) : null;
           const v3svc = v3path?.service;
           const v3group = v3path ? resolveGroup(v3path) : undefined;
+          // Enrutado VIVO (Fase 7): sobre el prior (v3group), el histórico ajusta el grupo.
+          // Inerte salvo que el tenant active liveRouting (y Atenza cree/asigne, post-corte).
+          const livePick = (v3 && t.liveRouting) ? pickGroupLive(t.routingStats, nt.service, nt.element, v3group) : null;
+          const routedGroup = livePick?.groupId ?? v3group;
           const tpl = (cat || v3) ? undefined : (t.templates.find((x) => x.id === nt.templateId) ?? t.templates[0]);
           const type: 'incident' | 'service_request' = nt.type ?? tpl?.type ?? 'incident';
           const lcId = v3svc ? (lifecycleFor(v3svc, type) ?? null) : cat ? ((type === 'incident' ? cat.incident?.lifecycleId : cat.service_request?.lifecycleId) ?? null) : (tpl?.lifecycleId ?? null);
@@ -447,7 +452,8 @@ export const useStore = create<State>()(
             ...(cat ? { serviceCategoryId: cat.id, serviceCategory: cat.name } : {}),
             ...(v3 ? { area: nt.area, service: nt.service, ...(nt.element ? { element: nt.element } : {}) } : {}),
             // Grupo de soporte (v3: heredado del árbol; legacy: de la categoría). Una regla de negocio puede sobrescribirlo.
-            ...(v3group ? { groupId: v3group } : cat?.groupId ? { groupId: cat.groupId } : {}),
+            ...(routedGroup ? { groupId: routedGroup } : cat?.groupId ? { groupId: cat.groupId } : {}),
+            ...(livePick?.groupId && livePick.why ? { routeWhy: livePick.why } : {}),
             ...(nt.udf && Object.keys(nt.udf).length ? { udf: nt.udf } : {}),
           };
           // Reglas de negocio: aplican patch (prioridad/grupo/estado/técnico) al crear.

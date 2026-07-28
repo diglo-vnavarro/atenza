@@ -76,6 +76,8 @@ export interface Ticket {
   area?: string;
   service?: string;
   element?: string;
+  /** explicación del enrutado vivo (Fase 7): por qué el ticket cayó en este grupo. */
+  routeWhy?: string;
   priority?: string;
   impact?: string;
   urgency?: string;
@@ -367,6 +369,16 @@ export interface AreaNode {
   inactive?: boolean;
   sortIndex?: number;
   services: ServiceNode[];
+}
+
+// Índice de ENRUTADO VIVO (Fase 7): por servicio (y opcionalmente elemento), la
+// distribución de grupos que RESOLVIERON de verdad, con conteo total y reciente
+// (últimos 12 meses) y reasignaciones salientes. Lo construye scripts/build-routing-index.
+export interface GroupStat { resolved: number; recent: number; reassignedOut?: number; lastAt?: number }
+export interface RoutingStats {
+  byService: Record<string, Record<string, GroupStat>>;
+  byElement?: Record<string, Record<string, GroupStat>>;
+  generatedAt?: number;
 }
 
 export interface Sla {

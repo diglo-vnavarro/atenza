@@ -1,6 +1,6 @@
 // Datos semilla del piloto (local-first). Dos instancias, reflejando la
 // realidad de Diglo: una interna completa y un cliente externo (Leasys).
-import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, ApprovalLevelDef, Asset, AreaNode } from '../model.js';
+import type { Lifecycle, Template, Sla, Ticket, StatusSegment, StatusDef, NotifRule, AppNotification, ReplyTemplate, FieldDef, ApprovalLevelDef, Asset, AreaNode, RoutingStats } from '../model.js';
 import { DIGLO_CLASSIFICATION_V3 } from './classification-seed.js';
 
 // Catálogo de campos adicionales (ad-hoc) de ejemplo para diglo-it.
@@ -306,6 +306,10 @@ export interface TenantData {
    *  y docs/plan-implementacion-3-niveles.md). Aditivo y reversible: por defecto 'legacy';
    *  cambiar a 'v3' NO borra la config anterior (rollback = volver a 'legacy'). */
   classificationVersion?: 'legacy' | 'v3';
+  /** Enrutado vivo a grupo (Fase 7): índice histórico + flag de activación (default off).
+   *  Inerte hasta que Atenza cree/asigne tickets (post-corte). */
+  routingStats?: RoutingStats;
+  liveRouting?: boolean;
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }
