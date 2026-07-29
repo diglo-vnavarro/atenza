@@ -1,0 +1,408 @@
+<style>
+  :root{
+    --bg:#f5f6f8; --surface:#ffffff; --surface-2:#fbfcfd; --ink:#1a2030; --ink-2:#3a4356;
+    --muted:#647087; --line:#e4e7ee; --line-2:#eef1f5;
+    --accent:#3b5bdb;
+    --it:#3b5bdb; --ops:#0f766e; --bi:#7c3aed; --neg:#b4530a;
+    --ok:#15803d; --ok-bg:#e9f4ec; --warn:#b45309; --warn-bg:#f9efdd; --off:#b02a37; --off-bg:#f7e9ea;
+    --shadow:0 1px 2px rgba(20,28,48,.04),0 2px 8px rgba(20,28,48,.05);
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#0e1117; --surface:#161b24; --surface-2:#1a212c; --ink:#e7eaf1; --ink-2:#c2cad8;
+      --muted:#8b97ab; --line:#28303d; --line-2:#212936;
+      --accent:#7d94f5; --it:#7d94f5; --ops:#3fbfa3; --bi:#b18cf7; --neg:#e0913f;
+      --ok:#5dc27f; --ok-bg:#12241a; --warn:#e0a955; --warn-bg:#2a2113; --off:#e07683; --off-bg:#2a1618;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 2px 10px rgba(0,0,0,.25); }
+  }
+  :root[data-theme="dark"]{ --bg:#0e1117; --surface:#161b24; --surface-2:#1a212c; --ink:#e7eaf1; --ink-2:#c2cad8;
+    --muted:#8b97ab; --line:#28303d; --line-2:#212936; --accent:#7d94f5; --it:#7d94f5; --ops:#3fbfa3; --bi:#b18cf7; --neg:#e0913f;
+    --ok:#5dc27f; --ok-bg:#12241a; --warn:#e0a955; --warn-bg:#2a2113; --off:#e07683; --off-bg:#2a1618;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 2px 10px rgba(0,0,0,.25); }
+  :root[data-theme="light"]{ --bg:#f5f6f8; --surface:#ffffff; --surface-2:#fbfcfd; --ink:#1a2030; --ink-2:#3a4356;
+    --muted:#647087; --line:#e4e7ee; --line-2:#eef1f5; --accent:#3b5bdb; --it:#3b5bdb; --ops:#0f766e; --bi:#7c3aed; --neg:#b4530a;
+    --ok:#15803d; --ok-bg:#e9f4ec; --warn:#b45309; --warn-bg:#f9efdd; --off:#b02a37; --off-bg:#f7e9ea; }
+
+  *{box-sizing:border-box}
+  .wrap{font-family:var(--sans);color:var(--ink);background:var(--bg);max-width:1000px;margin:0 auto;padding:2.2rem 1.3rem 4rem;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .eyebrow{font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 .5rem}
+  h1{font-size:29px;line-height:1.15;font-weight:600;margin:0 0 .5rem;text-wrap:balance;letter-spacing:-.01em}
+  h2{font-size:19px;font-weight:600;margin:2.6rem 0 .3rem;letter-spacing:-.01em}
+  .lead{color:var(--ink-2);font-size:15.5px;max-width:66ch;margin:0}
+  .sub{color:var(--muted);font-size:13.5px;margin:.15rem 0 1rem;max-width:70ch}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:1.6rem 0 .5rem}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:.85rem .95rem;box-shadow:var(--shadow)}
+  .kpi .n{font-family:var(--mono);font-size:23px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+  .kpi .k{font-size:12.5px;color:var(--muted);margin-top:2px;line-height:1.35}
+
+  .controls{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:.4rem 0 1rem}
+  .controls .lbl{font-size:12.5px;color:var(--muted);margin-right:4px}
+  .btn{font-family:var(--sans);font-size:13px;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:5px 13px;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--muted)}
+  .btn[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+  :root[data-theme="dark"] .btn[aria-pressed="true"]{color:#0e1117}
+  @media (prefers-color-scheme:dark){.btn[aria-pressed="true"]{color:#0e1117}}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);background:var(--surface)}
+  table{border-collapse:collapse;width:100%;font-size:13.5px;min-width:720px}
+  thead th{text-align:left;font-weight:600;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);padding:11px 12px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--surface)}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+  tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover{background:var(--surface-2)}
+  .sc{font-weight:500}
+  .arrow{color:var(--muted);padding:0 2px}
+  .num{font-family:var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+  .bar{height:5px;border-radius:3px;background:var(--accent);opacity:.85;margin-top:3px}
+  .bar.z{background:var(--line);opacity:1}
+  .badge{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:20px;white-space:nowrap}
+  .b-ok{background:var(--ok-bg);color:var(--ok)}
+  .b-off{background:var(--off-bg);color:var(--off)}
+  .b-warn{background:var(--warn-bg);color:var(--warn)}
+  .chipdot{display:inline-block;width:8px;height:8px;border-radius:3px;margin-right:6px;vertical-align:1px}
+  .motivo{color:var(--ink-2);font-size:12.8px}
+
+  .areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;margin-top:1rem}
+  .area{background:var(--surface);border:1px solid var(--line);border-top:3px solid var(--ac);border-radius:12px;padding:.9rem 1rem;box-shadow:var(--shadow)}
+  .area h3{margin:0;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:space-between}
+  .area .cap{font-size:12px;color:var(--muted);font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .area ul{list-style:none;margin:.6rem 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
+  .area li{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:13px;padding:4px 8px;border-radius:7px;background:var(--surface-2)}
+  .area li .v{font-family:var(--mono);font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .area li.inact{opacity:.62}
+  .area li.inact .nm::after{content:" · inactivo";color:var(--warn);font-size:11px}
+  .area.omit{border-top-color:var(--off)}
+  .area.omit li{background:var(--off-bg)}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:1rem}
+  @media(max-width:640px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:1rem 1.1rem;box-shadow:var(--shadow)}
+  .card h3{margin:0 0 .5rem;font-size:14px;font-weight:600}
+  .list{list-style:none;margin:0;padding:0;font-size:13.2px}
+  .list li{padding:6px 0;border-bottom:1px solid var(--line-2);display:flex;gap:8px;align-items:baseline}
+  .list li:last-child{border-bottom:0}
+  .tag{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;padding:1px 7px;border-radius:5px;background:var(--off-bg);color:var(--off);white-space:nowrap;flex-shrink:0}
+  .tag.dup{background:var(--warn-bg);color:var(--warn)}
+  .foot{margin-top:2.4rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:12.5px}
+  .note{background:var(--surface-2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:.7rem .9rem;font-size:13.2px;color:var(--ink-2);margin-top:1rem}
+  .flowwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);background:var(--surface);padding:10px 6px;margin-top:1rem}
+  #flow{width:100%;height:auto;display:block;min-width:640px}
+  #flow text{font-family:var(--sans)}
+  #flow .src{font-size:11px;fill:var(--ink)}
+  #flow .rib{fill:none;stroke-linecap:round;stroke-opacity:.42;transition:stroke-opacity .15s}
+  #flow .rib:hover{stroke-opacity:.95}
+  #flow .rib.z{stroke-dasharray:2 5;stroke-opacity:.55}
+  #flow .box{stroke-width:1.5}
+  #flow .blab{font-size:13px;font-weight:600;fill:var(--ink)}
+  #flow .btot{font-size:10.5px;fill:var(--muted);font-family:var(--mono)}
+</style>
+
+<div class="wrap">
+  <p class="eyebrow">Atenza · nuevo ITSM — diseño de la clasificación</p>
+  <h1>De 4 niveles a 3: matriz de decisión</h1>
+  <p class="lead">Cómo las <strong>23 categorías de servicio</strong> y el árbol Categoría·Subcategoría·Artículo actuales se agrupan en <strong>4 áreas / 16 servicios</strong>. Qué queda englobado, qué se omite y por qué — con el volumen real de tickets de Diglo-ITSM.</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">23 → 4</div><div class="k">categorías de servicio → áreas (IT · Operaciones · BI · Negocio)</div></div>
+    <div class="kpi"><div class="n">98,9%</div><div class="k">de 23.583 tickets quedan clasificados</div></div>
+    <div class="kpi"><div class="n">5</div><div class="k">categorías de servicio omitidas (legacy / sin uso)</div></div>
+    <div class="kpi"><div class="n">8</div><div class="k">categorías del árbol podadas (duplicadas o vacías)</div></div>
+  </div>
+
+  <div class="note">El eje de la propuesta es <strong>Área → Servicio → Elemento</strong>: el nivel 1 es la categoría de servicio al alto nivel; el grupo de soporte se hereda; y el árbol Cat·Subcat·Artículo pasa a ser el nivel 3 «aplicación afectada». Nada se pierde: lo omitido son categorías sin tickets o duplicadas — se conservan como alias de archivo.</p></div>
+
+  <h2>1 · Grafo de flujo — categoría actual → área</h2>
+  <p class="sub">Cada categoría de servicio actual (izquierda) fluye a su área nueva (derecha). El grosor del conector es proporcional al volumen de tickets (escala raíz, para que los pequeños también se vean). Pasa el ratón por un flujo para resaltarlo.</p>
+  <div class="flowwrap"><svg id="flow" role="img" aria-label="Grafo de flujo: las categorías de servicio actuales convergen en las 4 áreas nuevas más las omitidas"></svg></div>
+
+  <h2>2 · Agrupación — dónde cae cada servicio</h2>
+  <p class="sub">Los servicios actuales, repartidos en las 4 áreas nuevas. Cifra = tickets históricos resueltos. La última tarjeta son las categorías que se retiran.</p>
+  <div class="areas">
+    <div class="area" style="--ac:var(--it)">
+      <h3>IT <span class="cap">≈ 7.150</span></h3>
+      <ul>
+        <li><span class="nm">Incidencia general</span><span class="v">2.705</span></li>
+        <li><span class="nm">Petición general</span><span class="v">2.417</span></li>
+        <li><span class="nm">Tareas REO <em style="color:var(--muted);font-style:normal">· externos</em></span><span class="v">1.498</span></li>
+        <li><span class="nm">Recovery</span><span class="v">385</span></li>
+        <li><span class="nm">Gestión de usuarios</span><span class="v">129</span></li>
+        <li><span class="nm">AI · Gemini</span><span class="v">23</span></li>
+        <li><span class="nm">GCP <em style="color:var(--muted);font-style:normal">· nuevo</em></span><span class="v">↑</span></li>
+      </ul>
+    </div>
+    <div class="area" style="--ac:var(--ops)">
+      <h3>Operaciones <span class="cap">≈ 11.870</span></h3>
+      <ul>
+        <li><span class="nm">Liquidaciones de deuda</span><span class="v">11.853</span></li>
+        <li class="inact"><span class="nm">PD</span><span class="v">13</span></li>
+      </ul>
+    </div>
+    <div class="area" style="--ac:var(--bi)">
+      <h3>BI <span class="cap">≈ 760</span></h3>
+      <ul>
+        <li><span class="nm">ITSM BI</span><span class="v">393</span></li>
+        <li><span class="nm">Solicitudes BI</span><span class="v">346</span></li>
+        <li><span class="nm">Informes Looker</span><span class="v">20</span></li>
+      </ul>
+    </div>
+    <div class="area" style="--ac:var(--neg)">
+      <h3>Negocio <span class="cap">≈ 1.630</span></h3>
+      <ul>
+        <li><span class="nm">Reclamación <em style="color:var(--muted);font-style:normal">· 12 colas</em></span><span class="v">1.604</span></li>
+        <li><span class="nm">Seguimiento Infoser/Diglo</span><span class="v">14</span></li>
+        <li><span class="nm">Solicitud Waiver</span><span class="v">8</span></li>
+      </ul>
+    </div>
+    <div class="area omit">
+      <h3>Omitidas <span class="cap">≈ 0</span></h3>
+      <ul>
+        <li><span class="nm">Intranet (Active Directory)</span><span class="v">0</span></li>
+        <li><span class="nm">Payroll</span><span class="v">0</span></li>
+        <li><span class="nm">VOIP / Telephone</span><span class="v">0</span></li>
+        <li><span class="nm">Corporate Website</span><span class="v">0</span></li>
+        <li><span class="nm">DEFAULT / TEST / NO USAR</span><span class="v">basura</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>3 · Matriz de mapeo (categoría de servicio → propuesta)</h2>
+  <p class="sub">Cada categoría de servicio actual, su volumen histórico, a qué Área·Servicio va, y el motivo si se omite.</p>
+  <div class="controls" role="group" aria-label="Filtro">
+    <span class="lbl">Ver:</span>
+    <button class="btn" data-f="all" aria-pressed="true">Todas (23)</button>
+    <button class="btn" data-f="ok" aria-pressed="false">Englobadas</button>
+    <button class="btn" data-f="off" aria-pressed="false">Omitidas</button>
+  </div>
+  <div class="tablewrap">
+    <table id="mtx">
+      <thead><tr><th>Categoría de servicio (actual)</th><th style="text-align:right">Tickets</th><th>Área</th><th>Servicio (propuesto)</th><th>Estado</th><th>Motivo</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+
+  <h2>4 · Poda del árbol Categoría · Subcategoría · Artículo</h2>
+  <p class="sub">El árbol temático solo se rellena en el ~20% de los tickets. Pasa a ser el nivel 3 («aplicación afectada»), podado: se retiran las categorías raíz duplicadas o sin uso.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="color:var(--ok)">Se conservan · con uso</h3>
+      <ul class="list">
+        <li>Aplicaciones <span class="v" style="margin-left:auto;color:var(--muted);font-family:var(--mono);font-size:12px">Gmail · Outlook · Citrix · SAP · Looker…</span></li>
+        <li>Dispositivos <span style="margin-left:auto;color:var(--muted);font-size:12px">puesto de trabajo</span></li>
+        <li>Datos · Arquitectura · Comunicaciones</li>
+        <li>Correo Electrónico · Gestión Managers</li>
+        <li>Acceso / autenticación</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--off)">Se retiran · cero uso</h3>
+      <ul class="list">
+        <li><span class="tag dup">duplicada</span> Microsoft Office (raíz)</li>
+        <li><span class="tag dup">duplicada</span> VDI · Móviles · Unidades/Filer</li>
+        <li><span class="tag">vacía</span> General · Otros</li>
+        <li><span class="tag">sin uso</span> Internet · Consulta de Documentación</li>
+        <li><span class="tag">por grupo</span> Reclamaciones de Clientes</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>5 · Motivos de omisión</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3>Categorías de servicio</h3>
+      <ul class="list">
+        <li><span class="tag">legacy</span> Intranet, Payroll, VOIP, Corporate Website: era Microsoft/AD, sin tickets — la empresa migró a Google Cloud.</li>
+        <li><span class="tag">basura</span> DEFAULT NO USAR, TEST IT, NO USAR, CRM, Estándar: plantillas de prueba/obsoletas.</li>
+        <li><span class="tag dup">inactivo</span> PD entra bajo Operaciones pero desactivado: último ticket jun-2024.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Árbol temático</h3>
+      <ul class="list">
+        <li><span class="tag dup">duplicada</span> El mismo nodo aparecía dos veces (MS Office, VDI, Móviles, Filer) → se fusiona.</li>
+        <li><span class="tag">vacía</span> Buckets sin contenido real (General, Otros) → se usa Tipo + Asunto.</li>
+        <li><span class="tag">por grupo</span> Reclamaciones se gestiona por grupo de soporte, no por el árbol.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>6 · La transformación de riesgo — 2 cabeceras antiguas → 3 niveles</h2>
+  <p class="sub">Antes competían dos niveles superiores: <strong>Categoría de servicio</strong> (eje A) y <strong>Categoría</strong> del árbol (eje B). No se funden en uno: caen en niveles distintos del modelo nuevo.</p>
+  <div class="flowwrap" style="padding:16px 10px">
+    <svg viewBox="0 0 940 300" role="img" aria-label="Diagrama: la Categoría de servicio pasa a Área (N1) y la Categoría del árbol pasa a Elemento (N3)" style="width:100%;height:auto;display:block;min-width:640px">
+      <defs><marker id="arw" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/></marker>
+      <marker id="arwi" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--it)"/></marker>
+      <marker id="arwb" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--bi)"/></marker></defs>
+      <path d="M260 80 L182 206" stroke="var(--it)" stroke-width="3" fill="none" marker-end="url(#arwi)"/>
+      <path d="M262 80 L458 206" stroke="var(--it)" stroke-width="1.6" fill="none" marker-end="url(#arwi)"/>
+      <path d="M680 80 L772 206" stroke="var(--bi)" stroke-width="3" fill="none" marker-end="url(#arwb)"/>
+      <path d="M672 80 C 500 150, 320 150, 190 206" stroke="var(--bi)" stroke-width="1.6" stroke-dasharray="3 5" fill="none" marker-end="url(#arwb)"/>
+      <rect x="140" y="22" width="240" height="58" rx="11" style="fill:var(--it);fill-opacity:.12;stroke:var(--it);stroke-width:1.5"/>
+      <text x="260" y="47" text-anchor="middle" style="font-size:14px;font-weight:600;fill:var(--ink)">Categoría de servicio</text>
+      <text x="260" y="66" text-anchor="middle" style="font-size:11.5px;fill:var(--muted);font-family:var(--mono)">eje A · 23</text>
+      <rect x="560" y="22" width="240" height="58" rx="11" style="fill:var(--bi);fill-opacity:.12;stroke:var(--bi);stroke-width:1.5"/>
+      <text x="680" y="47" text-anchor="middle" style="font-size:14px;font-weight:600;fill:var(--ink)">Categoría (árbol)</text>
+      <text x="680" y="66" text-anchor="middle" style="font-size:11.5px;fill:var(--muted);font-family:var(--mono)">eje B · 22</text>
+      <rect x="60" y="208" width="220" height="60" rx="11" style="fill:var(--surface-2);stroke:var(--it);stroke-width:2"/>
+      <text x="170" y="234" text-anchor="middle" style="font-size:14px;font-weight:600;fill:var(--ink)">N1 · Área</text>
+      <text x="170" y="252" text-anchor="middle" style="font-size:11px;fill:var(--muted)">IT · Ops · BI · Negocio</text>
+      <rect x="360" y="208" width="220" height="60" rx="11" style="fill:var(--surface-2);stroke:var(--line);stroke-width:1.5"/>
+      <text x="470" y="234" text-anchor="middle" style="font-size:14px;font-weight:600;fill:var(--ink)">N2 · Servicio</text>
+      <text x="470" y="252" text-anchor="middle" style="font-size:11px;fill:var(--muted)">grupo · permisos · tipo</text>
+      <rect x="660" y="208" width="220" height="60" rx="11" style="fill:var(--surface-2);stroke:var(--bi);stroke-width:2"/>
+      <text x="770" y="234" text-anchor="middle" style="font-size:14px;font-weight:600;fill:var(--ink)">N3 · Elemento</text>
+      <text x="770" y="252" text-anchor="middle" style="font-size:11px;fill:var(--muted)">aplicación afectada</text>
+      <text x="150" y="150" style="font-size:11px;fill:var(--it)">eje principal</text>
+      <text x="700" y="150" style="font-size:11px;fill:var(--bi)">detalle app</text>
+    </svg>
+  </div>
+  <div class="note">La línea punteada son las <strong>3 coincidencias</strong> donde la Categoría del árbol también apunta a un área — <strong>Datos → BI · Operaciones → Operaciones · Reclamaciones → Negocio</strong> — y ambos ejes concuerdan. El resto del árbol (Aplicaciones, Dispositivos, Correo…) baja a N3 como «aplicación afectada».</div>
+
+  <p class="sub" style="margin-top:1.3rem">Detalle — cada Categoría del árbol (eje B), su volumen histórico y su nivel destino:</p>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Categoría (árbol · eje B)</th><th style="text-align:right">Tickets</th><th>Nivel nuevo</th><th>Área</th><th>Motivo</th></tr></thead>
+      <tbody id="tbB"></tbody>
+    </table>
+  </div>
+
+  <div class="foot">Datos: Diglo-ITSM (Zoho SDP), 23.583 tickets · volúmenes = tickets resueltos/cerrados históricos · cobertura medida con el mapa de sincronización. Documento de trabajo para el diseño del nuevo ITSM.</div>
+</div>
+
+<script>
+  const rows=[
+    ["Operaciones (Liquidaciones)",11853,"ops","Operaciones · Liquidaciones de deuda","ok","El 55% del histórico. Buzón funcional operaciones-itsm@."],
+    ["Peticiones",2417,"it","IT · Petición general","ok","Mesa de ayuda (CAU)."],
+    ["Plantilla Incidencia (genéricas)",2705,"it","IT · Incidencia general","ok","Mesa de ayuda (CAU)."],
+    ["Reclamaciones de Clientes",1604,"neg","Negocio · Reclamación","ok","Equipo de negocio propio; 12 colas."],
+    ["Tareas REO",1498,"it","IT · Tareas REO","ok","Mismo equipo IT + externos (visibilidad acotada)."],
+    ["ITSM BI",393,"bi","BI · ITSM BI","ok","—"],
+    ["Recovery",385,"it","IT · Recovery","ok","Subconjunto del equipo de IT."],
+    ["Solicitudes BI",346,"bi","BI · Solicitudes BI","ok","—"],
+    ["Gestión de usuarios",129,"it","IT · Gestión de usuarios","ok","Altas/bajas/modif. (CAU/IT)."],
+    ["AI - Gemini",23,"it","IT · AI · Gemini","ok","Deduplicado (era categoría + artículo)."],
+    ["Informes Looker",20,"bi","BI · Informes Looker","ok","Perfil BI."],
+    ["Seguimiento Infoser/Diglo",14,"neg","Negocio · Seguimiento","ok","—"],
+    ["Solicitudes PD",13,"ops","Operaciones · PD","warn","Englobada pero INACTIVA: último ticket jun-2024."],
+    ["Solicitud Waiver",8,"neg","Negocio · Waiver","ok","Lo resuelve CAU de facto."],
+    ["Incidencias/Peticiones GCP",6,"it","IT · GCP","ok","Google Cloud Platform (en crecimiento)."],
+    ["Arquitectura IT",4,"it","IT · Petición general / Infra","ok","Sin grupo propio en SDP."],
+    ["Gestiones de Correo Electrónico",3,"it","IT · Gestión de usuarios","ok","Buzones compartidos."],
+    ["Gestión Unidades Departamentales",2,"it","IT · Petición general","ok","Accesos a unidades/carpetas."],
+    ["Intranet (Active Directory)",0,"off","—","off","Era Microsoft/AD. Sin uso; migración a Google."],
+    ["Payroll",0,"off","—","off","Sin grupo, sin tickets."],
+    ["VOIP or Telephone",0,"off","—","off","Telefonía legacy (BlackBerry/iPhone). Sin uso."],
+    ["Corporate Website",0,"off","—","off","Web corporativa legacy. Sin uso."],
+    ["DEFAULT / TEST / NO USAR / CRM",0,"off","—","off","Plantillas de prueba u obsoletas."]
+  ];
+  const areaName={it:"IT",ops:"Operaciones",bi:"BI",neg:"Negocio",off:"—"};
+  const max=Math.max(...rows.map(r=>r[1]));
+  const badge={ok:['b-ok','englobada'],warn:['b-warn','inactiva'],off:['b-off','omitida']};
+  const tb=document.getElementById('tb');
+  tb.innerHTML=rows.map(r=>{
+    const [sc,n,area,svc,st,mot]=r;
+    const w=n>0?Math.max(3,Math.round(Math.sqrt(n/max)*100)):0;
+    const dot=area!=='off'?`<span class="chipdot" style="background:var(--${area})"></span>`:'';
+    const bar=n>0?`<div class="bar" style="width:${w}%"></div>`:`<div class="bar z" style="width:14px"></div>`;
+    const [bc,bt]=badge[st];
+    return `<tr data-st="${st}">
+      <td class="sc">${sc}</td>
+      <td class="num">${n>0?n.toLocaleString('es-ES'):'0'}${bar}</td>
+      <td>${dot}${areaName[area]}</td>
+      <td>${svc}</td>
+      <td><span class="badge ${bc}">${bt}</span></td>
+      <td class="motivo">${mot}</td></tr>`;
+  }).join('');
+  const btns=[...document.querySelectorAll('.controls .btn')];
+  btns.forEach(b=>b.addEventListener('click',()=>{
+    btns.forEach(x=>x.setAttribute('aria-pressed',x===b));
+    const f=b.dataset.f;
+    [...tb.children].forEach(tr=>{
+      const st=tr.dataset.st;
+      const show=f==='all'||(f==='ok'&&(st==='ok'||st==='warn'))||(f==='off'&&st==='off');
+      tr.style.display=show?'':'none';
+    });
+  }));
+
+  // --- Grafo de flujo (Sankey simplificado): categorías actuales → áreas ---
+  (function(){
+    const svg=document.getElementById('flow'); if(!svg) return;
+    const order=['it','ops','bi','neg','off'];
+    const meta={it:['IT','var(--it)'],ops:['Operaciones','var(--ops)'],bi:['BI','var(--bi)'],neg:['Negocio','var(--neg)'],off:['Omitidas','var(--off)']};
+    const rowH=20,gGap=18,pad=12,leftX=262,areaX=700,areaW=214,W=940,boxH=44;
+    let y=pad; const src=[]; const band={};
+    order.forEach(a=>{
+      const items=rows.filter(r=>r[2]===a); if(!items.length) return;
+      const first=y;
+      items.forEach(r=>{ src.push({r,y:y+rowH/2}); y+=rowH; });
+      band[a]={c:(first+y)/2,n:items.length,tot:items.reduce((s,r)=>s+r[1],0)};
+      y+=gGap;
+    });
+    const H=y-gGap+pad, maxV=Math.max(...rows.map(r=>r[1]))||1, mx=(leftX+areaX)/2;
+    svg.setAttribute('viewBox',`0 0 ${W} ${Math.round(H)}`);
+    const idx={}; order.forEach(a=>idx[a]=0);
+    let s='';
+    src.forEach(o=>{
+      const a=o.r[2],vol=o.r[1],b=band[a],bt=b.c-boxH/2,i=idx[a]++;
+      const ty=bt+(i+0.5)/b.n*boxH, w=vol>0?Math.max(2.5,Math.sqrt(vol/maxV)*22):2;
+      s+=`<path class="rib${vol>0?'':' z'}" d="M${leftX} ${o.y.toFixed(1)} C ${mx} ${o.y.toFixed(1)} ${mx} ${ty.toFixed(1)} ${areaX} ${ty.toFixed(1)}" style="stroke:${meta[a][1]}" stroke-width="${w.toFixed(1)}"/>`;
+    });
+    src.forEach(o=>{
+      const nm=o.r[0].length>34?o.r[0].slice(0,32)+'…':o.r[0];
+      s+=`<circle cx="${leftX-3}" cy="${o.y.toFixed(1)}" r="2.6" style="fill:${meta[o.r[2]][1]}"/>`;
+      s+=`<text class="src" x="${leftX-10}" y="${(o.y+3.6).toFixed(1)}" text-anchor="end">${nm}</text>`;
+    });
+    order.forEach(a=>{
+      const b=band[a]; if(!b) return; const bt=b.c-boxH/2;
+      s+=`<rect class="box" x="${areaX}" y="${bt.toFixed(1)}" width="${areaW}" height="${boxH}" rx="9" style="fill:${meta[a][1]};fill-opacity:.12;stroke:${meta[a][1]}"/>`;
+      s+=`<text class="blab" x="${areaX+15}" y="${(b.c-1).toFixed(1)}">${meta[a][0]}</text>`;
+      s+=`<text class="btot" x="${areaX+15}" y="${(b.c+13).toFixed(1)}">${a==='off'?'sin uso':b.tot.toLocaleString('es-ES')+' tickets'}</text>`;
+    });
+    svg.innerHTML=s;
+  })();
+
+  // --- Tabla eje B: Categoría del árbol → nivel nuevo ---
+  (function(){
+    const tbB=document.getElementById('tbB'); if(!tbB) return;
+    // [categoría, tickets, nivel, área, motivo, convergencia?]
+    const B=[
+      ["Aplicaciones",3467,"N3","IT","Catálogo de apps → aplicación afectada (Gmail, Citrix, SAP…)",0],
+      ["Dispositivos",934,"N3","IT","Puesto de trabajo (portátil, monitor, impresora)",0],
+      ["Otros",282,"—","—","Bucket genérico → se omite",0],
+      ["Arquitectura",270,"N3","IT","Infraestructura (Azure, SFTP, VDI)",0],
+      ["Datos",200,"N1","BI","Coincide con el Área BI",1],
+      ["Gestión Managers",186,"N2","IT","Gestión de usuarios / buzones",0],
+      ["Comunicaciones",130,"N3","IT","Redes / comunicación masiva",0],
+      ["Acceso o autenticación",75,"N2","IT","Accesos e identidad",0],
+      ["Operaciones",31,"N1","Operaciones","Coincide con el Área Operaciones",1],
+      ["Otros problemas de funcionalidad",14,"—","—","Genérico → se omite",0],
+      ["Problemas de Datos",10,"N3","BI","Duplicada de Datos (calidad de datos)",0],
+      ["Visualización de Informes",8,"N2","BI","Informes / Looker",0],
+      ["Correo Electrónico",2,"N3","IT","Dedup con Gmail/Outlook (aplicación)",0],
+      ["Errores en Consultas",2,"N3","BI","Calidad de datos",0],
+      ["Consulta de Documentación",0,"—","—","Vacía → base de conocimiento / omitir",0],
+      ["General",0,"—","—","Bucket vacío",0],
+      ["Internet",0,"N3","IT","Sin uso (redes)",0],
+      ["Microsoft Office (raíz)",0,"N3","IT","Duplicada → fusión con Aplicaciones",0],
+      ["Móviles",0,"N3","IT","Duplicada → Dispositivos",0],
+      ["Reclamaciones de Clientes",0,"N1","Negocio","Es Área, pero se gestiona por grupo (0 en árbol)",1],
+      ["Unidades dep. / Filer Server",0,"N3","IT","Duplicada → Infraestructura",0],
+      ["VDI (raíz)",0,"N3","IT","Duplicada → Infraestructura",0]
+    ];
+    const lvlColor={"N1":"var(--it)","N2":"var(--ops)","N3":"var(--muted)","—":"var(--off)"};
+    const areaC={IT:"var(--it)",Operaciones:"var(--ops)",BI:"var(--bi)",Negocio:"var(--neg)","—":"var(--muted)"};
+    tbB.innerHTML=B.map(r=>{
+      const [cat,n,lvl,area,mot,conv]=r;
+      const lvlTxt=lvl==="N1"?"N1 · Área":lvl==="N2"?"N2 · Servicio":lvl==="N3"?"N3 · Elemento":"omitida";
+      const dot=area!=="—"?`<span class="chipdot" style="background:${areaC[area]}"></span>`:"";
+      return `<tr>
+        <td class="sc">${conv?'⚠️ ':''}${cat}</td>
+        <td class="num">${n>0?n.toLocaleString('es-ES'):'0'}</td>
+        <td><span class="badge" style="background:transparent;border:1px solid ${lvlColor[lvl]};color:${lvlColor[lvl]}">${lvlTxt}</span></td>
+        <td>${dot}${area}</td>
+        <td class="motivo">${mot}</td></tr>`;
+    }).join('');
+  })();
+</script>
