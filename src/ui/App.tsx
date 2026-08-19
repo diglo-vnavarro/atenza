@@ -2036,17 +2036,13 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
 function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; readOnly?: boolean; onClose: () => void }) {
   const create = useStore((s) => s.createTicket);
   const pls = tenant.picklists;
-  const [tipo, setTipo] = useState<'incident' | 'service_request'>('incident');
+  const [tipo, setTipo] = useState<'incident' | 'service_request' | ''>('');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(pls?.priority.some((p) => p.name === 'Media') ? 'Media' : pls?.priority[0]?.name ?? 'Media');
-  // Sede: por defecto SIEMPRE «Base Site» (como en SDP); si no existe, la primera sede.
-  const [site, setSite] = useState(() => defaultSite(tenant));
   const [notifyEmails, setNotifyEmails] = useState('');
-  const [impactDetails, setImpactDetails] = useState('');
-  const [assetIds, setAssetIds] = useState<string[]>([]);
-  const requesters = tenant.members.filter((m) => m.role === 'requester');
-  const [requesterId, setRequesterId] = useState(role === 'requester' ? user.uid : requesters[0]?.uid ?? user.uid);
+  const [impactDetails, setImpactDetails] = useState('Afecta a un usuario');
+  const [requesterId, setRequesterId] = useState(user.uid);
   const [udf, setUdf] = useState<Record<string, string>>({});
   const setU = (id: string, v: string) => setUdf((u) => ({ ...u, [id]: v }));
   const uploadAttachment = useStore((s) => s.uploadAttachment);
@@ -2064,10 +2060,10 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
 
   const myUG = tenant.members.find((m) => m.uid === user.uid)?.userGroups ?? [];
   const canSee = (c: import('../data/seed.js').ServiceCategoryDef) => role !== 'requester' || !c.userGroups?.length || c.userGroups.some((g) => myUG.includes(g));
-  const cats = (tenant.serviceCategories ?? []).filter((c) => !!c[tipo]).filter(canSee);
+  const cats = (tenant.serviceCategories ?? []).filter((c) => !!tipo && !!c[tipo]).filter(canSee);
   const [catId, setCatId] = useState('');
-  const cat = cats.find((c) => c.id === catId) ?? cats[0];
-  useEffect(() => { if (!cats.some((c) => c.id === catId)) setCatId(cats[0]?.id ?? ''); }, [tipo, cats, catId]);
+  const cat = cats.find((c) => c.id === catId); // sin valor por defecto: el usuario elige (F1)
+  useEffect(() => { if (catId && !cats.some((c) => c.id === catId)) setCatId(''); }, [tipo, cats, catId]);
   // --- Clasificación v3 (Área → Servicio → Elemento), tras el flag classificationVersion ---
   const v3 = tenant.classificationVersion === 'v3';
   const clsAreas = (tenant.classificationTree ?? []).filter((a) => !a.inactive).map((a) => ({
@@ -2078,9 +2074,9 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const clsSvc = clsArea?.services.find((s) => s.id === serviceId) ?? clsArea?.services[0];
   const clsEls = (clsSvc?.elements ?? []).filter((e) => !e.inactive);
   const allowT = (v3 && clsSvc?.allowedTypes?.length ? clsSvc.allowedTypes : ['incident', 'service_request']) as readonly ('incident' | 'service_request')[];
-  useEffect(() => { if (v3 && clsSvc && !allowT.includes(tipo)) setTipo(allowT[0]!); }, [v3, clsSvc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (v3 && clsSvc && tipo && !allowT.includes(tipo)) setTipo(allowT[0]!); }, [v3, clsSvc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const lcId = v3 ? (clsSvc?.lifecycleByType?.[tipo] ?? null) : (cat ? cat[tipo]?.lifecycleId ?? null : null);
+  const lcId = v3 ? (tipo ? clsSvc?.lifecycleByType?.[tipo] ?? null : null) : (cat && tipo ? cat[tipo]?.lifecycleId ?? null : null);
   const lcName = lcId ? tenant.lifecycles.find((l) => l.id === lcId)?.name ?? lcId : null;
   const catFields = ((v3 ? clsSvc?.fields : cat?.fields) ?? []) as FieldDef[];
   // Reglas del formulario POR CATEGORÍA: se evalúan en vivo sobre los valores de los
@@ -2092,10 +2088,12 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const isDis = (f: FieldDef) => effects[f.id]?.disabled === true;
   const visCatFields = catFields.filter((f) => !isHidden(f));
   const missingCat = visCatFields.some((f) => isMand(f) && !(udf[f.id] ?? '').trim());
-  const canSubmit = !!subject.trim() && (v3 ? !!clsSvc : !!cat) && !missingCat && !readOnly;
+  // F5: Categoría/Subcategoría/Tipología obligatorias en modo legacy (si el nivel existe).
+  const missingClass = !v3 && ((!!catNode && catNode.subs.length > 0 && !subcategory) || (!!subNode && subNode.items.length > 0 && !item));
+  const canSubmit = !!subject.trim() && !!tipo && (v3 ? !!clsSvc : !!cat) && !missingCat && !missingClass && !readOnly;
   const submit = async () => {
-    if (!canSubmit) return;
-    const common = { subject, description, priority, site: site || undefined, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, assetIds: assetIds.length ? assetIds : undefined, requesterId, type: tipo, udf };
+    if (!canSubmit || !tipo) return;
+    const common = { subject, description, priority, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, requesterId, type: tipo, udf };
     const id = v3
       ? (clsArea && clsSvc ? create({ ...common, area: clsArea.id, service: clsSvc.id, element: elementId || undefined }) : '')
       : (cat ? create({ ...common, category, subcategory: subcategory || undefined, item: item || undefined, serviceCategoryId: cat.id }) : '');
@@ -2150,29 +2148,37 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
               <span className="cat-pick">
                 {cat && <span className="cat-pick-ic">{catIconEl(cat, 22)}</span>}
                 <select value={cat?.id ?? ''} onChange={(e) => setCatId(e.target.value)}>
+                  <option value="">{tipo ? '— Selecciona una categoría —' : '— Elige primero el tipo —'}</option>
                   {cats.map((c) => <option key={c.id} value={c.id}>{!c.iconImage && c.icon ? c.icon + ' ' : ''}{c.name}</option>)}
-                  {cats.length === 0 && <option value="">— sin categorías para este tipo —</option>}
                 </select>
               </span>
             </label>}
-            {lcName ? <div className="lc-hint"><Icon name="branch" size={13} /> Ciclo de vida: <b>{lcName}</b></div> : cat && <div className="lc-hint"><Icon name="branch" size={13} /> Sin flujo (estado libre)</div>}
+            {role !== 'requester' && (lcName ? <div className="lc-hint"><Icon name="branch" size={13} /> Ciclo de vida: <b>{lcName}</b></div> : cat && <div className="lc-hint"><Icon name="branch" size={13} /> Sin flujo (estado libre)</div>)}
           </div>
           <div className="nf-sec">
             <div className="nf-sec-h">Datos de la solicitud</div>
+            <div className="nf-cols">
+              <div className="nf-col">
+                <label>{fcap('Solicitante', true)}<select value={requesterId} disabled={role === 'requester'} onChange={(e) => setRequesterId(e.target.value)}>{tenant.members.filter((m) => m.status === 'active').map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>
+              </div>
+              <div className="nf-col">
+                <label>{fcap('Correos a notificar')}<input type="text" list="nf-emails" value={notifyEmails} onChange={(e) => setNotifyEmails(e.target.value)} placeholder="nombre o correo…" /></label>
+                <datalist id="nf-emails">{tenant.members.filter((m) => m.email).map((m) => <option key={m.uid} value={m.email}>{m.name}</option>)}</datalist>
+              </div>
+            </div>
             <label>{fcap('Asunto', true)}<input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Resume la solicitud…" autoFocus /></label>
             <div className="nf-cols">
               <div className="nf-col">
                 <label>{fcap('Prioridad', true)}<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
-                {!v3 && <label>{fcap('Categoría')}<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>}
-                {!v3 && subNode && subNode.items.length > 0 && <label>{fcap('Artículo')}<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
+                {!v3 && <label>{fcap('Categoría', true)}<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>}
+                {!v3 && subNode && subNode.items.length > 0 && <label>{fcap('Tipología', true)}<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
               </div>
               <div className="nf-col">
-                {(tenant.sites ?? []).length > 0 && <label>{fcap('Sede')}<select value={site} onChange={(e) => setSite(e.target.value)}>{(tenant.sites ?? []).map((x) => <option key={x} value={x}>{x}</option>)}</select></label>}
-                {!v3 && catNode && catNode.subs.length > 0 && <label>{fcap('Subcategoría')}<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((sn) => <option key={sn.name} value={sn.name}>{sn.name}</option>)}</select></label>}
+                <label>{fcap('Impacto')}<select value={impactDetails} onChange={(e) => setImpactDetails(e.target.value)}><option>Afecta a un usuario</option><option>Afecta a un grupo</option><option>Afecta a un área</option></select></label>
+                {!v3 && catNode && catNode.subs.length > 0 && <label>{fcap('Subcategoría', true)}<select value={subcategory} onChange={(e) => { setSubcategory(e.target.value); setItem(''); }}><option value="">— Seleccionar —</option>{catNode.subs.map((sn) => <option key={sn.name} value={sn.name}>{sn.name}</option>)}</select></label>}
               </div>
             </div>
-            {role !== 'requester' && <label>{fcap('Solicitante')}<select value={requesterId} onChange={(e) => setRequesterId(e.target.value)}>{requesters.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select></label>}
-            <label>{fcap('Descripción')}<RichText value={description} onChange={setDescription} placeholder="Describe la solicitud con detalle…" disabled={readOnly} /></label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12, color: 'var(--ink-soft)' }}>{fcap('Descripción')}<RichText value={description} onChange={setDescription} placeholder="Describe la solicitud con detalle…" disabled={readOnly} /></div>
           </div>
           {visCatFields.length > 0 && <div className="nf-sec">
             <div className="nf-sec-h">Campos {v3 ? 'del servicio' : 'de la categoría'} · {v3 ? clsSvc?.name : cat?.name}</div>
@@ -2189,12 +2195,6 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
               </label>
             </div>
             {files.length > 0 && <div className="dz-list">{files.map((f, i) => <span key={i} className="dz-file"><Icon name="paperclip" size={12} /> {f.name} <span className="soft">({fmtSize(f.size)})</span><button className="xbtn" onClick={() => setFiles((fs) => fs.filter((_, j) => j !== i))} aria-label="Quitar">✕</button></span>)}</div>}
-          </div>
-          <div className="nf-sec">
-            <div className="nf-sec-h">Más detalles</div>
-            <label>{fcap('Detalles del impacto')}<textarea value={impactDetails} rows={2} onChange={(e) => setImpactDetails(e.target.value)} placeholder="A quién/qué afecta, alcance…" /></label>
-            <label>{fcap('Activos / elementos afectados')}<AssetPicker tenant={tenant} value={assetIds} onChange={setAssetIds} suggest={(tenant.assets ?? []).filter((a) => a.assignedTo === requesterId)} /></label>
-            <label>{fcap('Correos a notificar')}<input type="text" value={notifyEmails} onChange={(e) => setNotifyEmails(e.target.value)} placeholder="correo1@dominio.com, correo2@dominio.com…" /></label>
           </div>
           {readOnly && <div className="empty" style={{ fontSize: 12 }}><Icon name="eye" size={13} /> Modo lectura: no puedes crear la solicitud.</div>}
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
