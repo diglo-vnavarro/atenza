@@ -1,0 +1,439 @@
+[
+ {
+  "name": "Aplicaciones",
+  "subs": [
+   {
+    "name": "Agentes",
+    "nuevo": true,
+    "tips": [
+     {
+      "name": "Nuevo Agente",
+      "nuevo": true,
+      "group": "Técnicos IA"
+     },
+     {
+      "name": "Agente de voz - Cita inmobiliaria",
+      "nuevo": true,
+      "group": "Técnicos IA"
+     },
+     {
+      "name": "Agente voz - Recobro",
+      "nuevo": true,
+      "group": "Técnicos IA"
+     },
+     {
+      "name": "Análisis actas CCPP",
+      "nuevo": true,
+      "group": "Técnicos IA"
+     },
+     {
+      "name": "Edición de contenidos",
+      "nuevo": true,
+      "group": "Técnicos IA"
+     },
+     {
+      "name": "Gestor de Fotos",
+      "nuevo": true,
+      "group": "Técnicos IA"
+     },
+     {
+      "name": "Análisis de Notas Simples",
+      "nuevo": true,
+      "group": "Técnicos IA"
+     },
+     {
+      "name": "Pagos Decretados",
+      "nuevo": true,
+      "group": "Técnicos IA"
+     },
+     {
+      "name": "Propuetas NPL",
+      "nuevo": true,
+      "group": "Técnicos IA"
+     }
+    ]
+   },
+   {
+    "name": "Herramientas Banco",
+    "tips": [
+     {
+      "name": "Citrix",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "ADN",
+      "nuevo": true,
+      "group": "CAU"
+     },
+     {
+      "name": "Ares",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "OneHR",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "SAP",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "Sharepoint",
+      "nuevo": true,
+      "group": "CAU"
+     },
+     {
+      "name": "Tallyman",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "Tasaweb",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "TPNET",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "TPV",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "TPX",
+      "nuevo": false,
+      "group": "CAU"
+     }
+    ]
+   },
+   {
+    "name": "Herramientas de Negocio",
+    "tips": [
+     {
+      "name": "CRM",
+      "nuevo": false,
+      "group": "Técnicos REO - CRM"
+     },
+     {
+      "name": "Logalty",
+      "nuevo": false,
+      "group": "Técnicos IT"
+     },
+     {
+      "name": "Portal del Deudor",
+      "nuevo": false,
+      "group": "Técnicos Portal Deudor"
+     },
+     {
+      "name": "Prinex",
+      "nuevo": false,
+      "group": "Técnicos REO - Prinex"
+     },
+     {
+      "name": "Recovery",
+      "nuevo": false,
+      "group": "Técnicos Recovery"
+     },
+     {
+      "name": "Saneamiento Jurídico",
+      "nuevo": true,
+      "group": "Técnicos IT"
+     },
+     {
+      "name": "Web",
+      "nuevo": false,
+      "group": "Técnicos REO - WEB"
+     }
+    ]
+   },
+   {
+    "name": "Herramientas Google",
+    "tips": [
+     {
+      "name": "Calendar",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "Docs",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "Drive",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "Gemini",
+      "nuevo": false,
+      "group": "Técnicos IA"
+     },
+     {
+      "name": "Gmail",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "Grupos",
+      "nuevo": true,
+      "group": "CAU"
+     },
+     {
+      "name": "Keep",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "Looker",
+      "nuevo": true,
+      "group": "Técnicos BI"
+     },
+     {
+      "name": "Meet",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "Sheets",
+      "nuevo": false,
+      "group": "CAU"
+     },
+     {
+      "name": "Slides",
+      "nuevo": false,
+      "group": "CAU"
+     }
+    ]
+   },
+   {
+    "name": "ITSM",
+    "group": "Técnicos IT"
+   }
+  ]
+ },
+ {
+  "name": "Arquitectura",
+  "subs": [
+   {
+    "name": "Automatización",
+    "group": "Técnicos IT"
+   },
+   {
+    "name": "Backup/Restauración de ficheros",
+    "group": "CAU"
+   },
+   {
+    "name": "Excepciones (Waiber)",
+    "group": "IT Aprobadores"
+   },
+   {
+    "name": "Creación SFTP",
+    "group": "Técnicos IT"
+   },
+   {
+    "name": "Unidades departamentales",
+    "group": "CAU"
+   },
+   {
+    "name": "VPN",
+    "group": "CAU"
+   }
+  ]
+ },
+ {
+  "name": "Clientes",
+  "subs": [
+   {
+    "name": "Leasys",
+    "nuevo": true,
+    "group": "Técnicos Leasys"
+   },
+   {
+    "name": "Lynxcap",
+    "nuevo": true,
+    "group": "Técnicos Lynxcap"
+   },
+   {
+    "name": "UCI",
+    "nuevo": true,
+    "group": "Técnicos UCI"
+   }
+  ]
+ },
+ {
+  "name": "Dispositivos",
+  "subs": [
+   {
+    "name": "Impresora",
+    "group": "CAU"
+   },
+   {
+    "name": "Monitor",
+    "group": "CAU"
+   },
+   {
+    "name": "Periféricos (teclado, ratón...)",
+    "group": "CAU"
+   },
+   {
+    "name": "Portátil",
+    "group": "CAU"
+   },
+   {
+    "name": "Tableta",
+    "group": "CAU"
+   },
+   {
+    "name": "Teléfono móvil - no funciona",
+    "group": "CAU"
+   },
+   {
+    "name": "Teléfono móvil - ampliación de datos",
+    "group": "CAU"
+   }
+  ]
+ },
+ {
+  "name": "Gestión Managers",
+  "subs": [
+   {
+    "name": "Alta de usuario externo",
+    "group": "CAU (aviso a Nuria y creo que Virginia)",
+    "note": "Ver lógica; hay flujo con Silvia y Virginia"
+   },
+   {
+    "name": "Alta de usuario interno",
+    "group": "CAU (aviso a Nuria y creo que Virginia)",
+    "note": "Ver lógica; hay flujo con Silvia y Virginia"
+   },
+   {
+    "name": "Baja de usuario externo",
+    "group": "CAU (aviso a Nuria y creo que Virginia)",
+    "note": "Ver lógica; hay flujo con Silvia y Virginia"
+   },
+   {
+    "name": "Baja de usuario interno",
+    "group": "CAU (aviso a Nuria y creo que Virginia)",
+    "note": "Ver lógica; hay flujo con Silvia y Virginia"
+   },
+   {
+    "name": "Solicitud de nueva unidad compartida",
+    "nuevo": true,
+    "group": "CAU"
+   },
+   {
+    "name": "Solicitud de nuevo Grupo",
+    "nuevo": true,
+    "group": "CAU"
+   }
+  ]
+ },
+ {
+  "name": "Operaciones",
+  "subs": [
+   {
+    "name": "Liquidaciones Informativas de Deuda",
+    "group": "Técnicos Operaciones",
+    "note": "Ver lógica"
+   }
+  ]
+ },
+ {
+  "name": "Reclamaciones de Clientes",
+  "note": "flujo propio (12 colas)",
+  "subs": [
+   {
+    "name": "Alquileres",
+    "group": "Técnicos Reclamaciones Alquileres",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Atención Comercial",
+    "group": "Técnicos Reclamaciones Atención Comercial",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Compras",
+    "group": "Técnicos Reclamaciones Compras",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Deuda",
+    "group": "Técnicos Reclamaciones Deuda",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Escritura",
+    "group": "Técnicos Reclamaciones Escritura",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Ocupaciones Ilegales",
+    "group": "Técnicos Reclamaciones Ocupaciones Ilegales",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Operaciones",
+    "group": "Técnicos Reclamaciones Operaciones",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Proyectos",
+    "group": "Técnicos Reclamaciones Proyectos",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Reparaciones",
+    "group": "Técnicos Reclamaciones Reparaciones",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Reservas",
+    "group": "Técnicos Reclamaciones Reservas",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "THP Bahamas",
+    "group": "Técnicos Reclamaciones THP Bahamas",
+    "note": "Ver lógica"
+   },
+   {
+    "name": "Venta de Crédito",
+    "group": "Técnicos Reclamaciones Venta de Crédito",
+    "note": "Ver lógica"
+   }
+  ]
+ },
+ {
+  "name": "Seguridad",
+  "subs": [
+   {
+    "name": "Restablecer MFA",
+    "nuevo": true,
+    "group": "CAU"
+   },
+   {
+    "name": "Correo Phishing",
+    "nuevo": true,
+    "group": "Técnicos IT"
+   },
+   {
+    "name": "Vulnerabilidades",
+    "nuevo": true,
+    "group": "Técnicos IT"
+   }
+  ]
+ },
+ {
+  "name": "Visualización de informes",
+  "group": "Técnicos BI"
+ }
+]
