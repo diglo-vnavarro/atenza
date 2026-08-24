@@ -2070,8 +2070,8 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
     ...a, services: a.services.filter((s) => !s.inactive && (role !== 'requester' || !s.userGroups?.length || s.userGroups.some((g) => myUG.includes(g)))),
   })).filter((a) => a.services.length);
   const [areaId, setAreaId] = useState(''); const [serviceId, setServiceId] = useState(''); const [elementId, setElementId] = useState('');
-  const clsArea = clsAreas.find((a) => a.id === areaId) ?? clsAreas[0];
-  const clsSvc = clsArea?.services.find((s) => s.id === serviceId) ?? clsArea?.services[0];
+  const clsArea = clsAreas.find((a) => a.id === areaId); // sin default: el usuario elige (F1)
+  const clsSvc = clsArea?.services.find((s) => s.id === serviceId);
   const clsEls = (clsSvc?.elements ?? []).filter((e) => !e.inactive);
   const allowT = (v3 && clsSvc?.allowedTypes?.length ? clsSvc.allowedTypes : ['incident', 'service_request']) as readonly ('incident' | 'service_request')[];
   useEffect(() => { if (v3 && clsSvc && tipo && !allowT.includes(tipo)) setTipo(allowT[0]!); }, [v3, clsSvc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -2090,7 +2090,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const missingCat = visCatFields.some((f) => isMand(f) && !(udf[f.id] ?? '').trim());
   // F5: Categoría/Subcategoría/Tipología obligatorias en modo legacy (si el nivel existe).
   const missingClass = !v3 && ((!!catNode && catNode.subs.length > 0 && !subcategory) || (!!subNode && subNode.items.length > 0 && !item));
-  const canSubmit = !!subject.trim() && !!tipo && (v3 ? !!clsSvc : !!cat) && !missingCat && !missingClass && !readOnly;
+  const canSubmit = !!subject.trim() && !!tipo && (v3 ? (!!clsSvc && (clsEls.length === 0 || !!elementId)) : !!cat) && !missingCat && !missingClass && !readOnly;
   const submit = async () => {
     if (!canSubmit || !tipo) return;
     const common = { subject, description, priority, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, requesterId, type: tipo, udf };
@@ -2128,20 +2128,21 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
               </div>
             </label>
             {v3 ? <>
-              <label>Área
+              <label>{fcap('Categoría', true)}
                 <select value={clsArea?.id ?? ''} onChange={(e) => { setAreaId(e.target.value); setServiceId(''); setElementId(''); }}>
+                  <option value="">{clsAreas.length ? '— Selecciona —' : '— sin categorías disponibles —'}</option>
                   {clsAreas.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  {clsAreas.length === 0 && <option value="">— sin áreas disponibles —</option>}
                 </select>
               </label>
-              <label>Servicio
-                <select value={clsSvc?.id ?? ''} onChange={(e) => { setServiceId(e.target.value); setElementId(''); }}>
+              <label>{fcap('Subcategoría', true)}
+                <select value={clsSvc?.id ?? ''} disabled={!clsArea} onChange={(e) => { setServiceId(e.target.value); setElementId(''); }}>
+                  <option value="">— Selecciona —</option>
                   {(clsArea?.services ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </label>
-              {clsEls.length > 0 && <label>Elemento (aplicación)
+              {clsEls.length > 0 && <label>{fcap('Tipología', true)}
                 <select value={elementId} onChange={(e) => setElementId(e.target.value)}>
-                  <option value="">— Seleccionar —</option>{clsEls.map((el) => <option key={el.id} value={el.id}>{el.name}</option>)}
+                  <option value="">— Selecciona —</option>{clsEls.map((el) => <option key={el.id} value={el.id}>{el.name}</option>)}
                 </select>
               </label>}
             </> : <label>Categoría de servicio
