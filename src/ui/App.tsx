@@ -23,7 +23,7 @@ import { searchKb, type KbArticle } from '../kb.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
-import { DEFAULT_CAPS, CAP_LIST, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap, type Branding, type TenantHeader, type PlatformAuditEntry } from '../data/seed.js';
+import { DEFAULT_CAPS, CAP_LIST, DEFAULT_REQUEST_CLASS, type TenantData, type StoredTicket, type UiMember, type Capacity, type Picklists, type PickVal, type RoleDef, type RoleBase, type Cap, type Branding, type TenantHeader, type PlatformAuditEntry } from '../data/seed.js';
 import { BLUEPRINTS, getBlueprint } from '../data/blueprints.js';
 
 const AUDIT_LABEL: Record<string, string> = { provision: 'Provisión', approve: 'Aprobación', reject: 'Rechazo', revoke: 'Revocación', create: 'Creación' };
@@ -2042,6 +2042,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const [priority, setPriority] = useState(pls?.priority.some((p) => p.name === 'Media') ? 'Media' : pls?.priority[0]?.name ?? 'Media');
   const [notifyEmails, setNotifyEmails] = useState('');
   const [impactDetails, setImpactDetails] = useState('Afecta a un usuario');
+  const [requestClass, setRequestClass] = useState(''); // F12 (solo peticiones)
   const [requesterId, setRequesterId] = useState(user.uid);
   const [udf, setUdf] = useState<Record<string, string>>({});
   const setU = (id: string, v: string) => setUdf((u) => ({ ...u, [id]: v }));
@@ -2078,6 +2079,9 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
 
   const lcId = v3 ? (tipo ? clsSvc?.lifecycleByType?.[tipo] ?? null : null) : (cat && tipo ? cat[tipo]?.lifecycleId ?? null : null);
   const lcName = lcId ? tenant.lifecycles.find((l) => l.id === lcId)?.name ?? lcId : null;
+  // F11 — Estado inicial derivado del ciclo (primer estado; «Abierta» si el servicio no lleva flujo).
+  const lcObj = lcId ? tenant.lifecycles.find((l) => l.id === lcId) : null;
+  const initEstado = lcObj ? (lcObj.states.find((s) => s.isInitial)?.label ?? lcObj.states[0]?.label ?? 'Abierta') : 'Abierta';
   const catFields = ((v3 ? clsSvc?.fields : cat?.fields) ?? []) as FieldDef[];
   // Reglas del formulario POR CATEGORÍA: se evalúan en vivo sobre los valores de los
   // campos de la categoría (muestran/ocultan/obligan/deshabilitan).
@@ -2093,7 +2097,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   const canSubmit = !!subject.trim() && !!tipo && (v3 ? (!!clsSvc && (clsEls.length === 0 || !!elementId)) : !!cat) && !missingCat && !missingClass && !readOnly;
   const submit = async () => {
     if (!canSubmit || !tipo) return;
-    const common = { subject, description, priority, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, requesterId, type: tipo, udf };
+    const common = { subject, description, priority, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, requestClass: tipo === 'service_request' ? (requestClass || undefined) : undefined, requesterId, type: tipo, udf };
     const id = v3
       ? (clsArea && clsSvc ? create({ ...common, area: clsArea.id, service: clsSvc.id, element: elementId || undefined }) : '')
       : (cat ? create({ ...common, category, subcategory: subcategory || undefined, item: item || undefined, serviceCategoryId: cat.id }) : '');
@@ -2155,6 +2159,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
               </span>
             </label>}
             {role !== 'requester' && (lcName ? <div className="lc-hint"><Icon name="branch" size={13} /> Ciclo de vida: <b>{lcName}</b></div> : cat && <div className="lc-hint"><Icon name="branch" size={13} /> Sin flujo (estado libre)</div>)}
+            {role !== 'requester' && (v3 ? !!clsSvc : !!cat) && <div className="lc-hint">Estado inicial: <b>{initEstado}</b></div>}
           </div>
           <div className="nf-sec">
             <div className="nf-sec-h">Datos de la solicitud</div>
@@ -2171,6 +2176,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
             <div className="nf-cols">
               <div className="nf-col">
                 <label>{fcap('Prioridad', true)}<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
+                {tipo === 'service_request' && <label>{fcap('Clasificación')}<select value={requestClass} onChange={(e) => setRequestClass(e.target.value)}><option value="">— Selecciona —</option>{(pls?.requestClass ?? DEFAULT_REQUEST_CLASS).map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}</select></label>}
                 {!v3 && <label>{fcap('Categoría', true)}<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>}
                 {!v3 && subNode && subNode.items.length > 0 && <label>{fcap('Tipología', true)}<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
               </div>

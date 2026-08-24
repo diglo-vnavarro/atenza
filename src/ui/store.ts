@@ -27,7 +27,7 @@ export type Role = 'tenant_admin' | 'technician' | 'requester';
 interface NewTicket {
   subject: string; description: string; category?: string; subcategory?: string; item?: string;
   priority: string; impact?: string; urgency?: string; mode?: string; level?: string; site?: string;
-  notifyEmails?: string; impactDetails?: string; assets?: string; assetIds?: string[];
+  notifyEmails?: string; impactDetails?: string; requestClass?: string; assets?: string; assetIds?: string[];
   requesterId: string; technicianId?: string | null;
   templateId?: string;
   udf?: Record<string, string>;
@@ -457,6 +457,8 @@ export const useStore = create<State>()(
             priority: nt.priority, impact: nt.impact, urgency: nt.urgency, mode: nt.mode, level: nt.level, site: nt.site,
             ...(nt.notifyEmails && nt.notifyEmails.trim() ? { notifyEmails: nt.notifyEmails.trim() } : {}),
             ...(nt.impactDetails && nt.impactDetails.trim() ? { impactDetails: nt.impactDetails.trim() } : {}),
+            // F12: clasificación solo en peticiones (nunca en incidencias).
+            ...(type === 'service_request' && nt.requestClass && nt.requestClass.trim() ? { requestClass: nt.requestClass.trim() } : {}),
             ...(nt.assets && nt.assets.trim() ? { assets: nt.assets.trim() } : {}),
             ...(nt.assetIds && nt.assetIds.length ? { assetIds: nt.assetIds } : {}),
             templateId: (cat || v3) ? 'unified' : (tpl?.id ?? 'tpl-inc'), status: init,

@@ -88,6 +88,9 @@ export interface Ticket {
   notifyEmails?: string;
   /** detalles del impacto (SDP «impact_details»); texto libre opcional. */
   impactDetails?: string;
+  /** F12 — Clasificación de la petición (Solicitud de información / Petición de servicio /
+   *  Evolutivo). Solo aplica a peticiones (type='service_request'); ausente en incidencias. */
+  requestClass?: string;
   /** activos / elementos afectados (SDP «assets»); texto libre LEGADO (import). Se
    *  mantiene por compatibilidad; la vinculación viva usa `assetIds`. */
   assets?: string;

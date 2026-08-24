@@ -101,7 +101,10 @@ export const SDP_ROLES: RoleDef[] = ['AnnouncementConfig', 'AssetConfig', 'Contr
 
 // Catálogos de valores del "customizer" de SDP (nombre + color opcional).
 export interface PickVal { name: string; color?: string }
-export interface Picklists { priority: PickVal[]; impact: PickVal[]; urgency: PickVal[]; level: PickVal[]; mode: PickVal[]; requestType: PickVal[]; taskType: PickVal[] }
+export interface Picklists { priority: PickVal[]; impact: PickVal[]; urgency: PickVal[]; level: PickVal[]; mode: PickVal[]; requestType: PickVal[]; taskType: PickVal[]; requestClass?: PickVal[] }
+/** F12 — valores por defecto de «Clasificación» (solo peticiones). El formulario cae a
+ *  estos si el tenant no define `picklists.requestClass`. */
+export const DEFAULT_REQUEST_CLASS: PickVal[] = [{ name: 'Solicitud de información' }, { name: 'Petición de servicio' }, { name: 'Evolutivo' }];
 export const SDP_PICKLISTS: Picklists = {
   priority: [
     { name: 'Critica', color: '#0d9696' }, { name: 'Alta', color: '#ff0000' }, { name: 'Importante', color: '#8f23eb' },
@@ -112,6 +115,7 @@ export const SDP_PICKLISTS: Picklists = {
   level: [{ name: 'Nivel 1' }, { name: 'Nivel 2' }, { name: 'Nivel 3' }, { name: 'Nivel 4' }],
   mode: [{ name: 'E-Mail' }, { name: 'Formulario Web' }, { name: 'Llamada telefonica' }, { name: 'Mobile Application' }],
   requestType: [{ name: 'Incidencia' }, { name: 'Peticion de servicio' }, { name: 'Solicitud de información' }],
+  requestClass: [{ name: 'Solicitud de información' }, { name: 'Petición de servicio' }, { name: 'Evolutivo' }],
   taskType: [
     { name: 'BI', color: '#955d0f' }, { name: 'Implementation', color: '#999900' }, { name: 'Install/UnInstall', color: '#666666' },
     { name: 'Interno', color: '#f02a2a' }, { name: 'Maintenance', color: '#ff6600' }, { name: 'NPL', color: '#697cf8' },
