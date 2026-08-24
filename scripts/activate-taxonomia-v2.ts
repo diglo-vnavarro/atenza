@@ -28,10 +28,18 @@ const raw = JSON.parse(readFileSync(join(here, '..', 'importer', 'taxonomia-v2.j
 const RENAME: Record<string, string> = {
   'Tecnicos Gemini': 'Técnicos IA',
   'Tecnicos ITSM BI': 'Técnicos BI',
-  'Tecnicos BI': 'Técnicos IT',
+};
+// Alias de resolución: nombre del árbol (Excel) → grupo real EXISTENTE al que apunta.
+// «Técnicos IT» del árbol se resuelve al grupo «IT» que ya existe (roster correcto), en vez
+// de renombrar la mezcla «Tecnicos BI». Así no arrastramos miembros equivocados.
+const ALIAS: Record<string, string> = {
+  'Técnicos IT': 'IT',
 };
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+// Clave de comparación de GRUPO: solo alfanuméricos (ignora espacios, guiones, tildes) para
+// casar «Técnicos Reclamaciones Alquileres» (Excel) con «Tecnicos ReclamacionesAlquileres» (real).
+const gkey = (s: string) => norm(s).replace(/[^a-z0-9]/g, '');
 const slug = (s: string) => 'n-' + norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48);
 
 initializeApp({ projectId: PROJECT });
@@ -42,16 +50,17 @@ async function main(): Promise<void> {
   const real = snap.docs.map((d) => ({ id: d.id, name: String(d.data().name ?? '').trim() }));
   const renames: { id: string; from: string; to: string }[] = [];
   for (const r of real) if (RENAME[r.name]) { renames.push({ id: r.id, from: r.name, to: RENAME[r.name]! }); r.name = RENAME[r.name]!; }
-  const byNorm = new Map(real.map((r) => [norm(r.name), r]));
+  const byNorm = new Map(real.map((r) => [gkey(r.name), r]));
   const creates: { id: string; name: string }[] = [];
   const resolveGroup = (name?: string): string | undefined => {
     if (!name) return undefined;
-    const hit = byNorm.get(norm(name));
+    const target = ALIAS[name] ?? name;
+    const hit = byNorm.get(gkey(target));
     if (hit) return hit.id;
-    const ex = creates.find((c) => norm(c.name) === norm(name));
+    const ex = creates.find((c) => gkey(c.name) === gkey(target));
     if (ex) return ex.id;
     const id = db.collection(`tenants/${TENANT}/groups`).doc().id;
-    creates.push({ id, name }); byNorm.set(norm(name), { id, name });
+    creates.push({ id, name: target }); byNorm.set(gkey(target), { id, name: target });
     return id;
   };
 
