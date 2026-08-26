@@ -2095,6 +2095,8 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
   // F5: Categoría/Subcategoría/Tipología obligatorias en modo legacy (si el nivel existe).
   const missingClass = !v3 && ((!!catNode && catNode.subs.length > 0 && !subcategory) || (!!subNode && subNode.items.length > 0 && !item));
   const canSubmit = !!subject.trim() && !!tipo && (v3 ? (!!clsSvc && (clsEls.length === 0 || !!elementId)) : !!cat) && !missingCat && !missingClass && !readOnly;
+  // N2 — base de conocimiento activa: sugiere soluciones publicadas según el asunto (deflexión).
+  const kbSug = subject.trim().length >= 4 ? searchKb(tenant.kbArticles, subject, false).slice(0, 3) : [];
   const submit = async () => {
     if (!canSubmit || !tipo) return;
     const common = { subject, description, priority, notifyEmails: notifyEmails || undefined, impactDetails: impactDetails || undefined, requestClass: tipo === 'service_request' ? (requestClass || undefined) : undefined, requesterId, type: tipo, udf };
@@ -2192,6 +2194,16 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
             <div className="nf-cols">
               <div className="nf-col">{visCatFields.filter((f) => (f.col ?? 1) === 1).map((f) => <label key={f.id}>{fcap(f.label, isMand(f))}{widget(f)}</label>)}</div>
               <div className="nf-col">{visCatFields.filter((f) => f.col === 2).map((f) => <label key={f.id}>{fcap(f.label, isMand(f))}{widget(f)}</label>)}</div>
+            </div>
+          </div>}
+          {kbSug.length > 0 && <div className="nf-sec">
+            <div className="nf-sec-h">Soluciones que podrían ayudarte</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {kbSug.map((a) => <div key={a.id} style={{ border: '1px solid var(--line)', borderRadius: 8, padding: '8px 10px', background: 'var(--bg-soft, transparent)' }}>
+                <div style={{ fontWeight: 600, fontSize: 13 }}>{a.title}</div>
+                <div style={{ fontSize: 12, color: 'var(--ink-soft)', marginTop: 2 }}>{a.body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160)}…</div>
+              </div>)}
+              <div style={{ fontSize: 11, color: 'var(--ink-soft)' }}>Si alguna resuelve tu caso, quizá no necesites abrir la solicitud.</div>
             </div>
           </div>}
           <div className="nf-sec">
