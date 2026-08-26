@@ -1,0 +1,330 @@
+[
+ {
+  "excelGroup": "CAU",
+  "targetGroup": "CAU",
+  "members": [
+   "Jonatan Agudelo"
+  ]
+ },
+ {
+  "excelGroup": "CAU L2",
+  "targetGroup": "CAU L2",
+  "members": [
+   "Marcos Díaz",
+   "Miguel Moya"
+  ]
+ },
+ {
+  "excelGroup": "IT",
+  "targetGroup": "IT",
+  "members": [
+   "Nuria Imedio",
+   "Javi Quesada",
+   "Óscar Igualada",
+   "Vicente Navarra",
+   "Bea Cabado",
+   "David Durán",
+   "Elena Andrés",
+   "Sergio Frías"
+  ]
+ },
+ {
+  "excelGroup": "IT Aprobadores",
+  "targetGroup": "IT Aprobadores",
+  "members": [
+   "Nuria Imedio",
+   "Vicente Navarro"
+  ]
+ },
+ {
+  "excelGroup": "Seguimiento Infoser/Diglo",
+  "targetGroup": "Seguimiento Infoser/Diglo",
+  "members": [
+   "Nuria Imedio",
+   "Vicente Navarro",
+   "Jonatan Agudelo",
+   "Marcos Díaz",
+   "Miguel Moya"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos BI",
+  "targetGroup": "Técnicos IT",
+  "members": [
+   "Nuria Imedio",
+   "Javi Quesada",
+   "Óscar Igualada",
+   "Vicente Navarra",
+   "Bea Cabado",
+   "David Durán",
+   "Elena Andrés",
+   "Sergio Frías"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos GCP",
+  "targetGroup": "Técnicos GCP",
+  "members": []
+ },
+ {
+  "excelGroup": "Técnicos Gemini",
+  "targetGroup": "Técnicos IA",
+  "members": [
+   "Nuria Imedio",
+   "Vicente Navarro",
+   "Bea Cabado",
+   "Emma Perulero",
+   "Virginia Torralba"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos ITSM BI",
+  "targetGroup": "Técnicos BI",
+  "members": [
+   "Emma Perulero",
+   "Virginia Torralba"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos NPL",
+  "targetGroup": "Técnicos NPL",
+  "members": [
+   "Nuria Imedio",
+   "Óscar Igualada",
+   "Bea Cabado",
+   "Elena Andrés"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Operaciones",
+  "targetGroup": "Técnicos Operaciones",
+  "members": [
+   "Operaciones-ITSM"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos PD",
+  "targetGroup": "Técnicos PD",
+  "members": []
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Alquileres",
+  "targetGroup": "Técnicos Reclamaciones Alquileres",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Beatriz Moreno",
+   "Virginia Nef"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Atención Comercial",
+  "targetGroup": "Técnicos Reclamaciones Atención Comercial",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Stephane Boggetto",
+   "Beatriz Moreno",
+   "Blas Simón",
+   "Virginia Nef",
+   "Manuel Mayo"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Compras",
+  "targetGroup": "Técnicos Reclamaciones Compras",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Stephane Boggetto",
+   "Beatriz Moreno",
+   "Virginia Nef"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Deuda",
+  "targetGroup": "Técnicos Reclamaciones Deuda",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Beatriz Moreno",
+   "Virginia Nef",
+   "Fabián García"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Escritura",
+  "targetGroup": "Técnicos Reclamaciones Escritura",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Beatriz Moreno",
+   "Virginia Nef"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Ocupaciones Ilegales",
+  "targetGroup": "Técnicos Reclamaciones Ocupaciones Ilegales",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Beatriz Moreno",
+   "David Álvarez",
+   "Virginia Nef"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Operaciones",
+  "targetGroup": "Técnicos Reclamaciones Operaciones",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Beatriz Moreno",
+   "Sandra López",
+   "Virginia Nef"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Proyectos",
+  "targetGroup": "Técnicos Reclamaciones Proyectos",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Beatriz Moreno",
+   "Virginia Nef"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Reparaciones",
+  "targetGroup": "Técnicos Reclamaciones Reparaciones",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Beatriz Moreno",
+   "Elena Fernández",
+   "Virginia Nef"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Reservas",
+  "targetGroup": "Técnicos Reclamaciones Reservas",
+  "members": [
+   "Alfonso García",
+   "Stephane Boggetto",
+   "Beatriz Moreno",
+   "Blas Simón",
+   "Virginia Nef"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones THP Bahamas",
+  "targetGroup": "Técnicos Reclamaciones THP Bahamas",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Beatriz Moreno",
+   "Ignacio Alcor",
+   "Virginia Nef",
+   "Manuel Mayo"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Reclamaciones Venta de Crédito",
+  "targetGroup": "Técnicos Reclamaciones Venta de Crédito",
+  "members": [
+   "Alfonso García",
+   "Marta Cubillo",
+   "Beatriz Moreno",
+   "Laura Ávila",
+   "Virginia Nef",
+   "Ignacio Alcor"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Recovery",
+  "targetGroup": "Técnicos Recovery",
+  "members": [
+   "Nuria Imedio",
+   "Óscar Igualada",
+   "Elena Andrés",
+   "Vicente Navarro"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos REO",
+  "targetGroup": "Técnicos REO",
+  "members": []
+ },
+ {
+  "excelGroup": "Técnicos REO - CRM",
+  "targetGroup": "Técnicos REO - CRM",
+  "members": [
+   "Nuria Imedio",
+   "Javi Quesada",
+   "Óscar Igualada",
+   "Elena Andrés",
+   "Adrián Orduña",
+   "Mario Grau",
+   "Marcos Villagrasa",
+   "Adrián Ortuño"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos REO - Prinex",
+  "targetGroup": "Técnicos REO - Prinex",
+  "members": [
+   "Nuria Imedio",
+   "Javi Quesada",
+   "Óscar Igualada",
+   "Elena Andrés"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos REO - WEB",
+  "targetGroup": "Técnicos REO - WEB",
+  "members": [
+   "Nuria Imedio",
+   "Javi Quesada",
+   "Óscar Igualada",
+   "Elena Andrés",
+   "Manuel Mayo",
+   "Miguel Pérez"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Portal Deudor",
+  "targetGroup": "Técnicos Portal Deudor",
+  "members": [
+   "Nuria Imedio",
+   "Elena Andrés",
+   "Manuel Mayo",
+   "Miguel Pérez"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Leasys",
+  "targetGroup": "Técnicos Leasys",
+  "members": [
+   "Nuria Imedio",
+   "Elena Andrés",
+   "Óscar Igualada"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos UCI",
+  "targetGroup": "Técnicos UCI",
+  "members": [
+   "Nuria Imedio",
+   "Vicente Navarro",
+   "Óscar Igualada"
+  ]
+ },
+ {
+  "excelGroup": "Técnicos Lynxcap",
+  "targetGroup": "Técnicos Lynxcap",
+  "members": [
+   "Nuria Imedio",
+   "Óscar Igualada"
+  ]
+ }
+]
