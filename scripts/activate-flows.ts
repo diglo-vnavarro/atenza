@@ -10,7 +10,7 @@
 //   GOOGLE_CLOUD_PROJECT=diglo-desk-pd TENANT=diglo-it npx tsx scripts/activate-flows.ts
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import type { AreaNode, ServiceNode, FieldDef, TicketType } from '../src/model.js';
+import type { AreaNode, ServiceNode, FieldDef, TicketType, ApprovalLevelDef } from '../src/model.js';
 
 const APPLY = process.argv.includes('--apply');
 const WITH_F13 = process.argv.includes('--with-f13');
@@ -29,9 +29,16 @@ const LC = {
 // formulario lo pinta como texto libre hasta que se definan. Se adjunta solo con --with-f13.
 const FUNC_FIELD: FieldDef = { id: 'funcionalidad', label: 'Funcionalidad', type: 'select', options: [], requesterVisible: true, col: 2 };
 
+// L3 — aprobación de Altas/Bajas. Aprobadores confirmados por negocio: Silvia Flores (sflores) +
+// Virginia Nef (vnef); rule 'any' = basta con que apruebe uno. «Aviso a Nuria» NO se modela aquí
+// (el nivel de aprobación solo lleva aprobadores, no avisados) — pendiente de regla de notificación.
+const APPROVERS_ALTABAJA: ApprovalLevelDef[] = [
+  { id: 'al-altabaja-1', name: 'Visto bueno responsable', approverUids: ['9207000000198415', '9207000000199884'], rule: 'any' },
+];
+
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-interface Patch { lifecycleByType?: Partial<Record<TicketType, string | null>>; allowedTypes?: TicketType[]; fields?: FieldDef[] }
+interface Patch { lifecycleByType?: Partial<Record<TicketType, string | null>>; allowedTypes?: TicketType[]; fields?: FieldDef[]; approvalLevels?: ApprovalLevelDef[] }
 
 // Regla de cableado por (categoría, servicio). `svcMatch` casa por nombre normalizado.
 function patchFor(catName: string, svcName: string): Patch | null {
@@ -39,9 +46,9 @@ function patchFor(catName: string, svcName: string): Patch | null {
   if (c === 'operaciones' && s.startsWith('liquidaciones'))
     return { lifecycleByType: { service_request: LC.liquidaciones }, allowedTypes: ['service_request'] };
   if (c === 'gestion managers' && s.startsWith('alta de usuario'))
-    return { lifecycleByType: { service_request: LC.alta }, allowedTypes: ['service_request'] };
+    return { lifecycleByType: { service_request: LC.alta }, allowedTypes: ['service_request'], approvalLevels: APPROVERS_ALTABAJA };
   if (c === 'gestion managers' && s.startsWith('baja de usuario'))
-    return { lifecycleByType: { service_request: LC.baja }, allowedTypes: ['service_request'] };
+    return { lifecycleByType: { service_request: LC.baja }, allowedTypes: ['service_request'], approvalLevels: APPROVERS_ALTABAJA };
   if (c === 'reclamaciones de clientes')
     return { lifecycleByType: { incident: LC.incidencias } }; // flujo definido; intake web = integración externa (fuera de alcance)
   if (WITH_F13 && c === 'visualizacion de informes')
@@ -72,6 +79,7 @@ async function main(): Promise<void> {
     if (p.lifecycleByType) svc.lifecycleByType = { ...(svc.lifecycleByType ?? {}), ...p.lifecycleByType };
     if (p.allowedTypes) svc.allowedTypes = p.allowedTypes;
     if (p.fields) svc.fields = [...(svc.fields ?? []).filter((f) => !p.fields!.some((nf) => nf.id === f.id)), ...p.fields];
+    if (p.approvalLevels) svc.approvalLevels = p.approvalLevels;
   };
   for (const area of tree) for (const svc of area.services) {
     const p = patchFor(area.name, svc.name);
@@ -84,11 +92,12 @@ async function main(): Promise<void> {
     if (ch.patch.lifecycleByType) for (const [ty, id] of Object.entries(ch.patch.lifecycleByType)) bits.push(`${ty}→${byId.get(id as string)?.name ?? id}`);
     if (ch.patch.allowedTypes) bits.push(`solo [${ch.patch.allowedTypes.join(',')}]`);
     if (ch.patch.fields) bits.push(`+campo ${ch.patch.fields.map((f) => f.label).join(',')}`);
+    if (ch.patch.approvalLevels) bits.push(`aprob. [${ch.patch.approvalLevels.flatMap((l) => l.approverUids).join(',')}] (${ch.patch.approvalLevels[0]!.rule})`);
     console.log(`  • ${ch.path}: ${bits.join(' · ')}`);
   }
 
   if (!WITH_F13) console.log(`\n(F13 «Funcionalidad» NO incluido; añade --with-f13. Valores pendientes de Elena/Bea; ubicación REO pendiente — los elementos N3 no llevan campos, iría a nivel de servicio.)`);
-  console.log(`\nNOTA aprobaciones altas/bajas: el ciclo lleva estado de aprobación, pero NO se crean\naprobaciones hasta fijar service.approvalLevels con los uids reales (¿qué Silvia/Virginia? aviso Nuria). Pendiente de confirmar.`);
+  console.log(`\nNOTA: aprobación altas/bajas = Silvia Flores + Virginia Nef (rule any). «Aviso a Nuria» NO\nse modela en approvalLevels (solo aprobadores) → pendiente de regla de notificación aparte.`);
 
   if (APPLY) {
     await db.doc(`tenants/${TENANT}`).set({ classificationTree: tree }, { merge: true });
