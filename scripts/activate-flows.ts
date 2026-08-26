@@ -25,9 +25,14 @@ const LC = {
   baja: '9207000003083634',          // Baja de usuarios (service_request)
 } as const;
 
-// F13 — «Funcionalidad». Valores PENDIENTES de Elena (REO) y Bea (BI): options vacías → el
-// formulario lo pinta como texto libre hasta que se definan. Se adjunta solo con --with-f13.
-const FUNC_FIELD: FieldDef = { id: 'funcionalidad', label: 'Funcionalidad', type: 'select', options: [], requesterVisible: true, col: 2 };
+// F13 — «Funcionalidad». Valores REALES extraídos de SDP (campos udf de solicitudes REO/BI).
+// Se adjunta solo con --with-f13. Campo opcional (no mandatory).
+//  · BI  = «tipo de trabajo» (udf_char655).
+//  · REO = funcionalidad por sistema CRM/WEB/PRINEX (udf_char150).
+const FUNC_BI: FieldDef = { id: 'funcionalidad', label: 'Funcionalidad', type: 'select', requesterVisible: true, col: 2,
+  options: ['Extracción en Excel', 'Incidencia en dato de informe', 'Looker – Soporte incidencia', 'Looker – Soporte diseño de informe', 'Análisis de negocio', 'Otra'] };
+const FUNC_REO: FieldDef = { id: 'funcionalidad', label: 'Funcionalidad', type: 'select', requesterVisible: true, col: 2,
+  options: ['CRM · Sales Force', 'CRM · Supresión de datos', 'CRM · Carga de Tubo', 'CRM · Pon tu precio', 'WEB · Portal del Deudor', 'WEB · Agregadores (Portales)', 'PRINEX · Control de Stock', 'Otra (especificar en comentarios)'] };
 
 // L3 — aprobación de Altas/Bajas. Aprobadores confirmados por negocio: Silvia Flores (sflores) +
 // Virginia Nef (vnef); rule 'any' = basta con que apruebe uno. «Aviso a Nuria» NO se modela aquí
@@ -55,7 +60,9 @@ function patchFor(catName: string, svcName: string): Patch | null {
   if (c === 'reclamaciones de clientes')
     return { lifecycleByType: { incident: LC.incidencias } }; // flujo definido; intake web = integración externa (fuera de alcance)
   if (WITH_F13 && c === 'visualizacion de informes')
-    return { fields: [FUNC_FIELD] }; // BI
+    return { fields: [FUNC_BI] }; // BI
+  if (WITH_F13 && c === 'aplicaciones' && s === 'herramientas de negocio')
+    return { fields: [FUNC_REO] }; // REO (CRM/Prinex/Web cuelgan aquí como tipologías)
   return null;
 }
 
@@ -101,7 +108,8 @@ async function main(): Promise<void> {
     console.log(`  • ${ch.path}: ${bits.join(' · ')}`);
   }
 
-  if (!WITH_F13) console.log(`\n(F13 «Funcionalidad» NO incluido; añade --with-f13. Valores pendientes de Elena/Bea; ubicación REO pendiente — los elementos N3 no llevan campos, iría a nivel de servicio.)`);
+  if (!WITH_F13) console.log(`\n(F13 «Funcionalidad» NO incluido; añade --with-f13.)`);
+  else console.log(`\nF13 «Funcionalidad» incluido → BI (Visualización de informes) = tipo de trabajo · REO (Aplicaciones › Herramientas de Negocio) = por sistema. OJO REO: al ir a nivel de servicio, el campo (opcional) aparece también en las otras tipologías de «Herramientas de Negocio» (Logalty, Recovery, Portal del Deudor…).`);
   console.log(`\nNOTA: altas/bajas → aprobación Silvia Flores + Virginia Nef (rule any) + aviso en pantalla a\nNuria al crear (service.notifyUids). Requiere el createTicket con soporte de notifyUids desplegado.`);
 
   if (APPLY) {
