@@ -359,6 +359,9 @@ export interface ServiceNode {
   /** campos propios del servicio. */
   fields?: FieldDef[];
   approvalLevels?: ApprovalLevelDef[];
+  /** avisos: uids a notificar (en pantalla) al crear una solicitud de este servicio, además
+   *  del reparto normal. Ej.: Nuria en Altas/Bajas de usuarios. */
+  notifyUids?: string[];
   inactive?: boolean;
   sortIndex?: number;
   elements?: ElementNode[];

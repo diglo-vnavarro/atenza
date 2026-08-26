@@ -35,10 +35,13 @@ const FUNC_FIELD: FieldDef = { id: 'funcionalidad', label: 'Funcionalidad', type
 const APPROVERS_ALTABAJA: ApprovalLevelDef[] = [
   { id: 'al-altabaja-1', name: 'Visto bueno responsable', approverUids: ['9207000000198415', '9207000000199884'], rule: 'any' },
 ];
+// «Aviso a Nuria» en Altas/Bajas: notificación en pantalla al crear. Nuria tiene DOS docs de
+// miembro (login Firebase + doc SDP); incluimos ambos para que le llegue por su uid real.
+const NOTIFY_ALTABAJA = ['Z4AGvVXogdSsWeAuahLrhbcIP1b2', '9207000000183138'];
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
 
-interface Patch { lifecycleByType?: Partial<Record<TicketType, string | null>>; allowedTypes?: TicketType[]; fields?: FieldDef[]; approvalLevels?: ApprovalLevelDef[] }
+interface Patch { lifecycleByType?: Partial<Record<TicketType, string | null>>; allowedTypes?: TicketType[]; fields?: FieldDef[]; approvalLevels?: ApprovalLevelDef[]; notifyUids?: string[] }
 
 // Regla de cableado por (categoría, servicio). `svcMatch` casa por nombre normalizado.
 function patchFor(catName: string, svcName: string): Patch | null {
@@ -46,9 +49,9 @@ function patchFor(catName: string, svcName: string): Patch | null {
   if (c === 'operaciones' && s.startsWith('liquidaciones'))
     return { lifecycleByType: { service_request: LC.liquidaciones }, allowedTypes: ['service_request'] };
   if (c === 'gestion managers' && s.startsWith('alta de usuario'))
-    return { lifecycleByType: { service_request: LC.alta }, allowedTypes: ['service_request'], approvalLevels: APPROVERS_ALTABAJA };
+    return { lifecycleByType: { service_request: LC.alta }, allowedTypes: ['service_request'], approvalLevels: APPROVERS_ALTABAJA, notifyUids: NOTIFY_ALTABAJA };
   if (c === 'gestion managers' && s.startsWith('baja de usuario'))
-    return { lifecycleByType: { service_request: LC.baja }, allowedTypes: ['service_request'], approvalLevels: APPROVERS_ALTABAJA };
+    return { lifecycleByType: { service_request: LC.baja }, allowedTypes: ['service_request'], approvalLevels: APPROVERS_ALTABAJA, notifyUids: NOTIFY_ALTABAJA };
   if (c === 'reclamaciones de clientes')
     return { lifecycleByType: { incident: LC.incidencias } }; // flujo definido; intake web = integración externa (fuera de alcance)
   if (WITH_F13 && c === 'visualizacion de informes')
@@ -80,6 +83,7 @@ async function main(): Promise<void> {
     if (p.allowedTypes) svc.allowedTypes = p.allowedTypes;
     if (p.fields) svc.fields = [...(svc.fields ?? []).filter((f) => !p.fields!.some((nf) => nf.id === f.id)), ...p.fields];
     if (p.approvalLevels) svc.approvalLevels = p.approvalLevels;
+    if (p.notifyUids) svc.notifyUids = p.notifyUids;
   };
   for (const area of tree) for (const svc of area.services) {
     const p = patchFor(area.name, svc.name);
@@ -93,11 +97,12 @@ async function main(): Promise<void> {
     if (ch.patch.allowedTypes) bits.push(`solo [${ch.patch.allowedTypes.join(',')}]`);
     if (ch.patch.fields) bits.push(`+campo ${ch.patch.fields.map((f) => f.label).join(',')}`);
     if (ch.patch.approvalLevels) bits.push(`aprob. [${ch.patch.approvalLevels.flatMap((l) => l.approverUids).join(',')}] (${ch.patch.approvalLevels[0]!.rule})`);
+    if (ch.patch.notifyUids) bits.push(`aviso [${ch.patch.notifyUids.join(',')}]`);
     console.log(`  • ${ch.path}: ${bits.join(' · ')}`);
   }
 
   if (!WITH_F13) console.log(`\n(F13 «Funcionalidad» NO incluido; añade --with-f13. Valores pendientes de Elena/Bea; ubicación REO pendiente — los elementos N3 no llevan campos, iría a nivel de servicio.)`);
-  console.log(`\nNOTA: aprobación altas/bajas = Silvia Flores + Virginia Nef (rule any). «Aviso a Nuria» NO\nse modela en approvalLevels (solo aprobadores) → pendiente de regla de notificación aparte.`);
+  console.log(`\nNOTA: altas/bajas → aprobación Silvia Flores + Virginia Nef (rule any) + aviso en pantalla a\nNuria al crear (service.notifyUids). Requiere el createTicket con soporte de notifyUids desplegado.`);
 
   if (APPLY) {
     await db.doc(`tenants/${TENANT}`).set({ classificationTree: tree }, { merge: true });

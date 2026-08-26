@@ -510,6 +510,8 @@ export const useStore = create<State>()(
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
           if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
           emitNotifs(t, 'created', ticket);
+          // Aviso en pantalla a observadores del servicio (v3): p. ej. Nuria en Altas/Bajas.
+          if (v3 && v3svc?.notifyUids?.length) pushNotifTo(t, v3svc.notifyUids, ticket, `Aviso · nueva solicitud ${ticket.id}: ${ticket.subject}`);
           if (ro.patch.technicianId || autoAssigned) emitNotifs(t, 'assigned', ticket); // regla asignó / auto por carga
           logAudit(t, 'ticket.create', `${ticket.id}: ${ticket.subject}`, ticket.id);
           return ticket.id; // devuelve el id para adjuntar ficheros tras crear
