@@ -24,6 +24,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { isArchivedStatus } from '../src/model.js';
 import type { OwnerSegment } from '../src/model.js';
 import { reconcileOwner } from '../src/owner.js';
+import { planRoster, type RosterRow } from './lib/roster-resolve.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const importer = join(here, '..', 'importer');
@@ -55,6 +56,9 @@ const remap = (uid: unknown) => (typeof uid === 'string' && idMap[uid]) ? idMap[
 // que llegan de SDP SIN categoría se asignan por su templateId; el resto → default.
 const tplCatMap: Record<string, string> = (() => { const p = join(importer, 'template-category-map.json'); return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : {}; })();
 const DEFAULT_CAT = 'Incidencias generales';
+// ROSTER destino (hoja «Grupos» del Excel) → «traducción» de membresías a la verdad Atenza.
+const ROSTER: RosterRow[] = (() => { const p = join(importer, 'roster-v2.json'); return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : []; })();
+const GROUP_ALIAS: Record<string, string> = { 'Técnicos IT': 'IT' };
 type Cat = { id: string; name: string; incident?: unknown; service_request?: unknown };
 
 async function syncTickets() {
@@ -146,9 +150,41 @@ async function stampSummary() {
   }
 }
 
+// Completa el idMap con la subcolección Firestore tenants/{tid}/idmap (fuente de verdad
+// editable sin tocar Cloud Run). Debe correr ANTES de syncMembers (para omitir duplicados).
+async function loadIdmapFromFirestore() {
+  const s = await db.collection(`tenants/${TENANT}/idmap`).get();
+  let added = 0;
+  s.forEach((d) => { const uid = d.data().uid as string | undefined; if (uid && !idMap[d.id]) { idMap[d.id] = uid; added++; } });
+  if (added) console.log(`idmap: +${added} de Firestore (total ${Object.keys(idMap).length}).`);
+}
+
+// TRADUCCIÓN de membresías: tras sincronizar los miembros desde SDP, deja cada grupo con el
+// roster destino del Excel (verdad Atenza). Así el reparto no lo revierte la sync.
+async function applyRoster() {
+  if (!ROSTER.length) return;
+  const groups = (await db.collection(`tenants/${TENANT}/groups`).get()).docs.map((d) => ({ id: d.id, name: String(d.data().name ?? '') }));
+  const members = (await db.collection(`tenants/${TENANT}/members`).get()).docs
+    .map((d) => ({ uid: d.id, name: String(d.data().name ?? ''), email: String(d.data().email ?? ''), status: d.data().status as string, groupIds: (d.data().groupIds ?? []) as string[] }))
+    .filter((m) => m.status === 'active');
+  const plan = planRoster(ROSTER, groups, members, GROUP_ALIAS);
+  if (plan.unmatched.length) { console.log(`${DRY ? '[DRY] ' : ''}roster: ${plan.unmatched.length} nombres SIN RESOLVER → NO se aplica (revisar idmap): ${plan.unmatched.slice(0, 6).map((u) => u.name).join(', ')}…`); return; }
+  if (!plan.perMember.size) { console.log(`${DRY ? '[DRY] ' : ''}roster: ya alineado (0 cambios).`); return; }
+  let batch = db.batch(), n = 0;
+  for (const [uid, e] of plan.perMember) {
+    const m = members.find((x) => x.uid === uid)!;
+    const next = new Set(m.groupIds); for (const g of e.add) next.add(g); for (const g of e.rem) next.delete(g);
+    if (!DRY) { batch.update(db.doc(`tenants/${TENANT}/members/${uid}`), { groupIds: [...next] }); if (++n % 200 === 0) { await batch.commit(); batch = db.batch(); } } else n++;
+  }
+  if (!DRY) await batch.commit();
+  console.log(`${DRY ? '[DRY] ' : ''}roster: ${plan.addN} altas · ${plan.remN} bajas · ${plan.perMember.size} miembros alineados a la verdad Atenza.`);
+}
+
 async function main() {
   console.log(`${DRY ? '=== DRY-RUN (no escribe nada) === ' : ''}Sync SDP → Atenza · tenant ${TENANT} · ${tickets.length} tickets · ${Object.keys(idMap).length} identidades mapeadas.`);
+  await loadIdmapFromFirestore();
   await syncMembers();
+  await applyRoster();
   await syncTickets();
   await stampSummary();
   if (DRY) console.log('DRY-RUN completado: NADA se escribió. Quita DRY_RUN para aplicar.');
