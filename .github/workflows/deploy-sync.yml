@@ -1,0 +1,66 @@
+name: Deploy sync job
+
+# Construye y despliega el Cloud Run Job `sync-sdp` (sync SDP → Atenza).
+# El CI de deploy.yml solo hace Firebase (hosting/reglas); esto es el Job de la sync.
+# Ver docs/deploy-sync.md. Autenticación sin claves: Workload Identity Federation.
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute:
+        description: 'Ejecutar el job tras desplegar'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - 'Dockerfile'
+      - 'scripts/**'
+      - 'importer/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/deploy-sync.yml'
+
+permissions:
+  contents: read
+  id-token: write # Workload Identity Federation
+
+concurrency:
+  group: deploy-sync-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECT: diglo-desk-pd
+  REGION: europe-west1
+  JOB: sync-sdp
+  IMAGE: europe-west1-docker.pkg.dev/diglo-desk-pd/atenza/sync:latest
+
+jobs:
+  deploy-sync:
+    # En push, solo si CI_DEPLOY_SYNC=true (como CI_DEPLOY en deploy.yml). Manual: siempre.
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.CI_DEPLOY_SYNC == 'true' }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Autenticación GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          # SA con cloudbuild.builds.editor + artifactregistry.writer + run.developer
+          # + iam.serviceAccountUser sobre atenza-sync@. Ver docs/deploy-sync.md.
+          service_account: ${{ secrets.SYNC_DEPLOY_SA_EMAIL }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Construir imagen (Cloud Build)
+        run: gcloud builds submit --tag "$IMAGE" --project "$PROJECT" .
+
+      - name: Actualizar el Job a la imagen nueva
+        run: gcloud run jobs update "$JOB" --image "$IMAGE" --region "$REGION" --project "$PROJECT"
+
+      - name: Ejecutar el Job (opcional, solo manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.execute }}
+        run: gcloud run jobs execute "$JOB" --region "$REGION" --project "$PROJECT" --wait
