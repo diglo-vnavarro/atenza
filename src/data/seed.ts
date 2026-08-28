@@ -314,6 +314,9 @@ export interface TenantData {
    *  Inerte hasta que Atenza cree/asigne tickets (post-corte). */
   routingStats?: RoutingStats;
   liveRouting?: boolean;
+  /** N3 — al CORTE: los tickets nativos continúan la numeración de SDP con «#NNNN» (el
+   *  counter se siembra en el máx de SDP + margen). Off en convivencia (prefijo INC-/SR-). */
+  idContinuity?: boolean;
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }

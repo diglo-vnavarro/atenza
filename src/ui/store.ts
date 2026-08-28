@@ -200,7 +200,13 @@ function affinityForNode(t: TenantData, serviceId?: string): Record<string, numb
   return out;
 }
 const mapTenant = (db: DB, id: string, fn: (t: TenantData) => TenantData): DB => ({ ...db, tenants: db.tenants.map((t) => (t.id === id ? fn(t) : t)) });
-const genId = (t: TenantData): string => (t.id === 'leasys' ? 'SR-' : 'INC-') + String(t.counter).padStart(4, '0');
+const genId = (t: TenantData): string => {
+  const n = String(t.counter ?? 1).padStart(4, '0');
+  // N3 — al CORTE (idContinuity on) los tickets nativos continúan la numeración de SDP con
+  // «#NNNN» (el counter se siembra en el máx de SDP + margen). En CONVIVENCIA (off) usan un
+  // prefijo propio INC-/SR- para no colisionar con los «#» que aún genera SDP.
+  return t.idContinuity ? '#' + n : (t.id === 'leasys' ? 'SR-' : 'INC-') + n;
+};
 function editLc(t: TenantData, idx: number, fn: (lc: Lifecycle) => Lifecycle): TenantData {
   return { ...t, lifecycles: t.lifecycles.map((lc, i) => (i === idx ? fn(lc) : lc)) };
 }
@@ -507,8 +513,8 @@ export const useStore = create<State>()(
             // Lista de comprobación predefinida de la plantilla.
             ...(tpl?.checklist?.length ? { checklist: tpl.checklist.map((c) => ({ id: c.id, text: c.text, done: false })) } : {}),
           } as StoredTicket;
-          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: tt.counter + 1, tickets: [ticket, ...tt.tickets] })) }));
-          if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: t.counter + 1 }).catch(errlog); }
+          set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, counter: (tt.counter ?? 1) + 1, tickets: [ticket, ...tt.tickets] })) }));
+          if (CLOUD) { void cloud.writeTicket(t.id, ticket).catch(errlog); void cloud.patchTenantDoc(t.id, { counter: (t.counter ?? 1) + 1 }).catch(errlog); }
           emitNotifs(t, 'created', ticket);
           // Aviso en pantalla a observadores del servicio (v3): p. ej. Nuria en Altas/Bajas.
           if (v3 && v3svc?.notifyUids?.length) pushNotifTo(t, v3svc.notifyUids, ticket, `Aviso · nueva solicitud ${ticket.id}: ${ticket.subject}`);
