@@ -104,6 +104,10 @@ export interface Ticket {
   createdAt?: number;
   /** plantilla/tipología concreta (define ciclo de vida y SLA aplicables). */
   templateId: string;
+  /** id INTERNO de SDP (distinto del doc id `#display_id`); lo usa la sync para traer adjuntos. */
+  sdpRid?: string;
+  /** el ticket tiene adjuntos en SDP (de la lista); dispara la migración de adjuntos en la sync. */
+  has_attachments?: boolean;
   /** Modo simplificado: categoría de servicio (eje) y su nombre para mostrar. */
   serviceCategoryId?: string;
   serviceCategory?: string;

@@ -17,6 +17,7 @@
     "sync:job": "tsx importer/etl.ts && tsx scripts/sync-tickets.ts",
   "reports:job": "tsx scripts/send-reports.ts --apply",
   "reports:dry": "tsx scripts/send-reports.ts",
+  "migrate:attachments": "tsx scripts/migrate-attachments.ts --apply",
     "enrich:members": "tsx scripts/enrich-members.ts",
     "enrich:members:dry": "tsx scripts/enrich-members.ts --dry-run",
     "enrich:catalog": "tsx scripts/enrich-catalog.ts",

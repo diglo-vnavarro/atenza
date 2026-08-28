@@ -25,6 +25,8 @@ import { isArchivedStatus } from '../src/model.js';
 import type { OwnerSegment } from '../src/model.js';
 import { reconcileOwner } from '../src/owner.js';
 import { planRoster, type RosterRow } from './lib/roster-resolve.js';
+import { getStorage } from 'firebase-admin/storage';
+import { loadZoho, zohoRefresh, sdpGet, attachmentsOf, fetchAndUpload, type AttRec } from './lib/sdp-attachments.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const importer = join(here, '..', 'importer');
@@ -180,12 +182,42 @@ async function applyRoster() {
   console.log(`${DRY ? '[DRY] ' : ''}roster: ${plan.addN} altas · ${plan.remN} bajas · ${plan.perMember.size} miembros alineados a la verdad Atenza.`);
 }
 
+// M1 — ADJUNTOS NUEVOS en la sync: para los tickets del lote con adjuntos (has_attachments) que
+// aún no los tengan en Atenza, descarga de SDP y sube a Storage. Idempotente (salta los que ya
+// tienen adjuntos «sdp-» → sin llamada a SDP). Desactivable con SYNC_ATTACHMENTS=0.
+async function syncAttachments(): Promise<void> {
+  if (process.env.SYNC_ATTACHMENTS === '0') return;
+  const withA = tickets.filter((t) => (t as { has_attachments?: boolean }).has_attachments && (t as { sdpRid?: string }).sdpRid);
+  if (!withA.length) { console.log(`${DRY ? '[DRY] ' : ''}attachments: 0 tickets con adjuntos en el lote.`); return; }
+  const z = loadZoho(); await zohoRefresh(z);
+  const bucket = getStorage().bucket(process.env.BUCKET ?? 'diglo-desk-pd-atenza-files');
+  let done = 0, skipped = 0, errors = 0;
+  for (const t of withA) {
+    const docId = String((t as { id: string }).id); const rid = String((t as { sdpRid: string }).sdpRid);
+    const ref = db.doc(`tenants/${TENANT}/tickets/${docId}`);
+    const snap = await ref.get();
+    if (!snap.exists) { skipped++; continue; }
+    const cur = snap.data() as { attachments?: AttRec[] };
+    if ((cur.attachments ?? []).some((a) => String(a.id).startsWith('sdp-'))) { skipped++; continue; } // ya migrado → sin SDP
+    try {
+      const atts = attachmentsOf((await sdpGet(z, `requests/${rid}`)).request as Record<string, unknown> ?? {});
+      if (!atts.length) { skipped++; continue; }
+      if (DRY) { done++; continue; }
+      const recs = await fetchAndUpload(z, bucket, TENANT, docId, rid, atts, Date.now());
+      await ref.set({ attachments: [...(cur.attachments ?? []), ...recs] }, { merge: true });
+      done++;
+    } catch (e) { errors++; console.error(`  x adj ${docId}: ${(e as Error).message}`); }
+  }
+  console.log(`${DRY ? '[DRY] ' : ''}attachments: ${done} tickets con adjuntos nuevos · ${skipped} sin cambios · ${errors} err.`);
+}
+
 async function main() {
   console.log(`${DRY ? '=== DRY-RUN (no escribe nada) === ' : ''}Sync SDP → Atenza · tenant ${TENANT} · ${tickets.length} tickets · ${Object.keys(idMap).length} identidades mapeadas.`);
   await loadIdmapFromFirestore();
   await syncMembers();
   await applyRoster();
   await syncTickets();
+  await syncAttachments();
   await stampSummary();
   if (DRY) console.log('DRY-RUN completado: NADA se escribió. Quita DRY_RUN para aplicar.');
 }

@@ -81,7 +81,7 @@ interface SdpReqLite { id: string; display_id?: string; subject?: string; is_ser
   requester?: SdpPerson | null; technician?: SdpPerson | null; group?: { id?: string; name?: string } | null }
 // Campos que pedimos EN BLOQUE en el listado (evita una llamada de detalle por
 // ticket: inviable con ~23k). El endpoint de lista los devuelve todos.
-const LIST_FIELDS = ['subject', 'description', 'status', 'priority', 'category', 'subcategory', 'item', 'requester', 'technician', 'group', 'created_time', 'due_by_time', 'is_service_request', 'template', 'display_id'];
+const LIST_FIELDS = ['subject', 'description', 'status', 'priority', 'category', 'subcategory', 'item', 'requester', 'technician', 'group', 'created_time', 'due_by_time', 'is_service_request', 'template', 'display_id', 'has_attachments'];
 interface SdpPerson { id?: string; name?: string; email_id?: string; is_technician?: boolean }
 
 const PALETTE = ['#4f46e5', '#0f766e', '#b45309', '#0369a1', '#be185d', '#7c3aed', '#15803d', '#0891b2'];
@@ -172,6 +172,8 @@ async function main() {
     const v3 = classifyToV3({ template: r.template?.name, item: r.item?.name });
     tickets.push({
       id: `#${r.display_id ?? r.id}`,
+      sdpRid: String(r.id), // id INTERNO de SDP (para adjuntos: /requests/{rid}); el doc es #display_id
+      has_attachments: !!(r as { has_attachments?: boolean }).has_attachments,
       type: r.is_service_request ? 'service_request' : 'incident',
       subject: r.subject ?? '(sin asunto)',
       description: desc,
