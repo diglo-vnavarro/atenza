@@ -2930,8 +2930,12 @@ function ReportsModule({ tenant }: { tenant: TenantData }) {
   const base = unit === 'week' ? now + offset * 7 * 86400000 : new Date(new Date(now).getFullYear(), new Date(now).getMonth() + offset, 15).getTime();
   const { from, to } = periodBounds(base, unit);
   const result = runReport(def, tenant.tickets as unknown as import('../model.js').Ticket[], from, to);
-  const nodeName = (id: string, level: 'area' | 'service') => {
-    for (const a of tenant.classificationTree ?? []) { if (level === 'area' && a.id === id) return a.name; if (level === 'service') for (const s of a.services) if (s.id === id) return s.name; }
+  const nodeName = (id: string, level: 'area' | 'service' | 'element') => {
+    for (const a of tenant.classificationTree ?? []) {
+      if (level === 'area' && a.id === id) return a.name;
+      if (level === 'service') for (const s of a.services) { if (s.id === id) return s.name; }
+      if (level === 'element') for (const s of a.services) for (const e of s.elements ?? []) if (e.id === id) return e.name;
+    }
     return id;
   };
   const label = (key: string) => {
@@ -2940,6 +2944,7 @@ function ReportsModule({ tenant }: { tenant: TenantData }) {
       case 'technician': return key === '(sin asignar)' ? key : (tenant.members.find((m) => m.uid === key)?.name ?? key);
       case 'area': return nodeName(key, 'area');
       case 'service': return nodeName(key, 'service');
+      case 'element': return nodeName(key, 'element');
       case 'type': return key === 'incident' ? 'Incidencia' : 'Petición';
       default: return key;
     }
@@ -2987,21 +2992,34 @@ function ScheduledReportsAdmin({ tenant }: { tenant: TenantData }) {
   const dimName = (dim: ReportDimension) => DEFAULT_REPORTS.find((d) => d.dimension === dim)?.name ?? dim;
   const add = () => { const d = DEFAULT_REPORTS[0]!; setList((l) => [...l, { id: 'rep-' + Date.now().toString(36), name: d.name, dimension: d.dimension, unit: 'week', recipients: [], enabled: true }]); setDirty(true); };
   const persist = () => { save(list); setDirty(false); };
+  // Ámbito = filtro por categoría (área) o subcategoría (servicio) del árbol.
+  const scopeOpts = (tenant.classificationTree ?? []).flatMap((a) => [{ v: `area:${a.id}`, l: a.name }, ...a.services.map((sv) => ({ v: `service:${sv.id}`, l: ` ${sv.name}` }))]);
+  const scopeVal = (s: ReportSchedule) => { const f = (s.filters ?? [])[0]; return f ? `${f.field}:${f.value}` : ''; };
+  const setScope = (i: number, val: string) => { if (!val) return upd(i, { filters: undefined }); const k = val.indexOf(':'); upd(i, { filters: [{ field: val.slice(0, k) as ReportDimension, value: val.slice(k + 1) }] }); };
+  const addTpl = (name: string, dimension: ReportDimension, filter?: { field: ReportDimension; value: string }) => { setList((l) => [...l, { id: 'rep-' + Date.now().toString(36), name, dimension, unit: 'week' as const, recipients: [], enabled: true, ...(filter ? { filters: [filter] } : {}) }]); setDirty(true); };
+  const areaId = (rx: RegExp) => (tenant.classificationTree ?? []).find((a) => rx.test(a.name))?.id;
+  const svcId = (arx: RegExp, srx: RegExp) => (tenant.classificationTree ?? []).find((a) => arx.test(a.name))?.services.find((s) => srx.test(s.name))?.id;
+  const areaFilter = (rx: RegExp) => { const id = areaId(rx); return id ? { field: 'area' as ReportDimension, value: id } : undefined; };
   return (
     <div>
       <div className="banner" style={{ marginBottom: 14 }}>Informes que se envían por email de forma <b>programada</b> (job semanal, lunes 07:00). En pruebas el correo va a una dirección de test; el <b>go-live</b> con destinatarios reales lo activa el equipo técnico (<code>REPORTS_LIVE</code>).</div>
       {list.length === 0 ? <div className="empty" style={{ padding: 20 }}>No hay informes programados. Añade uno abajo.</div>
-        : <table className="mgmt"><thead><tr><th>Nombre</th><th>Informe</th><th>Periodo</th><th>Destinatarios (correos, separados por coma)</th><th style={{ width: 64, textAlign: 'center' }}>Activo</th><th style={{ width: 36 }}></th></tr></thead>
+        : <table className="mgmt"><thead><tr><th>Nombre</th><th>Informe</th><th>Ámbito</th><th>Periodo</th><th>Destinatarios (correos, separados por coma)</th><th style={{ width: 64, textAlign: 'center' }}>Activo</th><th style={{ width: 36 }}></th></tr></thead>
           <tbody>{list.map((s, i) => <tr key={s.id}>
             <td><input value={s.name} onChange={(e) => upd(i, { name: e.target.value })} /></td>
             <td><select value={s.dimension} onChange={(e) => { const dim = e.target.value as ReportDimension; upd(i, { dimension: dim, name: dimName(dim) }); }}>{DEFAULT_REPORTS.map((d) => <option key={d.dimension} value={d.dimension}>{d.name}</option>)}</select></td>
+            <td><select value={scopeVal(s)} onChange={(e) => setScope(i, e.target.value)}><option value="">— Todas —</option>{scopeOpts.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}</select></td>
             <td><select value={s.unit} onChange={(e) => upd(i, { unit: e.target.value as 'week' | 'month' })}><option value="week">Semanal</option><option value="month">Mensual</option></select></td>
             <td><input value={s.recipients.join(', ')} onChange={(e) => upd(i, { recipients: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} placeholder="nombre@empresa.com, …" style={{ width: '100%' }} /></td>
             <td style={{ textAlign: 'center' }}><input type="checkbox" checked={s.enabled} onChange={(e) => upd(i, { enabled: e.target.checked })} /></td>
             <td><button className="xbtn" onClick={() => del(i)} aria-label="Quitar">✕</button></td>
           </tr>)}</tbody></table>}
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
         <button className="ghost" onClick={add}><Icon name="bar-chart" size={14} /> Añadir informe</button>
+        <span className="soft" style={{ fontSize: 12 }}>Plantillas:</span>
+        <button className="ghost sm" onClick={() => addTpl('Altas/Bajas (semanal)', 'service', areaFilter(/gesti[oó]n managers/i))}>＋ Altas/Bajas</button>
+        <button className="ghost sm" onClick={() => addTpl('Informes BI (semanal)', 'service', areaFilter(/datos e informes/i))}>＋ BI</button>
+        <button className="ghost sm" onClick={() => { const id = svcId(/aplicaciones/i, /herramientas de negocio/i); addTpl('REO/WEB (semanal)', 'element', id ? { field: 'service', value: id } : undefined); }}>＋ REO/WEB</button>
         <button className="primary" onClick={persist} disabled={!dirty} style={{ marginLeft: 'auto' }}>Guardar cambios</button>
       </div>
     </div>

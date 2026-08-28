@@ -27,13 +27,14 @@ async function main(): Promise<void> {
   const root = (await db.doc(`tenants/${TENANT}`).get()).data() ?? {};
   const groups = (await db.collection(`tenants/${TENANT}/groups`).get()).docs.map((d) => ({ id: d.id, name: String(d.data().name ?? '') }));
   const members = (await db.collection(`tenants/${TENANT}/members`).get()).docs.map((d) => ({ uid: d.id, name: String(d.data().name ?? '') }));
-  const tree = (root.classificationTree ?? []) as { id: string; name: string; services: { id: string; name: string }[] }[];
+  const tree = (root.classificationTree ?? []) as { id: string; name: string; services: { id: string; name: string; elements?: { id: string; name: string }[] }[] }[];
   const label = (def: ReportDef) => (key: string): string => {
     switch (def.dimension) {
       case 'group': return groups.find((g) => g.id === key)?.name ?? key;
       case 'technician': return key === '(sin asignar)' ? key : (members.find((m) => m.uid === key)?.name ?? key);
       case 'area': { for (const a of tree) if (a.id === key) return a.name; return key; }
       case 'service': { for (const a of tree) for (const s of a.services) if (s.id === key) return s.name; return key; }
+      case 'element': { for (const a of tree) for (const s of a.services) for (const e of s.elements ?? []) if (e.id === key) return e.name; return key; }
       case 'type': return key === 'incident' ? 'Incidencia' : 'Petición';
       default: return key;
     }

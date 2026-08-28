@@ -3,7 +3,7 @@
 // por el job programado (semanal) que renderiza + envía por email.
 import type { Ticket, TicketType } from './model.js';
 
-export type ReportDimension = 'area' | 'service' | 'group' | 'status' | 'priority' | 'technician' | 'type' | 'serviceCategory';
+export type ReportDimension = 'area' | 'service' | 'element' | 'group' | 'status' | 'priority' | 'technician' | 'type' | 'serviceCategory';
 export interface ReportFilter { field: ReportDimension; value: string }
 export interface ReportDef { id: string; name: string; dimension: ReportDimension; filters?: ReportFilter[] }
 export interface ReportRow { key: string; count: number; pct: number }
@@ -15,6 +15,7 @@ export function dimValue(t: Ticket, dim: ReportDimension): string {
   switch (dim) {
     case 'area': return t.area || NONE;
     case 'service': return t.service || NONE;
+    case 'element': return t.element || NONE;
     case 'group': return t.groupId || NONE;
     case 'status': return t.status || NONE;
     case 'priority': return t.priority || NONE;
@@ -88,6 +89,8 @@ export const DEFAULT_REPORTS: ReportDef[] = [
   { id: 'rep-grupo', name: 'Por grupo de soporte', dimension: 'group' },
   { id: 'rep-estado', name: 'Por estado', dimension: 'status' },
   { id: 'rep-categoria', name: 'Por categoría', dimension: 'area' },
+  { id: 'rep-subcat', name: 'Por subcategoría', dimension: 'service' },
+  { id: 'rep-tipologia', name: 'Por tipología', dimension: 'element' },
   { id: 'rep-tecnico', name: 'Por técnico', dimension: 'technician' },
   { id: 'rep-prioridad', name: 'Por prioridad', dimension: 'priority' },
   { id: 'rep-tipo', name: 'Incidencias vs peticiones', dimension: 'type' },
