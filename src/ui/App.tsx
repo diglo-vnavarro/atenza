@@ -20,6 +20,7 @@ import { isArchivedStatus, ASSET_STATUS, ASSET_TYPES, assetStatusView } from '..
 import { queryArchive, getTicketById, type ArchiveCursor } from '../data/firestore.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
+import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS } from '../reports.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
@@ -532,7 +533,7 @@ export function App() {
   useEffect(() => { void useAuth.getState().init(); }, []);
   useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
   const [, setTheme] = useState<'light' | 'dark' | null>(null);
-  const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo' | 'activos'>('home');
+  const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo' | 'activos' | 'informes'>('home');
   const [dismissedAnn, setDismissedAnn] = useState<string[]>([]);
   const [filter, setFilter] = useState<'all' | 'unassigned' | 'mine'>('all');
   const [showNew, setShowNew] = useState(false);
@@ -629,7 +630,7 @@ export function App() {
   const isReq = role === 'requester';
   const caps = capsOf(tenant, effectiveUserId, !!user.platformAdmin);
   const canManageConfig = caps.includes('manageConfig');
-  const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo' | 'activos' = isReq && view !== 'kb' && view !== 'archivo' ? 'requests' : view;
+  const activeView: 'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo' | 'activos' | 'informes' = isReq && view !== 'kb' && view !== 'archivo' ? 'requests' : view;
   const openCount = tenant.tickets.length;
   const myAssignedCount = tenant.tickets.filter((t) => t.technicianId === effectiveUserId).length;
   const myReqCount = tenant.tickets.filter((t) => t.requesterId === effectiveUserId).length;
@@ -688,6 +689,9 @@ export function App() {
             <button title="Archivo" className={'modlink' + (activeView === 'archivo' ? ' on' : '')} onClick={() => setView('archivo')}>
               <Icon name="archive" />
               <span className="ml-l">Archivo</span></button>
+            {!isReq && caps.includes('viewReports') && <button title="Informes" className={'modlink' + (activeView === 'informes' ? ' on' : '')} onClick={() => setView('informes')}>
+              <Icon name="bar-chart" />
+              <span className="ml-l">Informes</span></button>}
           </div>
           <div className="side-bottom">
             {canManageConfig && <button title="Administración" className={'modlink' + (activeView === 'admin' ? ' on' : '')} onClick={() => setView('admin')}>
@@ -715,6 +719,7 @@ export function App() {
             {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester' && !readOnly} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
             {activeView === 'activos' && !isReq && <AssetsModule tenant={tenant} canManage={!readOnly} onOpenTicket={(id) => { useStore.getState().select(id); setView('tickets'); }} />}
             {activeView === 'archivo' && <Archive tenant={tenant} role={role} user={user} caps={caps} meName={tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo'} meUid={user.uid} cloud={firebaseEnabled} />}
+            {activeView === 'informes' && !isReq && <ReportsModule tenant={tenant} />}
             {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
           </ErrorBoundary>
         </main>
@@ -2916,6 +2921,63 @@ function BrandingAdmin({ tenant }: { tenant: TenantData }) {
 }
 
 const ADMIN_FIRST = ADMIN_AREAS.flatMap((a) => a[2]).find(([, k]) => k)?.[1] ?? 'catservicio';
+function ReportsModule({ tenant }: { tenant: TenantData }) {
+  const [defId, setDefId] = useState(DEFAULT_REPORTS[0]!.id);
+  const [unit, setUnit] = useState<'week' | 'month'>('week');
+  const [offset, setOffset] = useState(0);
+  const def = DEFAULT_REPORTS.find((d) => d.id === defId) ?? DEFAULT_REPORTS[0]!;
+  const now = Date.now();
+  const base = unit === 'week' ? now + offset * 7 * 86400000 : new Date(new Date(now).getFullYear(), new Date(now).getMonth() + offset, 15).getTime();
+  const { from, to } = periodBounds(base, unit);
+  const result = runReport(def, tenant.tickets as unknown as import('../model.js').Ticket[], from, to);
+  const nodeName = (id: string, level: 'area' | 'service') => {
+    for (const a of tenant.classificationTree ?? []) { if (level === 'area' && a.id === id) return a.name; if (level === 'service') for (const s of a.services) if (s.id === id) return s.name; }
+    return id;
+  };
+  const label = (key: string) => {
+    switch (def.dimension) {
+      case 'group': return tenant.groups.find((g) => g.id === key)?.name ?? key;
+      case 'technician': return key === '(sin asignar)' ? key : (tenant.members.find((m) => m.uid === key)?.name ?? key);
+      case 'area': return nodeName(key, 'area');
+      case 'service': return nodeName(key, 'service');
+      case 'type': return key === 'incident' ? 'Incidencia' : 'Petición';
+      default: return key;
+    }
+  };
+  const fmt = (t: number) => new Date(t).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+  const download = () => {
+    const blob = new Blob([reportToCsv(result)], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `informe-${def.dimension}-${fmt(from)}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  };
+  const max = result.rows[0]?.count ?? 1;
+  return (
+    <div className="reports">
+      <h1><Icon name="bar-chart" size={20} /> Informes</h1>
+      <div className="banner" style={{ marginBottom: 14 }}>Informe sobre las <b>solicitudes activas</b> creadas en el periodo. El histórico completo y el envío semanal por email llegan con el módulo programado.</div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+        <label>Informe <select value={defId} onChange={(e) => setDefId(e.target.value)}>{DEFAULT_REPORTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+        <label>Periodo <select value={unit} onChange={(e) => { setUnit(e.target.value as 'week' | 'month'); setOffset(0); }}><option value="week">Semana</option><option value="month">Mes</option></select></label>
+        <span className="seg">
+          <button type="button" onClick={() => setOffset(offset - 1)}>‹ Anterior</button>
+          <button type="button" className={offset === 0 ? 'on' : ''} onClick={() => setOffset(0)}>{unit === 'week' ? 'Esta semana' : 'Este mes'}</button>
+          <button type="button" disabled={offset >= 0} onClick={() => setOffset(Math.min(0, offset + 1))}>Siguiente ›</button>
+        </span>
+        <span className="soft" style={{ fontSize: 12.5 }}>{fmt(from)} – {fmt(to - 1)}</span>
+        <button className="ghost sm" onClick={download} disabled={!result.total} style={{ marginLeft: 'auto' }}><Icon name="file-text" size={14} /> Exportar CSV</button>
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, fontVariantNumeric: 'tabular-nums' }}>{result.total} <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-soft)' }}>solicitudes en el periodo</span></div>
+      {result.total === 0 ? <div className="empty" style={{ padding: 24 }}>Sin solicitudes activas en este periodo.</div>
+        : <table className="mgmt"><thead><tr><th>{def.name}</th><th style={{ width: 90, textAlign: 'right' }}>Tickets</th><th style={{ width: 60, textAlign: 'right' }}>%</th><th style={{ width: '32%' }}></th></tr></thead>
+          <tbody>{result.rows.map((r) => <tr key={r.key}>
+            <td>{label(r.key)}</td>
+            <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{r.count}</td>
+            <td style={{ textAlign: 'right', color: 'var(--ink-soft)' }}>{r.pct}%</td>
+            <td><div style={{ height: 8, borderRadius: 4, background: 'var(--accent, #2f63e6)', width: `${Math.round((r.count / max) * 100)}%`, minWidth: 2 }} /></td>
+          </tr>)}</tbody></table>}
+    </div>
+  );
+}
+
 function AdminConfig({ tenant }: { tenant: TenantData }) {
   // Sección activa en el store (adminSec) para poder navegar desde fuera (p. ej. la
   // campana → «Solicitudes de acceso»). Cae a la primera sección si está vacío/inválido.

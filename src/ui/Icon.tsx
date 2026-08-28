@@ -36,6 +36,7 @@ const PATHS: Record<string, ReactNode> = {
   ticket: <><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" /><line x1="14" y1="7" x2="14" y2="17" strokeDasharray="1.5 2.5" /></>,
   'book-open': <><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></>,
   archive: <><rect x="2.5" y="4" width="19" height="5" rx="1" /><path d="M4.5 9v10a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1V9" /><line x1="10" y1="13" x2="14" y2="13" /></>,
+  'bar-chart': <><line x1="6" y1="20" x2="6" y2="14" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="18" y1="20" x2="18" y2="10" /><line x1="3" y1="20" x2="21" y2="20" /></>,
 };
 
 export function Icon({ name, size = 16, className, strokeWidth = 2 }: { name: string; size?: number; className?: string; strokeWidth?: number }) {
