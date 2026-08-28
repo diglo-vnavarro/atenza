@@ -317,6 +317,8 @@ export interface TenantData {
   /** N3 — al CORTE: los tickets nativos continúan la numeración de SDP con «#NNNN» (el
    *  counter se siembra en el máx de SDP + margen). Off en convivencia (prefijo INC-/SR-). */
   idContinuity?: boolean;
+  /** M2 — informes programados (envío semanal por email). Los ejecuta el job send-reports. */
+  reportSchedules?: import('../reports.js').ReportSchedule[];
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }

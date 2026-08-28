@@ -52,6 +52,30 @@ export function periodBounds(ref: number, unit: 'week' | 'month'): { from: numbe
   return { from, to: from + 7 * 24 * 3600 * 1000 };
 }
 
+/** Informe PROGRAMADO (F2): un ReportDef + periodicidad + destinatarios, para el envío semanal. */
+export interface ReportSchedule extends ReportDef { unit: 'week' | 'month'; recipients: string[]; enabled: boolean }
+
+/** Render del informe a HTML (para el email). `label` resuelve id→nombre; `fmt` fecha. */
+export function reportToHtml(r: ReportResult, label: (key: string) => string, fmt: (t: number) => string): string {
+  const cell = 'padding:6px 10px;border-bottom:1px solid #eee';
+  const rows = r.rows.map((row) => `<tr><td style="${cell}">${label(row.key)}</td><td style="${cell};text-align:right">${row.count}</td><td style="${cell};text-align:right;color:#777">${row.pct}%</td></tr>`).join('');
+  return `<div style="font-family:system-ui,Arial,sans-serif;color:#1a2233">`
+    + `<h2 style="margin:0 0 2px">${r.def.name}</h2>`
+    + `<p style="color:#777;margin:0 0 12px;font-size:13px">${fmt(r.from)} – ${fmt(r.to - 1)} · ${r.total} solicitudes</p>`
+    + `<table style="border-collapse:collapse;font-size:14px;min-width:340px"><thead><tr>`
+    + `<th style="text-align:left;padding:6px 10px;border-bottom:2px solid #ddd">${r.def.name}</th>`
+    + `<th style="text-align:right;padding:6px 10px;border-bottom:2px solid #ddd">Tickets</th>`
+    + `<th style="text-align:right;padding:6px 10px;border-bottom:2px solid #ddd">%</th></tr></thead>`
+    + `<tbody>${rows}</tbody>`
+    + `<tfoot><tr><td style="padding:6px 10px;font-weight:600">Total</td><td style="padding:6px 10px;text-align:right;font-weight:600">${r.total}</td><td style="padding:6px 10px;text-align:right">100%</td></tr></tfoot></table></div>`;
+}
+
+/** Periodo COMPLETO anterior al de `ref` (la semana/mes que acaba de cerrar). */
+export function previousPeriod(ref: number, unit: 'week' | 'month'): { from: number; to: number } {
+  const cur = periodBounds(ref, unit);
+  return periodBounds(cur.from - 1, unit);
+}
+
 /** Informe a CSV (una fila por categoría de la dimensión). */
 export function reportToCsv(r: ReportResult): string {
   const head = `${r.def.dimension};tickets;%`;
