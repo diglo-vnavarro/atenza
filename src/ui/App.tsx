@@ -20,7 +20,7 @@ import { isArchivedStatus, ASSET_STATUS, ASSET_TYPES, assetStatusView } from '..
 import { queryArchive, getTicketById, type ArchiveCursor } from '../data/firestore.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
-import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS } from '../reports.js';
+import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, type ReportSchedule, type ReportDimension } from '../reports.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
@@ -2389,11 +2389,11 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Personalización', 'sliders', [['Estado', 'estado'], ['Categoría › Subcategoría › Artículo', 'categoria'], ['Valores (prioridad, impacto, urgencia, nivel, modo, tipos)', 'valores'], ['Matriz de prioridades', 'matriz'], ['Campos adicionales', 'campos']]],
   ['Plantillas y formularios', 'file-text', [['Categorías de servicio', 'catservicio'], ['Clasificación (Área › Servicio › Elemento)', 'clasificacion'], ['Reglas del formulario', 'formreglas']]],
   ['Autoservicio y anuncios', 'megaphone', [['Base de conocimiento', null], ['Anuncios', 'anuncios'], ['Encuestas de satisfacción', null]]],
-  ['Automatización', 'settings', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
+  ['Automatización', 'settings', [['Reglas de negocio', 'reglas'], ['SLA y horarios', 'sla'], ['Ciclos de vida', 'ciclos'], ['Reglas de notificación', 'notif'], ['Informes programados', 'informesprog'], ['Reglas de cierre', 'cierre'], ['Activadores · webhooks', 'webhooks'], ['Asignación automática', null]]],
   ['Configuración del correo', 'mail', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', 'shield', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { marca: 'Marca de la instancia', plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio', clasificacion: 'Clasificación · Área › Servicio › Elemento' };
+const ADMIN_TITLE: Record<string, string> = { marca: 'Marca de la instancia', plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', informesprog: 'Informes programados · envío semanal', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio', clasificacion: 'Clasificación · Área › Servicio › Elemento' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -2978,6 +2978,36 @@ function ReportsModule({ tenant }: { tenant: TenantData }) {
   );
 }
 
+function ScheduledReportsAdmin({ tenant }: { tenant: TenantData }) {
+  const save = useStore((s) => s.setReportSchedules);
+  const [list, setList] = useState<ReportSchedule[]>(() => (tenant.reportSchedules ?? []).map((s) => ({ ...s, recipients: [...(s.recipients ?? [])] })));
+  const [dirty, setDirty] = useState(false);
+  const upd = (i: number, patch: Partial<ReportSchedule>) => { setList((l) => l.map((s, j) => (j === i ? { ...s, ...patch } : s))); setDirty(true); };
+  const del = (i: number) => { setList((l) => l.filter((_, j) => j !== i)); setDirty(true); };
+  const dimName = (dim: ReportDimension) => DEFAULT_REPORTS.find((d) => d.dimension === dim)?.name ?? dim;
+  const add = () => { const d = DEFAULT_REPORTS[0]!; setList((l) => [...l, { id: 'rep-' + Date.now().toString(36), name: d.name, dimension: d.dimension, unit: 'week', recipients: [], enabled: true }]); setDirty(true); };
+  const persist = () => { save(list); setDirty(false); };
+  return (
+    <div>
+      <div className="banner" style={{ marginBottom: 14 }}>Informes que se envían por email de forma <b>programada</b> (job semanal, lunes 07:00). En pruebas el correo va a una dirección de test; el <b>go-live</b> con destinatarios reales lo activa el equipo técnico (<code>REPORTS_LIVE</code>).</div>
+      {list.length === 0 ? <div className="empty" style={{ padding: 20 }}>No hay informes programados. Añade uno abajo.</div>
+        : <table className="mgmt"><thead><tr><th>Nombre</th><th>Informe</th><th>Periodo</th><th>Destinatarios (correos, separados por coma)</th><th style={{ width: 64, textAlign: 'center' }}>Activo</th><th style={{ width: 36 }}></th></tr></thead>
+          <tbody>{list.map((s, i) => <tr key={s.id}>
+            <td><input value={s.name} onChange={(e) => upd(i, { name: e.target.value })} /></td>
+            <td><select value={s.dimension} onChange={(e) => { const dim = e.target.value as ReportDimension; upd(i, { dimension: dim, name: dimName(dim) }); }}>{DEFAULT_REPORTS.map((d) => <option key={d.dimension} value={d.dimension}>{d.name}</option>)}</select></td>
+            <td><select value={s.unit} onChange={(e) => upd(i, { unit: e.target.value as 'week' | 'month' })}><option value="week">Semanal</option><option value="month">Mensual</option></select></td>
+            <td><input value={s.recipients.join(', ')} onChange={(e) => upd(i, { recipients: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} placeholder="nombre@empresa.com, …" style={{ width: '100%' }} /></td>
+            <td style={{ textAlign: 'center' }}><input type="checkbox" checked={s.enabled} onChange={(e) => upd(i, { enabled: e.target.checked })} /></td>
+            <td><button className="xbtn" onClick={() => del(i)} aria-label="Quitar">✕</button></td>
+          </tr>)}</tbody></table>}
+      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <button className="ghost" onClick={add}><Icon name="bar-chart" size={14} /> Añadir informe</button>
+        <button className="primary" onClick={persist} disabled={!dirty} style={{ marginLeft: 'auto' }}>Guardar cambios</button>
+      </div>
+    </div>
+  );
+}
+
 function AdminConfig({ tenant }: { tenant: TenantData }) {
   // Sección activa en el store (adminSec) para poder navegar desde fuera (p. ej. la
   // campana → «Solicitudes de acceso»). Cae a la primera sección si está vacío/inválido.
@@ -3004,6 +3034,7 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
     {sec === 'gruposusuarios' && <UserGroupsAdmin tenant={tenant} />}
     {sec === 'gruposoporte' && <SupportGroupsAdmin tenant={tenant} />}
     {sec === 'notif' && <NotifAdmin tenant={tenant} />}
+    {sec === 'informesprog' && <ScheduledReportsAdmin tenant={tenant} />}
     {sec === 'ciclos' && <GraphEditor tenant={tenant} />}
     {sec === 'sla' && <SlaAdmin tenant={tenant} />}
     {sec === 'miembros' && <MembersAdmin tenant={tenant} />}

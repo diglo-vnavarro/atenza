@@ -83,6 +83,7 @@ interface State {
   setUserGroups: (list: string[]) => void;
   setRoles: (list: import('../data/seed.js').RoleDef[]) => void;
   setNotifRules: (rules: NotifRule[]) => void;
+  setReportSchedules: (schedules: import('../reports.js').ReportSchedule[]) => void;
   markNotifRead: (id: string) => void;
   markAllNotifsRead: () => void;
   addComment: (ticketId: string, text: string, authorName: string, internal: boolean) => void;
@@ -607,6 +608,10 @@ export const useStore = create<State>()(
           const changed: UiMember[] = [];
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, roles: list, members: t.members.map((m) => { const caps = memberCaps(m, list); if (JSON.stringify(caps) === JSON.stringify(m.caps)) return m; const nm = { ...m, caps }; changed.push(nm); return nm; }) })) }));
           if (CLOUD) { const t = activeT(get()); if (t) { void cloud.patchTenantDoc(t.id, { roles: list }).catch(errlog); for (const m of changed) void cloud.writeMember(t.id, m).catch(errlog); } }
+        },
+        setReportSchedules: (schedules) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, reportSchedules: schedules })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { reportSchedules: schedules }).catch(errlog); }
         },
         setNotifRules: (rules) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, notifRules: rules })) }));
