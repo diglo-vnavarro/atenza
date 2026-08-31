@@ -2935,6 +2935,7 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
   const [editing, setEditing] = useState<SavedReport | null>(null); // null = no builder; objeto = crear/editar
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({}); // carpetas plegadas
   const [confirmDel, setConfirmDel] = useState(''); // id del informe pendiente de confirmar borrado
+  const [showFolders, setShowFolders] = useState(true); // panel de carpetas plegable
 
   const builtIns = [
     ...DEFAULT_REPORTS.map((d) => ({ ...builtInAsSaved(d), folder: 'Resúmenes generales' })),
@@ -2969,14 +2970,15 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
 
   return (
     <div className="reports">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <button type="button" className="ghost sm" title={showFolders ? 'Ocultar carpetas' : 'Mostrar carpetas'} aria-label="Mostrar u ocultar carpetas" onClick={() => setShowFolders((v) => !v)} style={{ padding: '4px 9px' }}>☰</button>
         <h1 style={{ margin: 0 }}><Icon name="bar-chart" size={20} /> Informes</h1>
         {canManage && <button className="ghost sm" style={{ marginLeft: 'auto' }} onClick={createFolder}>📁 Nueva carpeta</button>}
         {canManage && <button className="primary sm" onClick={() => setEditing(blank())}>＋ Nuevo informe</button>}
       </div>
       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
-        {/* Explorador de CARPETAS (estilo SDP): carpetas plegables con sus informes dentro. */}
-        <div style={{ width: 270, flexShrink: 0, border: '1px solid var(--line, #e5e7eb)', borderRadius: 10, overflow: 'hidden', fontSize: 13.5 }}>
+        {/* Explorador de CARPETAS (estilo SDP): carpetas plegables con sus informes dentro. Plegable. */}
+        {showFolders && <div style={{ width: 270, flexShrink: 0, border: '1px solid var(--line, #e5e7eb)', borderRadius: 10, overflow: 'hidden', fontSize: 13.5 }}>
           <div style={{ padding: '8px 12px', fontWeight: 600, fontSize: 12, letterSpacing: '.03em', textTransform: 'uppercase', color: 'var(--ink-soft)', borderBottom: '1px solid var(--line, #e5e7eb)' }}>Carpetas</div>
           {byFolder.map((f) => {
             const open = !collapsed[f.name];
@@ -3002,7 +3004,7 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
               </div>
             );
           })}
-        </div>
+        </div>}
         {/* Panel del informe seleccionado */}
         <div style={{ flex: 1, minWidth: 0 }}>
           {!sel ? <div className="empty" style={{ padding: 24 }}>Elige un informe de la izquierda{canManage ? ', o crea uno con «Nuevo informe».' : '.'}</div>
