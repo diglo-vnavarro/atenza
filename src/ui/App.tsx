@@ -2934,6 +2934,7 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
   const [selId, setSelId] = useState<string>('');
   const [editing, setEditing] = useState<SavedReport | null>(null); // null = no builder; objeto = crear/editar
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({}); // carpetas plegadas
+  const [confirmDel, setConfirmDel] = useState(''); // id del informe pendiente de confirmar borrado
 
   const builtIns = [
     ...DEFAULT_REPORTS.map((d) => ({ ...builtInAsSaved(d), folder: 'Resúmenes generales' })),
@@ -3011,7 +3012,9 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
                 <span className="soft" style={{ fontSize: 12 }}>{isBuiltIn(sel) ? 'Predefinido' : `${sel.ownerName ?? '—'} · ${sel.accessibility === 'public' ? '🌐 Público' : '🔒 Privado'}`}</span>
                 {canEditSel && <span className="seg" style={{ marginLeft: 'auto' }}>
                   <button type="button" onClick={() => setEditing({ ...sel! })}>✎ Editar</button>
-                  <button type="button" onClick={() => { if (confirm(`¿Borrar el informe «${sel!.name}»?`)) { removeReport(sel!.id); setSelId(''); } }}>🗑 Borrar</button>
+                  {confirmDel === sel!.id
+                    ? <><button type="button" onClick={() => { removeReport(sel!.id); setSelId(''); setConfirmDel(''); }} style={{ color: '#dc2626' }}>Sí, borrar</button><button type="button" onClick={() => setConfirmDel('')}>No</button></>
+                    : <button type="button" onClick={() => setConfirmDel(sel!.id)}>🗑 Borrar</button>}
                 </span>}
               </div>
               {sel.kind === 'table' ? <TableReportView def={sel} tenant={tenant} /> : sel.kind === 'matrix' ? <MatrixReportView def={sel} tenant={tenant} /> : <SummaryReportView def={sel} tenant={tenant} />}
