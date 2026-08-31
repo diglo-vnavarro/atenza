@@ -17,6 +17,10 @@ const PROJECT = process.env.GOOGLE_CLOUD_PROJECT ?? 'diglo-desk-pd';
 const TENANT = process.env.TENANT ?? 'diglo-it';
 const LIVE = process.env.REPORTS_LIVE === '1';
 const TEST_EMAIL = process.env.REPORTS_TEST_EMAIL ?? 'testerino-ia@digloservicer.com';
+// Filtro opcional: enviar SOLO estos informes guardados (ids separados por coma). Vacío = todos.
+const ONLY_IDS = (process.env.REPORT_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+// Máximo de filas en el HTML del email (Firestore limita el doc a 1MB; el listado completo va en la app).
+const MAX_EMAIL_ROWS = 300;
 const NOW = Date.now();
 
 initializeApp({ projectId: PROJECT });
@@ -77,32 +81,41 @@ async function main(): Promise<void> {
   }
 
   // --- Informes guardados programados (resumen / tabular / matriz) ---
+  let sentSaved = 0;
   for (const rep of savedSched) {
-    const unit = rep.schedule!.unit, kind = rep.kind ?? 'summary';
-    let html = '', total = 0;
-    if (kind === 'table') {
-      const scope = (rep.scopes ?? [])[0];
-      if (!scope) { console.log(`• [guardado] ${rep.name}: sin ámbito, omitido`); continue; }
-      const field = SCOPE_DB_FIELD[scope.field] ?? scope.field;
-      const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where(field, '==', scope.value).get()).docs.map((d) => d.data() as Ticket);
-      let from: number | undefined, to: number | undefined;
-      if (rep.period && rep.period !== 'none') ({ from, to } = previousPeriod(NOW, rep.period));
-      const res = runTableReport(rep, tickets, from, to); total = res.total; html = tableReportToHtml(res, colLabel, fmt);
-    } else if (kind === 'matrix') {
-      const { from, to } = previousPeriod(NOW, unit);
-      const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where('createdAt', '>=', from).where('createdAt', '<', to).get()).docs.map((d) => d.data() as Ticket);
-      const res = runMatrixReport(rep, tickets, from, to); total = res.total; html = matrixToHtml(res, dimLabel, fmt);
-    } else {
-      const { from, to } = previousPeriod(NOW, unit);
-      const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where('createdAt', '>=', from).where('createdAt', '<', to).get()).docs.map((d) => d.data() as Ticket);
-      const res = runReport(rep, tickets, from, to); total = res.total; html = reportToHtml(res, label(rep), fmt);
-    }
-    const subject = `Informe ${unit === 'week' ? 'semanal' : 'mensual'} · ${rep.name}`;
-    const to_ = LIVE ? rep.schedule!.recipients : [TEST_EMAIL];
-    console.log(`• [guardado] ${rep.name} [${kind}/${unit}]: ${total} tickets → ${to_.join(', ')}${LIVE ? '' : ' (TEST)'}`);
-    previews.push(html);
-    if (APPLY && to_.length) await db.collection('mail').add({ to: to_, message: { subject, html } });
+    if (ONLY_IDS.length && !ONLY_IDS.includes(rep.id)) continue;
+    try {
+      const unit = rep.schedule!.unit, kind = rep.kind ?? 'summary';
+      let html = '', total = 0;
+      if (kind === 'table') {
+        const scope = (rep.scopes ?? [])[0];
+        if (!scope) { console.log(`• [guardado] ${rep.name}: sin ámbito, omitido`); continue; }
+        const field = SCOPE_DB_FIELD[scope.field] ?? scope.field;
+        const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where(field, '==', scope.value).get()).docs.map((d) => d.data() as Ticket);
+        let from: number | undefined, to: number | undefined;
+        if (rep.period && rep.period !== 'none') ({ from, to } = previousPeriod(NOW, rep.period));
+        const res = runTableReport(rep, tickets, from, to); total = res.total;
+        // Cap de filas para no exceder el límite de 1MB del doc `mail` de Firestore.
+        const capped = res.rows.length > MAX_EMAIL_ROWS ? { ...res, rows: res.rows.slice(0, MAX_EMAIL_ROWS) } : res;
+        html = tableReportToHtml(capped, colLabel, fmt);
+        if (res.rows.length > MAX_EMAIL_ROWS) html += `<p style="color:#777;font-size:12px;font-family:system-ui,Arial,sans-serif">Mostrando las primeras ${MAX_EMAIL_ROWS} de ${res.total} filas. El listado completo, en Atenza → Informes.</p>`;
+      } else if (kind === 'matrix') {
+        const { from, to } = previousPeriod(NOW, unit);
+        const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where('createdAt', '>=', from).where('createdAt', '<', to).get()).docs.map((d) => d.data() as Ticket);
+        const res = runMatrixReport(rep, tickets, from, to); total = res.total; html = matrixToHtml(res, dimLabel, fmt);
+      } else {
+        const { from, to } = previousPeriod(NOW, unit);
+        const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where('createdAt', '>=', from).where('createdAt', '<', to).get()).docs.map((d) => d.data() as Ticket);
+        const res = runReport(rep, tickets, from, to); total = res.total; html = reportToHtml(res, label(rep), fmt);
+      }
+      const subject = `Informe ${unit === 'week' ? 'semanal' : 'mensual'} · ${rep.name}`;
+      const to_ = LIVE ? rep.schedule!.recipients : [TEST_EMAIL];
+      console.log(`• [guardado] ${rep.name} [${kind}/${unit}]: ${total} tickets → ${to_.join(', ')}${LIVE ? '' : ' (TEST)'}`);
+      previews.push(html);
+      if (APPLY && to_.length) { await db.collection('mail').add({ to: to_, message: { subject, html } }); sentSaved++; }
+    } catch (e) { console.error(`✗ [guardado] ${rep.name}: ${(e as Error).message}`); }
   }
+  console.log(`  (${sentSaved} informes guardados encolados)`);
 
   if (!APPLY) {
     const file = process.env.PREVIEW_FILE;
