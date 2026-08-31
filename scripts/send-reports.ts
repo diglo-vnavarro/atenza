@@ -49,6 +49,7 @@ async function main(): Promise<void> {
     if (colKey === 'area') return dimLabel('area', raw);
     if (colKey === 'service') return dimLabel('service', raw);
     if (colKey === 'element') return dimLabel('element', raw);
+    if (colKey === 'createdAt' || colKey === 'resolvedAt') { const n = Number(raw); return Number.isFinite(n) && n > 0 ? fmt(n) : raw; }
     return raw;
   };
 

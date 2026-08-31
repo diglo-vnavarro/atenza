@@ -3314,6 +3314,7 @@ function TableReportView({ def, tenant }: { def: ReportDef; tenant: TenantData }
       case 'area': return nodeNameOf(tenant, raw, 'area');
       case 'service': return nodeNameOf(tenant, raw, 'service');
       case 'element': return nodeNameOf(tenant, raw, 'element');
+      case 'createdAt': case 'resolvedAt': { const n = Number(raw); return Number.isFinite(n) && n > 0 ? new Date(n).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : raw; }
       default: return raw;
     }
   };
