@@ -51,7 +51,9 @@ const db = getFirestore();
 // Campos propiedad de Atenza que NUNCA se pisan al re-sincronizar desde SDP.
 // Incluye lo de la migración al modo simplificado (serviceCategoryId/serviceCategory/
 // type) para NO deshacer F4c. `archived`/`createdAt` se recalculan aparte (abajo).
-const ATENZA_OWNED = ['worklog', 'tasks', 'approvals', 'attachments', 'comments', 'resolution', 'serviceCategoryId', 'serviceCategory', 'type'] as const;
+// `closureComment` lo rellena el enriquecimiento BI (requiere detalle SDP, no viene en el listado):
+// se preserva para que el `set` de la sync no lo borre. `sdpUdf`/`templateName` NO van aquí (SDP manda).
+const ATENZA_OWNED = ['worklog', 'tasks', 'approvals', 'attachments', 'comments', 'resolution', 'serviceCategoryId', 'serviceCategory', 'type', 'closureComment'] as const;
 const remap = (uid: unknown) => (typeof uid === 'string' && idMap[uid]) ? idMap[uid] : uid;
 // AUTO-CATEGORIZADO: mapa plantilla SDP → nombre de categoría de servicio
 // (generado por scripts/gen-template-cat-map.ts desde el snapshot). Los tickets

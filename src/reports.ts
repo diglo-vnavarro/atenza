@@ -5,9 +5,20 @@ import type { Ticket, TicketType } from './model.js';
 
 export type ReportDimension = 'area' | 'service' | 'element' | 'group' | 'status' | 'priority' | 'technician' | 'type' | 'serviceCategory';
 export interface ReportFilter { field: ReportDimension; value: string }
-export interface ReportDef { id: string; name: string; dimension: ReportDimension; filters?: ReportFilter[] }
+/** Columna de un informe TABULAR. `key` es un selector: campo estándar
+ *  ('subject','status','technician'…), 'templateName'/'closureComment', o 'udf:udf_char128'. */
+export interface ReportColumn { key: string; label: string }
+export interface ReportDef {
+  id: string; name: string; dimension: ReportDimension; filters?: ReportFilter[];
+  /** 'summary' (por defecto) = agrega por dimensión; 'table' = listado con columnas. */
+  kind?: 'summary' | 'table';
+  columns?: ReportColumn[];
+  /** Acotación temporal del listado tabular ('none' = todo el histórico del ámbito). */
+  period?: 'none' | 'week' | 'month';
+}
 export interface ReportRow { key: string; count: number; pct: number }
 export interface ReportResult { def: ReportDef; from: number; to: number; total: number; rows: ReportRow[] }
+export interface TableResult { def: ReportDef; from?: number; to?: number; total: number; rows: Record<string, string>[] }
 
 const NONE = '—';
 /** Valor de la dimensión para un ticket (id/valor crudo; el nombre lo resuelve la UI). */
@@ -40,6 +51,63 @@ export function runReport(def: ReportDef, tickets: Ticket[], from: number, to: n
     .map(([key, count]) => ({ key, count, pct: total ? Math.round((count / total) * 1000) / 10 : 0 }))
     .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
   return { def, from, to, total, rows };
+}
+
+// ---- INFORMES TABULARES (listado con columnas; p. ej. «Seguimiento BI») ----
+/** Valor CRUDO de una columna para un ticket (ids sin resolver; el nombre lo pone `label`). */
+export function tableCellRaw(t: Ticket, key: string): string {
+  if (key.startsWith('udf:')) return t.sdpUdf?.[key.slice(4)] ?? '';
+  switch (key) {
+    case 'id': return (t as { id?: string }).id ?? '';
+    case 'subject': return t.subject ?? '';
+    case 'status': return t.status ?? '';
+    case 'priority': return t.priority ?? '';
+    case 'type': return t.type as string;
+    case 'templateName': return t.templateName ?? '';
+    case 'closureComment': return t.closureComment ?? '';
+    case 'group': return t.groupId ?? '';
+    case 'technician': return t.technicianId ?? '';
+    case 'requester': return t.requesterId ?? '';
+    case 'area': return t.area ?? '';
+    case 'service': return t.service ?? '';
+    case 'element': return t.element ?? '';
+    case 'createdAt': return t.createdAt ? String(t.createdAt) : '';
+    default: return '';
+  }
+}
+
+/** Ejecuta un informe TABULAR: filtra por ámbito (y periodo si aplica) y proyecta las columnas. */
+export function runTableReport(def: ReportDef, tickets: Ticket[], from?: number, to?: number): TableResult {
+  const cols = def.columns ?? [];
+  const filtered = tickets.filter((t) => {
+    if (from != null && to != null) { const c = t.createdAt ?? 0; if (c < from || c >= to) return false; }
+    return (def.filters ?? []).every((f) => dimValue(t, f.field) === f.value);
+  });
+  const rows = filtered.map((t) => { const r: Record<string, string> = {}; for (const c of cols) r[c.key] = tableCellRaw(t, c.key); return r; });
+  return { def, from, to, total: filtered.length, rows };
+}
+
+/** CSV del informe tabular. `label(colKey, raw)` humaniza ids (grupo/técnico/estado…). */
+export function tableReportToCsv(r: TableResult, label: (colKey: string, raw: string) => string): string {
+  const cols = r.def.columns ?? [];
+  const esc = (s: string) => /[;\n"]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  const head = cols.map((c) => esc(c.label)).join(';');
+  const lines = r.rows.map((row) => cols.map((c) => esc(label(c.key, row[c.key] ?? ''))).join(';'));
+  return [head, ...lines].join('\n');
+}
+
+/** HTML del informe tabular (para email / vista). `label` humaniza ids; `fmt` fechas. */
+export function tableReportToHtml(r: TableResult, label: (colKey: string, raw: string) => string, fmt: (t: number) => string): string {
+  const cols = r.def.columns ?? [];
+  const th = 'text-align:left;padding:6px 10px;border-bottom:2px solid #ddd;white-space:nowrap';
+  const td = 'padding:6px 10px;border-bottom:1px solid #eee;vertical-align:top';
+  const head = cols.map((c) => `<th style="${th}">${c.label}</th>`).join('');
+  const body = r.rows.map((row) => `<tr>${cols.map((c) => `<td style="${td}">${label(c.key, row[c.key] ?? '') || '—'}</td>`).join('')}</tr>`).join('');
+  const period = r.from != null && r.to != null ? `${fmt(r.from)} – ${fmt(r.to - 1)} · ` : '';
+  return `<div style="font-family:system-ui,Arial,sans-serif;color:#1a2233">`
+    + `<h2 style="margin:0 0 2px">${r.def.name}</h2>`
+    + `<p style="color:#777;margin:0 0 12px;font-size:13px">${period}${r.total} solicitudes</p>`
+    + `<table style="border-collapse:collapse;font-size:13px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
 /** Límites [from, to) de la SEMANA (lunes 00:00 local) o del MES que contiene `ref`. */
@@ -94,4 +162,30 @@ export const DEFAULT_REPORTS: ReportDef[] = [
   { id: 'rep-tecnico', name: 'Por técnico', dimension: 'technician' },
   { id: 'rep-prioridad', name: 'Por prioridad', dimension: 'priority' },
   { id: 'rep-tipo', name: 'Incidencias vs peticiones', dimension: 'type' },
+];
+
+/** Presets TABULARES del equipo (reproducen informes de SDP 1:1). */
+export const DEFAULT_TABLE_REPORTS: ReportDef[] = [
+  {
+    id: 'rep-seguimiento-bi',
+    name: 'Seguimiento BI',
+    dimension: 'area',
+    kind: 'table',
+    period: 'none',
+    filters: [{ field: 'area', value: 'ar-bi' }],
+    columns: [
+      { key: 'templateName', label: 'Plantilla' },
+      { key: 'requester', label: 'Solicitante' },
+      { key: 'udf:udf_char129', label: 'Tipología Ticket' },
+      { key: 'subject', label: 'Asunto' },
+      { key: 'status', label: 'Estado de solicitud' },
+      { key: 'udf:udf_char128', label: 'Estado BI' },
+      { key: 'udf:udf_long1', label: 'Prioridad BI' },
+      { key: 'technician', label: 'Técnico' },
+      { key: 'closureComment', label: 'Comentarios de cierre' },
+      { key: 'udf:udf_char122', label: 'Gestión Datos Petición' },
+      { key: 'udf:udf_char13', label: 'Impacto en BI' },
+      { key: 'udf:udf_char124', label: 'Informe BI Afectado' },
+    ],
+  },
 ];

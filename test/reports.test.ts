@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, type ReportDef } from '../src/reports.js';
+import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, type ReportDef } from '../src/reports.js';
 import type { Ticket } from '../src/model.js';
 
 const T0 = Date.UTC(2026, 7, 24, 12); // ref dentro del periodo
@@ -67,5 +67,50 @@ describe('reports · csv y presets', () => {
   it('trae presets por defecto', () => {
     expect(DEFAULT_REPORTS.length).toBeGreaterThanOrEqual(5);
     expect(DEFAULT_REPORTS.map((d) => d.dimension)).toContain('group');
+  });
+});
+
+describe('reports · tabular (listados)', () => {
+  const bi = (o: Partial<Ticket>): Ticket => tk({ area: 'ar-bi', templateName: 'Solicitud de datos BI', sdpUdf: { udf_char128: 'Completada', udf_long1: '1' }, ...o });
+
+  it('tableCellRaw resuelve campos estándar, templateName y udf:', () => {
+    const t = bi({ subject: 'Alta activo', closureComment: 'cerrado' });
+    expect(tableCellRaw(t, 'subject')).toBe('Alta activo');
+    expect(tableCellRaw(t, 'templateName')).toBe('Solicitud de datos BI');
+    expect(tableCellRaw(t, 'udf:udf_char128')).toBe('Completada');
+    expect(tableCellRaw(t, 'closureComment')).toBe('cerrado');
+    expect(tableCellRaw(t, 'udf:no_existe')).toBe('');
+  });
+
+  it('runTableReport filtra por ámbito y proyecta columnas', () => {
+    const def: ReportDef = { id: 't', name: 'BI', dimension: 'area', kind: 'table', filters: [{ field: 'area', value: 'ar-bi' }], columns: [{ key: 'subject', label: 'Asunto' }, { key: 'udf:udf_char128', label: 'Estado BI' }] };
+    const tickets = [bi({ subject: 'a' }), bi({ subject: 'b', sdpUdf: { udf_char128: 'Abierta' } }), tk({ area: 'ar-reo', subject: 'c' })];
+    const r = runTableReport(def, tickets);
+    expect(r.total).toBe(2);
+    expect(r.rows.map((x) => x['subject'])).toEqual(['a', 'b']);
+    expect(r.rows[1]!['udf:udf_char128']).toBe('Abierta');
+  });
+
+  it('respeta el periodo cuando se pasa [from,to)', () => {
+    const def: ReportDef = { id: 't', name: 'BI', dimension: 'area', kind: 'table', filters: [{ field: 'area', value: 'ar-bi' }], columns: [{ key: 'subject', label: 'Asunto' }] };
+    const r = runTableReport(def, [bi({ subject: 'in', createdAt: T0 }), bi({ subject: 'out', createdAt: T0 - 10 * DAY })], T0 - 1, T0 + 1);
+    expect(r.total).toBe(1);
+    expect(r.rows[0]!['subject']).toBe('in');
+  });
+
+  it('tableReportToCsv usa etiquetas de columna y humaniza con label()', () => {
+    const def: ReportDef = { id: 't', name: 'BI', dimension: 'area', kind: 'table', filters: [{ field: 'area', value: 'ar-bi' }], columns: [{ key: 'subject', label: 'Asunto' }, { key: 'technician', label: 'Técnico' }] };
+    const r = runTableReport(def, [bi({ subject: 'Con; punto y coma', technicianId: 'u1' })]);
+    const csv = tableReportToCsv(r, (k, raw) => (k === 'technician' && raw === 'u1' ? 'Ana' : raw));
+    expect(csv.split('\n')[0]).toBe('Asunto;Técnico');
+    expect(csv.split('\n')[1]).toBe('"Con; punto y coma";Ana'); // escapado por el ';'
+  });
+
+  it('el preset «Seguimiento BI» trae las 12 columnas del Excel', () => {
+    const p = DEFAULT_TABLE_REPORTS.find((d) => d.id === 'rep-seguimiento-bi');
+    expect(p).toBeTruthy();
+    expect(p!.columns).toHaveLength(12);
+    expect(p!.filters).toEqual([{ field: 'area', value: 'ar-bi' }]);
+    expect(p!.columns!.map((c) => c.label)).toContain('Impacto en BI');
   });
 });

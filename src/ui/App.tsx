@@ -17,10 +17,10 @@ import { RULE_FIELDS, RULE_OPS, RULE_ACTIONS, type BusinessRule, type RuleAction
 import { FORM_OPS, FORM_ACTIONS, evaluateFormRules, type FormRule, type FormActionType, type FormScope, type FieldEffects } from '../formrules.js';
 import type { SlaCategory, Stage, Template, FieldDef, FieldType, ReplyTemplate, NotifEvent, TaskTemplate, ApprovalLevelDef, ChecklistItemDef, Asset, AssetStatus } from '../model.js';
 import { isArchivedStatus, ASSET_STATUS, ASSET_TYPES, assetStatusView } from '../model.js';
-import { queryArchive, getTicketById, type ArchiveCursor } from '../data/firestore.js';
+import { queryArchive, getTicketById, queryTicketsByField, type ArchiveCursor } from '../data/firestore.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
-import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, type ReportSchedule, type ReportDimension } from '../reports.js';
+import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, type ReportSchedule, type ReportDimension, type ReportDef } from '../reports.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
@@ -2923,44 +2923,60 @@ function BrandingAdmin({ tenant }: { tenant: TenantData }) {
 const ADMIN_FIRST = ADMIN_AREAS.flatMap((a) => a[2]).find(([, k]) => k)?.[1] ?? 'catservicio';
 function ReportsModule({ tenant }: { tenant: TenantData }) {
   const [defId, setDefId] = useState(DEFAULT_REPORTS[0]!.id);
+  const all: ReportDef[] = [...DEFAULT_REPORTS, ...DEFAULT_TABLE_REPORTS];
+  const def = all.find((d) => d.id === defId) ?? DEFAULT_REPORTS[0]!;
+  return (
+    <div className="reports">
+      <h1><Icon name="bar-chart" size={20} /> Informes</h1>
+      <div style={{ marginBottom: 14 }}>
+        <label>Informe <select value={defId} onChange={(e) => setDefId(e.target.value)}>
+          <optgroup label="Resumen (conteos)">{DEFAULT_REPORTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</optgroup>
+          <optgroup label="Listados (detalle)">{DEFAULT_TABLE_REPORTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</optgroup>
+        </select></label>
+      </div>
+      {def.kind === 'table' ? <TableReportView def={def} tenant={tenant} /> : <SummaryReportView def={def} tenant={tenant} />}
+    </div>
+  );
+}
+
+// Resuelve id→nombre de un nodo del árbol de clasificación (área/servicio/tipología).
+function nodeNameOf(tenant: TenantData, id: string, level: 'area' | 'service' | 'element'): string {
+  for (const a of tenant.classificationTree ?? []) {
+    if (level === 'area' && a.id === id) return a.name;
+    if (level === 'service') for (const s of a.services) { if (s.id === id) return s.name; }
+    if (level === 'element') for (const s of a.services) for (const e of s.elements ?? []) if (e.id === id) return e.name;
+  }
+  return id;
+}
+
+function SummaryReportView({ def, tenant }: { def: ReportDef; tenant: TenantData }) {
   const [unit, setUnit] = useState<'week' | 'month'>('week');
   const [offset, setOffset] = useState(0);
-  const def = DEFAULT_REPORTS.find((d) => d.id === defId) ?? DEFAULT_REPORTS[0]!;
   const now = Date.now();
   const base = unit === 'week' ? now + offset * 7 * 86400000 : new Date(new Date(now).getFullYear(), new Date(now).getMonth() + offset, 15).getTime();
   const { from, to } = periodBounds(base, unit);
   const result = runReport(def, tenant.tickets as unknown as import('../model.js').Ticket[], from, to);
-  const nodeName = (id: string, level: 'area' | 'service' | 'element') => {
-    for (const a of tenant.classificationTree ?? []) {
-      if (level === 'area' && a.id === id) return a.name;
-      if (level === 'service') for (const s of a.services) { if (s.id === id) return s.name; }
-      if (level === 'element') for (const s of a.services) for (const e of s.elements ?? []) if (e.id === id) return e.name;
-    }
-    return id;
-  };
   const label = (key: string) => {
     switch (def.dimension) {
       case 'group': return tenant.groups.find((g) => g.id === key)?.name ?? key;
       case 'technician': return key === '(sin asignar)' ? key : (tenant.members.find((m) => m.uid === key)?.name ?? key);
-      case 'area': return nodeName(key, 'area');
-      case 'service': return nodeName(key, 'service');
-      case 'element': return nodeName(key, 'element');
+      case 'area': return nodeNameOf(tenant, key, 'area');
+      case 'service': return nodeNameOf(tenant, key, 'service');
+      case 'element': return nodeNameOf(tenant, key, 'element');
       case 'type': return key === 'incident' ? 'Incidencia' : 'Petición';
       default: return key;
     }
   };
   const fmt = (t: number) => new Date(t).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
   const download = () => {
-    const blob = new Blob([reportToCsv(result)], { type: 'text/csv;charset=utf-8' });
+    const blob = new Blob(['﻿' + reportToCsv(result)], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `informe-${def.dimension}-${fmt(from)}.csv`; a.click(); URL.revokeObjectURL(a.href);
   };
   const max = result.rows[0]?.count ?? 1;
   return (
-    <div className="reports">
-      <h1><Icon name="bar-chart" size={20} /> Informes</h1>
+    <>
       <div className="banner" style={{ marginBottom: 14 }}>Informe sobre las <b>solicitudes activas</b> creadas en el periodo. El histórico completo y el envío semanal por email llegan con el módulo programado.</div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
-        <label>Informe <select value={defId} onChange={(e) => setDefId(e.target.value)}>{DEFAULT_REPORTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
         <label>Periodo <select value={unit} onChange={(e) => { setUnit(e.target.value as 'week' | 'month'); setOffset(0); }}><option value="week">Semana</option><option value="month">Mes</option></select></label>
         <span className="seg">
           <button type="button" onClick={() => setOffset(offset - 1)}>‹ Anterior</button>
@@ -2979,7 +2995,63 @@ function ReportsModule({ tenant }: { tenant: TenantData }) {
             <td style={{ textAlign: 'right', color: 'var(--ink-soft)' }}>{r.pct}%</td>
             <td><div style={{ height: 8, borderRadius: 4, background: 'var(--accent, #2f63e6)', width: `${Math.round((r.count / max) * 100)}%`, minWidth: 2 }} /></td>
           </tr>)}</tbody></table>}
-    </div>
+    </>
+  );
+}
+
+// Informe TABULAR (listado con columnas; p. ej. «Seguimiento BI»). Carga bajo demanda TODOS
+// los tickets del ámbito (activos + archivo) por igualdad de un campo; requiere scope 'all'.
+function TableReportView({ def, tenant }: { def: ReportDef; tenant: TenantData }) {
+  const [tickets, setTickets] = useState<import('../model.js').Ticket[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    const f = (def.filters ?? [])[0];
+    if (!f) { setTickets([]); return; }
+    let alive = true; setTickets(null); setErr(null);
+    queryTicketsByField(tenant.id, f.field, f.value)
+      .then((ts) => { if (alive) setTickets(ts as unknown as import('../model.js').Ticket[]); })
+      .catch((e) => { if (alive) { setErr((e as Error).message); setTickets([]); } });
+    return () => { alive = false; };
+  }, [def.id, tenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const colLabel = (colKey: string, raw: string): string => {
+    if (!raw) return '';
+    switch (colKey) {
+      case 'requester': case 'technician': return tenant.members.find((m) => m.uid === raw)?.name ?? raw;
+      case 'group': return tenant.groups.find((g) => g.id === raw)?.name ?? raw;
+      case 'type': return raw === 'incident' ? 'Incidencia' : 'Petición';
+      case 'area': return nodeNameOf(tenant, raw, 'area');
+      case 'service': return nodeNameOf(tenant, raw, 'service');
+      case 'element': return nodeNameOf(tenant, raw, 'element');
+      default: return raw;
+    }
+  };
+  const result = tickets ? runTableReport(def, tickets) : null;
+  const cols = def.columns ?? [];
+  const download = () => {
+    if (!result) return;
+    const blob = new Blob(['﻿' + tableReportToCsv(result, colLabel)], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${def.id}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  };
+  return (
+    <>
+      <div className="banner" style={{ marginBottom: 14 }}>Listado <b>{def.name}</b> — reproduce el informe de SDP con datos vivos (incluye activos y archivo). Exportable a CSV y programable por email.</div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{result ? result.total : '…'} <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-soft)' }}>solicitudes</span></div>
+        <button className="ghost sm" onClick={download} disabled={!result || !result.total} style={{ marginLeft: 'auto' }}><Icon name="file-text" size={14} /> Exportar CSV</button>
+      </div>
+      {err && <div className="banner err" style={{ marginBottom: 12 }}>No se pudo cargar el listado: {err}. (Requiere permiso de lectura amplio.)</div>}
+      {!result ? <div className="empty" style={{ padding: 24 }}>Cargando listado…</div>
+        : result.total === 0 ? <div className="empty" style={{ padding: 24 }}>Sin solicitudes en este ámbito.</div>
+          : <div style={{ overflowX: 'auto', border: '1px solid var(--line, #e5e7eb)', borderRadius: 8 }}>
+            <table className="mgmt" style={{ fontSize: 12.5, minWidth: 900 }}>
+              <thead><tr>{cols.map((c) => <th key={c.key} style={{ whiteSpace: 'nowrap' }}>{c.label}</th>)}</tr></thead>
+              <tbody>{result.rows.map((row, i) => <tr key={i}>{cols.map((c) => {
+                const val = colLabel(c.key, row[c.key] ?? '');
+                return <td key={c.key} style={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={val}>{val || '—'}</td>;
+              })}</tr>)}</tbody>
+            </table>
+          </div>}
+    </>
   );
 }
 

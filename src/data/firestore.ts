@@ -255,6 +255,16 @@ export async function queryArchive(tid: string, opts: ArchiveFilters = {}): Prom
   return { tickets: s.docs.map((d) => ({ ...(d.data() as StoredTicket), id: d.id })), last: s.docs[s.docs.length - 1] ?? null };
 }
 
+/** Carga tickets (activos + archivo) por igualdad de UN campo indexado — para INFORMES
+ *  tabulares de ámbito acotado (p. ej. `area == 'ar-bi'`, ~cientos de tickets). Índice de un
+ *  solo campo (automático), sin índice compuesto. Requiere `list` amplio (scope 'all'). */
+export async function queryTicketsByField(tid: string, field: string, value: string): Promise<StoredTicket[]> {
+  const { m, db } = await fs();
+  const q = m.query(m.collection(db, `tenants/${tid}/tickets`), m.where(field, '==', value));
+  const s = await m.getDocs(q);
+  return s.docs.map((d) => ({ ...(d.data() as StoredTicket), id: d.id }));
+}
+
 /** Trae un ticket por id (para abrir uno del archivo o buscar por nº exacto). */
 export async function getTicketById(tid: string, id: string): Promise<StoredTicket | null> {
   const { m, db } = await fs();

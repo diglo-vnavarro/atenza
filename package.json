@@ -18,6 +18,8 @@
   "reports:job": "tsx scripts/send-reports.ts --apply",
   "reports:dry": "tsx scripts/send-reports.ts",
   "migrate:attachments": "tsx scripts/migrate-attachments.ts --apply",
+    "enrich:bi": "tsx scripts/enrich-bi.ts",
+    "enrich:bi:dry": "tsx scripts/enrich-bi.ts --dry-run",
     "enrich:members": "tsx scripts/enrich-members.ts",
     "enrich:members:dry": "tsx scripts/enrich-members.ts --dry-run",
     "enrich:catalog": "tsx scripts/enrich-catalog.ts",

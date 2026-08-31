@@ -139,6 +139,13 @@ export interface Ticket {
   survey?: Survey;
   /** valores de campos adicionales (UDF) del formulario, indexados por id de FieldDef. */
   udf?: Record<string, string>;
+  /** nombre de la plantilla de solicitud en SDP (p. ej. «Petición ITSM BI»). Para informes. */
+  templateName?: string;
+  /** comentario de cierre del solicitante en SDP (closure_info.requester_ack_comments). Para informes. */
+  closureComment?: string;
+  /** valores CRUDOS de campos personalizados de SDP (udf_char128…), fuente para informes
+   *  tabulares (Estado BI, Impacto en BI…). Distinto de `udf` (que son los del formulario Atenza). */
+  sdpUdf?: Record<string, string>;
 }
 
 /** Encuesta de satisfacción (CSAT): valoración 1–5 del solicitante al resolverse. */
