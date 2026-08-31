@@ -86,6 +86,8 @@ interface State {
   setReportSchedules: (schedules: import('../reports.js').ReportSchedule[]) => void;
   saveReport: (report: import('../reports.js').SavedReport) => void;
   deleteReport: (id: string) => void;
+  saveReportFolder: (folder: import('../reports.js').ReportFolder) => void;
+  deleteReportFolder: (id: string) => void;
   markNotifRead: (id: string) => void;
   markAllNotifsRead: () => void;
   addComment: (ticketId: string, text: string, authorName: string, internal: boolean) => void;
@@ -626,6 +628,14 @@ export const useStore = create<State>()(
         deleteReport: (id) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, savedReports: (t.savedReports ?? []).filter((r) => r.id !== id) })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.deleteReport(t.id, id).catch(errlog); }
+        },
+        saveReportFolder: (folder) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, reportFolders: [...(t.reportFolders ?? []).filter((f) => f.id !== folder.id), folder] })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.saveReportFolder(t.id, folder).catch(errlog); }
+        },
+        deleteReportFolder: (id) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, reportFolders: (t.reportFolders ?? []).filter((f) => f.id !== id) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.deleteReportFolder(t.id, id).catch(errlog); }
         },
         markNotifRead: (id) => {
           const t = activeT(get()); if (!t) return;

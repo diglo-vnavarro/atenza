@@ -321,6 +321,8 @@ export interface TenantData {
   reportSchedules?: import('../reports.js').ReportSchedule[];
   /** Informes guardados por los usuarios (biblioteca). Subcolección: tenants/{tid}/reports. */
   savedReports?: import('../reports.js').SavedReport[];
+  /** Carpetas de la biblioteca (primera clase). Subcolección: tenants/{tid}/reportFolders. */
+  reportFolders?: import('../reports.js').ReportFolder[];
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }

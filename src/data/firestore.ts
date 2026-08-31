@@ -192,6 +192,7 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
   subs.push(m.onSnapshot(col('groups'), (s) => { acc.groups = s.docs.map((d) => d.data() as Group); emit(); }));
   subs.push(m.onSnapshot(col('assets'), (s) => { acc.assets = s.docs.map((d) => ({ ...(d.data() as Asset), id: d.id })); emit(); }, () => { acc.assets = []; emit(); }));
   subs.push(m.onSnapshot(col('reports'), (s) => { acc.savedReports = s.docs.map((d) => ({ ...(d.data() as import('../reports.js').SavedReport), id: d.id })); emit(); }, () => { acc.savedReports = []; emit(); }));
+  subs.push(m.onSnapshot(col('reportFolders'), (s) => { acc.reportFolders = s.docs.map((d) => ({ ...(d.data() as import('../reports.js').ReportFolder), id: d.id })); emit(); }, () => { acc.reportFolders = []; emit(); }));
 
   // tickets EN VIVO: solo NO archivados (los ~23k terminales van a la vista Archivo,
   // no se suscriben, para que la bandeja sea rápida). Técnico/admin => todos los
@@ -266,6 +267,16 @@ export async function saveReport(tid: string, r: import('../reports.js').SavedRe
 export async function deleteReport(tid: string, id: string): Promise<void> {
   const { m, db } = await fs();
   await m.deleteDoc(m.doc(db, `tenants/${tid}/reports`, id));
+}
+/** Crea/actualiza una carpeta de la biblioteca. */
+export async function saveReportFolder(tid: string, f: import('../reports.js').ReportFolder): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, `tenants/${tid}/reportFolders`, f.id), f);
+}
+/** Borra una carpeta (dueño con manageReports, o admin). */
+export async function deleteReportFolder(tid: string, id: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.deleteDoc(m.doc(db, `tenants/${tid}/reportFolders`, id));
 }
 
 /** Carga tickets (activos + archivo) por igualdad de UN campo indexado — para INFORMES

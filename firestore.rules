@@ -206,6 +206,12 @@ service cloud.firestore {
         allow update, delete: if isPlatformAdmin()
           || (hasCap(tid, 'manageReports') && (resource.data.ownerUid == uid() || hasCap(tid, 'manageConfig')));
       }
+      match /reportFolders/{docId} {
+        allow read:   if isMember(tid) || isPlatformAdmin();
+        allow create: if hasCap(tid, 'manageReports') && request.resource.data.ownerUid == uid();
+        allow update, delete: if isPlatformAdmin()
+          || (hasCap(tid, 'manageReports') && (resource.data.ownerUid == uid() || hasCap(tid, 'manageConfig')));
+      }
       // --- activos / CMDB: los lee cualquier miembro (los tickets los referencian);
       // los gestionan técnico/admin (alta/edición/asignación), no solo configuración.
       match /assets/{docId} {

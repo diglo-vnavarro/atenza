@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, AVAILABLE_COLUMNS, AVAILABLE_DIMENSIONS, filterableColumns, type ReportDef } from '../src/reports.js';
+import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, AVAILABLE_COLUMNS, AVAILABLE_DIMENSIONS, filterableColumns, runMatrixReport, matrixToCsv, type ReportDef } from '../src/reports.js';
 import type { Ticket } from '../src/model.js';
 
 const T0 = Date.UTC(2026, 7, 24, 12); // ref dentro del periodo
@@ -129,5 +129,31 @@ describe('reports · constructor (catálogo)', () => {
   it('filterableColumns excluye texto/fecha (asunto, id, createdAt, cierre)', () => {
     const cols = [{ key: 'subject', label: 'Asunto' }, { key: 'status', label: 'Estado' }, { key: 'createdAt', label: 'Fecha' }, { key: 'udf:udf_char128', label: 'Estado BI' }];
     expect(filterableColumns(cols)).toEqual(['status', 'udf:udf_char128']);
+  });
+});
+
+describe('reports · matriz (tabla cruzada)', () => {
+  const def: ReportDef = { id: 'm', name: 'M', dimension: 'group', dimension2: 'priority', kind: 'matrix' };
+  it('cuenta por fila×columna con totales', () => {
+    const tickets = [
+      tk({ groupId: 'g1', priority: 'Alta', createdAt: T0 }),
+      tk({ groupId: 'g1', priority: 'Alta', createdAt: T0 }),
+      tk({ groupId: 'g1', priority: 'Baja', createdAt: T0 }),
+      tk({ groupId: 'g2', priority: 'Alta', createdAt: T0 }),
+    ];
+    const r = runMatrixReport(def, tickets, T0 - 1, T0 + 1);
+    expect(r.total).toBe(4);
+    expect(r.cells['g1']!['Alta']).toBe(2);
+    expect(r.cells['g1']!['Baja']).toBe(1);
+    expect(r.rowTotals['g1']).toBe(3);
+    expect(r.colTotals['Alta']).toBe(3);
+    expect(r.rows[0]).toBe('g1'); // ordenado por total desc
+  });
+  it('matrixToCsv trae cabecera, filas y total', () => {
+    const r = runMatrixReport(def, [tk({ groupId: 'g1', priority: 'Alta', createdAt: T0 })], T0 - 1, T0 + 1);
+    const csv = matrixToCsv(r, (_dim, key) => key);
+    expect(csv.split('\n')[0]).toBe(';Alta;Total');
+    expect(csv).toContain('g1;1;1');
+    expect(csv.trim().endsWith('Total;1;1')).toBe(true);
   });
 });

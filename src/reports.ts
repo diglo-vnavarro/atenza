@@ -10,17 +10,23 @@ export interface ReportFilter { field: ReportDimension; value: string }
 export interface ReportColumn { key: string; label: string }
 /** Ámbito BASE de un listado tabular: por qué campo indexado se cargan los tickets (grupo, área…). */
 export interface ReportScope { label: string; field: 'group' | 'area' | 'technician' | 'service'; value: string }
+/** Programación de envío por email de un informe guardado. */
+export interface ReportScheduleCfg { unit: 'week' | 'month'; recipients: string[]; enabled: boolean }
 export interface ReportDef {
   id: string; name: string; dimension: ReportDimension; filters?: ReportFilter[];
-  /** 'summary' (por defecto) = agrega por dimensión; 'table' = listado con columnas. */
-  kind?: 'summary' | 'table';
+  /** 'summary' = agrega por dimensión; 'table' = listado; 'matrix' = tabla cruzada fila×columna. */
+  kind?: 'summary' | 'table' | 'matrix';
   columns?: ReportColumn[];
+  /** Matriz: dimensión de COLUMNA (la de fila es `dimension`). */
+  dimension2?: ReportDimension;
   /** Acotación temporal del listado tabular ('none' = todo el histórico del ámbito). */
   period?: 'none' | 'week' | 'month';
   /** Ámbitos base seleccionables (primero = por defecto). Cada uno es una carga distinta. */
   scopes?: ReportScope[];
   /** Columnas por las que ofrecer un filtro desplegable en la vista (además del rango de fechas). */
   filterCols?: string[];
+  /** Envío programado por email (opcional). */
+  schedule?: ReportScheduleCfg;
 }
 /** Campo de Firestore para el ámbito base de un listado (índice de un solo campo). */
 export const SCOPE_DB_FIELD: Record<ReportScope['field'], string> = { group: 'groupId', area: 'area', technician: 'technicianId', service: 'service' };
@@ -118,6 +124,46 @@ export function tableReportToHtml(r: TableResult, label: (colKey: string, raw: s
     + `<table style="border-collapse:collapse;font-size:13px"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 
+// ---- INFORMES DE MATRIZ (tabla cruzada fila × columna) ----
+export interface MatrixResult { def: ReportDef; from?: number; to?: number; total: number; rows: string[]; cols: string[]; cells: Record<string, Record<string, number>>; rowTotals: Record<string, number>; colTotals: Record<string, number> }
+/** Cuenta tickets por (dimensión fila × dimensión columna) dentro del periodo/filtros. */
+export function runMatrixReport(def: ReportDef, tickets: Ticket[], from?: number, to?: number): MatrixResult {
+  const rowDim = def.dimension, colDim = def.dimension2 ?? 'status';
+  const cells: Record<string, Record<string, number>> = {}, rowTotals: Record<string, number> = {}, colTotals: Record<string, number> = {};
+  const rowSet = new Set<string>(), colSet = new Set<string>(); let total = 0;
+  for (const t of tickets) {
+    if (from != null && to != null) { const c = t.createdAt ?? 0; if (c < from || c >= to) continue; }
+    if (!(def.filters ?? []).every((f) => dimValue(t, f.field) === f.value)) continue;
+    const rk = dimValue(t, rowDim), ck = dimValue(t, colDim);
+    rowSet.add(rk); colSet.add(ck);
+    (cells[rk] ??= {})[ck] = (cells[rk]![ck] ?? 0) + 1;
+    rowTotals[rk] = (rowTotals[rk] ?? 0) + 1; colTotals[ck] = (colTotals[ck] ?? 0) + 1; total++;
+  }
+  const rows = [...rowSet].sort((a, b) => (rowTotals[b]! - rowTotals[a]!) || a.localeCompare(b));
+  const cols = [...colSet].sort((a, b) => (colTotals[b]! - colTotals[a]!) || a.localeCompare(b));
+  return { def, from, to, total, rows, cols, cells, rowTotals, colTotals };
+}
+/** CSV de la matriz (fila; col1; col2; …; Total). `label(dim, key)` humaniza. */
+export function matrixToCsv(r: MatrixResult, label: (dim: ReportDimension, key: string) => string): string {
+  const rowDim = r.def.dimension, colDim = r.def.dimension2 ?? 'status';
+  const head = ['', ...r.cols.map((c) => label(colDim, c)), 'Total'].join(';');
+  const lines = r.rows.map((rk) => [label(rowDim, rk), ...r.cols.map((c) => r.cells[rk]?.[c] ?? 0), r.rowTotals[rk] ?? 0].join(';'));
+  const foot = ['Total', ...r.cols.map((c) => r.colTotals[c] ?? 0), r.total].join(';');
+  return [head, ...lines, foot].join('\n');
+}
+/** HTML de la matriz (para email). */
+export function matrixToHtml(r: MatrixResult, label: (dim: ReportDimension, key: string) => string, fmt: (t: number) => string): string {
+  const rowDim = r.def.dimension, colDim = r.def.dimension2 ?? 'status';
+  const th = 'padding:6px 10px;border-bottom:2px solid #ddd;text-align:right', tdc = 'padding:6px 10px;border-bottom:1px solid #eee;text-align:right';
+  const head = `<th style="${th};text-align:left"></th>${r.cols.map((c) => `<th style="${th}">${label(colDim, c)}</th>`).join('')}<th style="${th}">Total</th>`;
+  const body = r.rows.map((rk) => `<tr><td style="${tdc};text-align:left;font-weight:600">${label(rowDim, rk)}</td>${r.cols.map((c) => `<td style="${tdc}">${r.cells[rk]?.[c] ?? 0}</td>`).join('')}<td style="${tdc};font-weight:600">${r.rowTotals[rk] ?? 0}</td></tr>`).join('');
+  const foot = `<tr><td style="${tdc};text-align:left;font-weight:600">Total</td>${r.cols.map((c) => `<td style="${tdc};font-weight:600">${r.colTotals[c] ?? 0}</td>`).join('')}<td style="${tdc};font-weight:700">${r.total}</td></tr>`;
+  const period = r.from != null && r.to != null ? `${fmt(r.from)} – ${fmt(r.to - 1)} · ` : '';
+  return `<div style="font-family:system-ui,Arial,sans-serif;color:#1a2233"><h2 style="margin:0 0 2px">${r.def.name}</h2>`
+    + `<p style="color:#777;margin:0 0 12px;font-size:13px">${period}${r.total} solicitudes</p>`
+    + `<table style="border-collapse:collapse;font-size:13px"><thead><tr>${head}</tr></thead><tbody>${body}${foot}</tbody></table></div>`;
+}
+
 /** Límites [from, to) de la SEMANA (lunes 00:00 local) o del MES que contiene `ref`. */
 export function periodBounds(ref: number, unit: 'week' | 'month'): { from: number; to: number } {
   const d = new Date(ref);
@@ -142,6 +188,9 @@ export interface SavedReport extends ReportDef {
   createdAt: number;
   updatedAt?: number;
 }
+
+/** Carpeta de la biblioteca de informes (primera clase: puede estar vacía y llevar descripción). */
+export interface ReportFolder { id: string; name: string; description?: string; ownerUid: string; ownerName?: string }
 
 /** Catálogo de COLUMNAS disponibles para el constructor de informes tabulares (estándar + udf SDP). */
 export const AVAILABLE_COLUMNS: ReportColumn[] = [

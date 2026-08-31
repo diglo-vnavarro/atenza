@@ -9,7 +9,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { writeFileSync } from 'node:fs';
-import { runReport, reportToHtml, previousPeriod, DEFAULT_REPORTS, type ReportSchedule, type ReportDef } from '../src/reports.js';
+import { runReport, reportToHtml, previousPeriod, DEFAULT_REPORTS, runTableReport, tableReportToHtml, runMatrixReport, matrixToHtml, SCOPE_DB_FIELD, type ReportSchedule, type ReportDef, type ReportDimension, type SavedReport } from '../src/reports.js';
 import type { Ticket } from '../src/model.js';
 
 const APPLY = process.argv.includes('--apply');
@@ -28,8 +28,8 @@ async function main(): Promise<void> {
   const groups = (await db.collection(`tenants/${TENANT}/groups`).get()).docs.map((d) => ({ id: d.id, name: String(d.data().name ?? '') }));
   const members = (await db.collection(`tenants/${TENANT}/members`).get()).docs.map((d) => ({ uid: d.id, name: String(d.data().name ?? '') }));
   const tree = (root.classificationTree ?? []) as { id: string; name: string; services: { id: string; name: string; elements?: { id: string; name: string }[] }[] }[];
-  const label = (def: ReportDef) => (key: string): string => {
-    switch (def.dimension) {
+  const dimLabel = (dim: ReportDimension, key: string): string => {
+    switch (dim) {
       case 'group': return groups.find((g) => g.id === key)?.name ?? key;
       case 'technician': return key === '(sin asignar)' ? key : (members.find((m) => m.uid === key)?.name ?? key);
       case 'area': { for (const a of tree) if (a.id === key) return a.name; return key; }
@@ -39,11 +39,27 @@ async function main(): Promise<void> {
       default: return key;
     }
   };
+  const label = (def: ReportDef) => (key: string): string => dimLabel(def.dimension, key);
+  // Humaniza una celda de informe TABULAR (grupo/técnico/solicitante→nombre; tipo; resto crudo).
+  const colLabel = (colKey: string, raw: string): string => {
+    if (!raw) return '';
+    if (colKey === 'requester' || colKey === 'technician') return members.find((m) => m.uid === raw)?.name ?? raw;
+    if (colKey === 'group') return groups.find((g) => g.id === raw)?.name ?? raw;
+    if (colKey === 'type') return raw === 'incident' ? 'Incidencia' : 'Petición';
+    if (colKey === 'area') return dimLabel('area', raw);
+    if (colKey === 'service') return dimLabel('service', raw);
+    if (colKey === 'element') return dimLabel('element', raw);
+    return raw;
+  };
 
+  // Informes GUARDADOS (biblioteca) con programación activa (nuevo modelo: subcolección reports).
+  const savedSched = (await db.collection(`tenants/${TENANT}/reports`).get()).docs
+    .map((d) => ({ ...(d.data() as SavedReport), id: d.id })).filter((r) => r.schedule?.enabled);
+  // Informes programados legacy (reportSchedules en el doc del tenant).
   let schedules = ((root.reportSchedules ?? []) as ReportSchedule[]).filter((s) => s.enabled);
-  const preview = !schedules.length && !APPLY;
-  if (preview) { console.log('(sin reportSchedules configurados → PREVIEW con los presets por defecto)'); schedules = DEFAULT_REPORTS.map((d) => ({ ...d, unit: 'week' as const, recipients: [TEST_EMAIL], enabled: true })); }
-  if (!schedules.length) { console.log('No hay informes programados. Nada que enviar.'); return; }
+  const preview = !schedules.length && !savedSched.length && !APPLY;
+  if (preview) { console.log('(sin informes programados → PREVIEW con los presets por defecto)'); schedules = DEFAULT_REPORTS.map((d) => ({ ...d, unit: 'week' as const, recipients: [TEST_EMAIL], enabled: true })); }
+  if (!schedules.length && !savedSched.length) { console.log('No hay informes programados. Nada que enviar.'); return; }
 
   const previews: string[] = [];
   for (const sch of schedules) {
@@ -59,12 +75,40 @@ async function main(): Promise<void> {
     if (APPLY) await db.collection('mail').add({ to: to_, message: { subject, html } });
   }
 
+  // --- Informes guardados programados (resumen / tabular / matriz) ---
+  for (const rep of savedSched) {
+    const unit = rep.schedule!.unit, kind = rep.kind ?? 'summary';
+    let html = '', total = 0;
+    if (kind === 'table') {
+      const scope = (rep.scopes ?? [])[0];
+      if (!scope) { console.log(`• [guardado] ${rep.name}: sin ámbito, omitido`); continue; }
+      const field = SCOPE_DB_FIELD[scope.field] ?? scope.field;
+      const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where(field, '==', scope.value).get()).docs.map((d) => d.data() as Ticket);
+      let from: number | undefined, to: number | undefined;
+      if (rep.period && rep.period !== 'none') ({ from, to } = previousPeriod(NOW, rep.period));
+      const res = runTableReport(rep, tickets, from, to); total = res.total; html = tableReportToHtml(res, colLabel, fmt);
+    } else if (kind === 'matrix') {
+      const { from, to } = previousPeriod(NOW, unit);
+      const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where('createdAt', '>=', from).where('createdAt', '<', to).get()).docs.map((d) => d.data() as Ticket);
+      const res = runMatrixReport(rep, tickets, from, to); total = res.total; html = matrixToHtml(res, dimLabel, fmt);
+    } else {
+      const { from, to } = previousPeriod(NOW, unit);
+      const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where('createdAt', '>=', from).where('createdAt', '<', to).get()).docs.map((d) => d.data() as Ticket);
+      const res = runReport(rep, tickets, from, to); total = res.total; html = reportToHtml(res, label(rep), fmt);
+    }
+    const subject = `Informe ${unit === 'week' ? 'semanal' : 'mensual'} · ${rep.name}`;
+    const to_ = LIVE ? rep.schedule!.recipients : [TEST_EMAIL];
+    console.log(`• [guardado] ${rep.name} [${kind}/${unit}]: ${total} tickets → ${to_.join(', ')}${LIVE ? '' : ' (TEST)'}`);
+    previews.push(html);
+    if (APPLY && to_.length) await db.collection('mail').add({ to: to_, message: { subject, html } });
+  }
+
   if (!APPLY) {
     const file = process.env.PREVIEW_FILE;
     if (file) { writeFileSync(file, previews.join('<hr style="margin:24px 0;border:none;border-top:1px solid #ddd">')); console.log(`\nPreview HTML → ${file}`); }
     console.log(`\n(dry-run: NO se encoló correo. --apply para enviar${LIVE ? '' : ' (a TEST salvo REPORTS_LIVE=1)'}.)`);
   } else {
-    console.log(`\n✓ ${schedules.length} informe(s) encolados en la colección mail${LIVE ? '' : ' (a TEST — pon REPORTS_LIVE=1 para destinatarios reales)'}.`);
+    console.log(`\n✓ ${schedules.length + savedSched.length} informe(s) encolados en la colección mail${LIVE ? '' : ' (a TEST — pon REPORTS_LIVE=1 para destinatarios reales)'}.`);
   }
 }
 main().then(() => process.exit(0)).catch((e) => { console.error('ERROR:', (e as Error).message); process.exit(1); });

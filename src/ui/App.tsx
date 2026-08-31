@@ -20,7 +20,7 @@ import { isArchivedStatus, ASSET_STATUS, ASSET_TYPES, assetStatusView } from '..
 import { queryArchive, getTicketById, queryTicketsByField, type ArchiveCursor } from '../data/firestore.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
-import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, SCOPE_DB_FIELD, AVAILABLE_COLUMNS, AVAILABLE_DIMENSIONS, filterableColumns, type ReportSchedule, type ReportDimension, type ReportDef, type SavedReport, type ReportColumn, type ReportScope } from '../reports.js';
+import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, runMatrixReport, matrixToCsv, SCOPE_DB_FIELD, AVAILABLE_COLUMNS, AVAILABLE_DIMENSIONS, filterableColumns, type ReportSchedule, type ReportDimension, type ReportDef, type SavedReport, type ReportColumn, type ReportScope } from '../reports.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
@@ -2929,6 +2929,8 @@ function builtInAsSaved(d: ReportDef): SavedReport {
 function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: TenantData; me: string; meName: string; canManage: boolean; isAdmin: boolean }) {
   const saveReport = useStore((s) => s.saveReport);
   const removeReport = useStore((s) => s.deleteReport);
+  const saveFolder = useStore((s) => s.saveReportFolder);
+  const removeFolder = useStore((s) => s.deleteReportFolder);
   const [selId, setSelId] = useState<string>('');
   const [editing, setEditing] = useState<SavedReport | null>(null); // null = no builder; objeto = crear/editar
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({}); // carpetas plegadas
@@ -2949,19 +2951,27 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
   if (editing) return <ReportBuilder tenant={tenant} report={editing} onCancel={() => setEditing(null)} onSave={(r) => { saveReport(r); setEditing(null); setSelId(r.id); }} />;
 
   // Explorador de carpetas: agrupa por carpeta (las de sistema primero, luego alfabético).
+  // Incluye carpetas de primera clase (reportFolders), aunque estén vacías.
   const SYS_FOLDERS = ['Resúmenes generales', 'IT Diglo'];
-  const folderNames = [...new Set(all.map((r) => r.folder || 'Sin carpeta'))].sort((a, b) => {
+  const folderMeta = tenant.reportFolders ?? [];
+  const folderNames = [...new Set([...folderMeta.map((f) => f.name), ...all.map((r) => r.folder || 'Sin carpeta')])].sort((a, b) => {
     const ia = SYS_FOLDERS.indexOf(a), ib = SYS_FOLDERS.indexOf(b);
     if (ia >= 0 || ib >= 0) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
     return a.localeCompare(b);
   });
-  const byFolder = folderNames.map((name) => ({ name, reports: all.filter((r) => (r.folder || 'Sin carpeta') === name) }));
+  const byFolder = folderNames.map((name) => { const meta = folderMeta.find((f) => f.name === name); return { name, desc: meta?.description, folderId: meta?.id, ownerUid: meta?.ownerUid, reports: all.filter((r) => (r.folder || 'Sin carpeta') === name) }; });
+  const createFolder = () => {
+    const name = window.prompt('Nombre de la carpeta:')?.trim(); if (!name) return;
+    const description = window.prompt('Descripción (opcional):')?.trim() || undefined;
+    saveFolder({ id: 'fld-' + Date.now().toString(36), name, ...(description ? { description } : {}), ownerUid: me, ownerName: meName });
+  };
 
   return (
     <div className="reports">
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <h1 style={{ margin: 0 }}><Icon name="bar-chart" size={20} /> Informes</h1>
-        {canManage && <button className="primary sm" style={{ marginLeft: 'auto' }} onClick={() => setEditing(blank())}>＋ Nuevo informe</button>}
+        {canManage && <button className="ghost sm" style={{ marginLeft: 'auto' }} onClick={createFolder}>📁 Nueva carpeta</button>}
+        {canManage && <button className="primary sm" onClick={() => setEditing(blank())}>＋ Nuevo informe</button>}
       </div>
       <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
         {/* Explorador de CARPETAS (estilo SDP): carpetas plegables con sus informes dentro. */}
@@ -2971,12 +2981,16 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
             const open = !collapsed[f.name];
             return (
               <div key={f.name} style={{ borderBottom: '1px solid var(--line, #eef0f3)' }}>
-                <button type="button" onClick={() => setCollapsed((c) => ({ ...c, [f.name]: open }))}
-                  style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', fontWeight: 600 }}>
-                  <span style={{ color: 'var(--ink-soft)', width: 10 }}>{open ? '▾' : '▸'}</span>
-                  <span>📁 {f.name}</span>
-                  <span className="soft" style={{ marginLeft: 'auto', fontSize: 12 }}>{f.reports.length}</span>
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center' }} title={f.desc}>
+                  <button type="button" onClick={() => setCollapsed((c) => ({ ...c, [f.name]: open }))}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', fontWeight: 600 }}>
+                    <span style={{ color: 'var(--ink-soft)', width: 10 }}>{open ? '▾' : '▸'}</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📁 {f.name}</span>
+                    <span className="soft" style={{ marginLeft: 'auto', fontSize: 12 }}>{f.reports.length}</span>
+                  </button>
+                  {canManage && f.folderId && f.reports.length === 0 && (f.ownerUid === me || isAdmin) &&
+                    <button type="button" title="Borrar carpeta vacía" onClick={() => removeFolder(f.folderId!)} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 8px', color: 'var(--ink-soft)', fontSize: 15 }}>×</button>}
+                </div>
                 {open && f.reports.map((r) => (
                   <button key={r.id} type="button" onClick={() => setSelId(r.id)}
                     style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 12px 6px 30px', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', background: r.id === sel?.id ? 'var(--accent-soft, #eef2ff)' : 'none', color: r.id === sel?.id ? 'var(--accent, #2f63e6)' : 'inherit', fontWeight: r.id === sel?.id ? 600 : 400 }}>
@@ -3000,7 +3014,7 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
                   <button type="button" onClick={() => { if (confirm(`¿Borrar el informe «${sel!.name}»?`)) { removeReport(sel!.id); setSelId(''); } }}>🗑 Borrar</button>
                 </span>}
               </div>
-              {sel.kind === 'table' ? <TableReportView def={sel} tenant={tenant} /> : <SummaryReportView def={sel} tenant={tenant} />}
+              {sel.kind === 'table' ? <TableReportView def={sel} tenant={tenant} /> : sel.kind === 'matrix' ? <MatrixReportView def={sel} tenant={tenant} /> : <SummaryReportView def={sel} tenant={tenant} />}
             </>}
         </div>
       </div>
@@ -3050,18 +3064,24 @@ function ReportBuilder({ tenant, report, onSave, onCancel }: { tenant: TenantDat
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <label style={{ flex: '1 1 260px' }}>Nombre<br /><input value={r.name} onChange={(e) => upd({ name: e.target.value })} style={{ width: '100%' }} /></label>
           <label>Carpeta<br /><input value={r.folder ?? ''} list="rep-folders" onChange={(e) => upd({ folder: e.target.value })} placeholder="Mis informes" />
-            <datalist id="rep-folders">{[...new Set((tenant.savedReports ?? []).map((x) => x.folder).filter(Boolean))].map((f) => <option key={f} value={f} />)}</datalist>
+            <datalist id="rep-folders">{[...new Set([...(tenant.reportFolders ?? []).map((f) => f.name), ...(tenant.savedReports ?? []).map((x) => x.folder).filter(Boolean)])].map((f) => <option key={f} value={f} />)}</datalist>
           </label>
           <label>Accesibilidad<br /><select value={r.accessibility} onChange={(e) => upd({ accessibility: e.target.value as 'public' | 'private' })}><option value="private">🔒 Privado</option><option value="public">🌐 Público</option></select></label>
         </div>
-        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 600 }}>Tipo:</span>
           <label><input type="radio" checked={r.kind === 'table'} onChange={() => upd({ kind: 'table' })} /> Listado (tabular)</label>
           <label><input type="radio" checked={r.kind === 'summary'} onChange={() => upd({ kind: 'summary' })} /> Resumen (conteos)</label>
+          <label><input type="radio" checked={r.kind === 'matrix'} onChange={() => upd({ kind: 'matrix' })} /> Matriz (cruzada)</label>
           <label>Período<br /><select value={r.period ?? 'none'} onChange={(e) => upd({ period: e.target.value as 'none' | 'week' | 'month' })}><option value="none">Todo</option><option value="week">Semana</option><option value="month">Mes</option></select></label>
         </div>
         {r.kind === 'summary' ? (
           <label>Agrupar por (dimensión)<br /><select value={r.dimension} onChange={(e) => upd({ dimension: e.target.value as ReportDimension })}>{AVAILABLE_DIMENSIONS.map(([d, l]) => <option key={d} value={d}>{l}</option>)}</select></label>
+        ) : r.kind === 'matrix' ? (
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <label>Filas (dimensión)<br /><select value={r.dimension} onChange={(e) => upd({ dimension: e.target.value as ReportDimension })}>{AVAILABLE_DIMENSIONS.map(([d, l]) => <option key={d} value={d}>{l}</option>)}</select></label>
+            <label>Columnas (dimensión)<br /><select value={r.dimension2 ?? 'status'} onChange={(e) => upd({ dimension2: e.target.value as ReportDimension })}>{AVAILABLE_DIMENSIONS.map(([d, l]) => <option key={d} value={d}>{l}</option>)}</select></label>
+          </div>
         ) : (
           <>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', padding: '10px 12px', background: 'var(--panel-2, #f7f8fa)', borderRadius: 8 }}>
@@ -3080,6 +3100,17 @@ function ReportBuilder({ tenant, report, onSave, onCancel }: { tenant: TenantDat
             </div>
           </>
         )}
+        {/* Programación por email */}
+        <div style={{ padding: '10px 12px', background: 'var(--panel-2, #f7f8fa)', borderRadius: 8 }}>
+          <label style={{ fontWeight: 600 }}><input type="checkbox" checked={!!r.schedule?.enabled} onChange={(e) => upd({ schedule: e.target.checked ? { unit: r.schedule?.unit ?? 'week', recipients: r.schedule?.recipients ?? [], enabled: true } : { ...(r.schedule ?? { unit: 'week', recipients: [] }), enabled: false } })} /> Enviar por email programado</label>
+          {r.schedule?.enabled && (
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 8 }}>
+              <label>Frecuencia<br /><select value={r.schedule.unit} onChange={(e) => upd({ schedule: { ...r.schedule!, unit: e.target.value as 'week' | 'month' } })}><option value="week">Semanal (lunes)</option><option value="month">Mensual (día 1)</option></select></label>
+              <label style={{ flex: '1 1 320px' }}>Destinatarios (correos, separados por coma)<br /><input value={r.schedule.recipients.join(', ')} onChange={(e) => upd({ schedule: { ...r.schedule!, recipients: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) } })} placeholder="nombre@empresa.com, …" style={{ width: '100%' }} /></label>
+            </div>
+          )}
+          <div className="soft" style={{ fontSize: 12, marginTop: 6 }}>El job de informes lo enviará automáticamente. En pruebas va a una dirección de test hasta el go-live (REPORTS_LIVE).</div>
+        </div>
       </div>
     </div>
   );
@@ -3095,7 +3126,58 @@ function nodeNameOf(tenant: TenantData, id: string, level: 'area' | 'service' | 
   return id;
 }
 
+// Humaniza el valor de una dimensión (id→nombre) para cualquier dimensión.
+function dimLabelOf(tenant: TenantData, dim: ReportDimension, key: string): string {
+  switch (dim) {
+    case 'group': return tenant.groups.find((g) => g.id === key)?.name ?? key;
+    case 'technician': return key === '(sin asignar)' ? key : (tenant.members.find((m) => m.uid === key)?.name ?? key);
+    case 'area': return nodeNameOf(tenant, key, 'area');
+    case 'service': return nodeNameOf(tenant, key, 'service');
+    case 'element': return nodeNameOf(tenant, key, 'element');
+    case 'type': return key === 'incident' ? 'Incidencia' : 'Petición';
+    default: return key;
+  }
+}
+
+// Gráfico de barras horizontales (SVG, sin librerías). filas = [{label, value}].
+function BarChart({ data }: { data: { label: string; value: number }[] }) {
+  const max = Math.max(1, ...data.map((d) => d.value));
+  const rowH = 26, w = 560, labelW = 150, barW = w - labelW - 46;
+  return (
+    <svg viewBox={`0 0 ${w} ${data.length * rowH + 6}`} style={{ width: '100%', maxWidth: w, height: 'auto' }} role="img">
+      {data.map((d, i) => {
+        const y = i * rowH + 4, bw = Math.max(2, (d.value / max) * barW);
+        return <g key={i}>
+          <text x={labelW - 8} y={y + rowH / 2} textAnchor="end" dominantBaseline="middle" fontSize="12.5" fill="var(--ink, #1a2233)">{d.label.length > 22 ? d.label.slice(0, 21) + '…' : d.label}</text>
+          <rect x={labelW} y={y + 3} width={bw} height={rowH - 10} rx="3" fill="var(--accent, #2f63e6)" />
+          <text x={labelW + bw + 6} y={y + rowH / 2} dominantBaseline="middle" fontSize="12" fill="var(--ink-soft, #667)">{d.value}</text>
+        </g>;
+      })}
+    </svg>
+  );
+}
+// Gráfico de tarta (SVG).
+function PieChart({ data }: { data: { label: string; value: number }[] }) {
+  const total = data.reduce((s, d) => s + d.value, 0) || 1;
+  const COLORS = ['#2f63e6', '#0f766e', '#b45309', '#be185d', '#7c3aed', '#0891b2', '#15803d', '#dc2626', '#a16207', '#4f46e5'];
+  let acc = 0; const R = 90, C = 110;
+  const arcs = data.map((d, i) => {
+    const a0 = (acc / total) * 2 * Math.PI - Math.PI / 2; acc += d.value;
+    const a1 = (acc / total) * 2 * Math.PI - Math.PI / 2;
+    const large = a1 - a0 > Math.PI ? 1 : 0;
+    const x0 = C + R * Math.cos(a0), y0 = C + R * Math.sin(a0), x1 = C + R * Math.cos(a1), y1 = C + R * Math.sin(a1);
+    return <path key={i} d={`M${C},${C} L${x0},${y0} A${R},${R} 0 ${large} 1 ${x1},${y1} Z`} fill={COLORS[i % COLORS.length]} />;
+  });
+  return (
+    <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+      <svg viewBox="0 0 220 220" style={{ width: 200, height: 200 }} role="img">{arcs}</svg>
+      <div style={{ display: 'grid', gap: 4, fontSize: 13 }}>{data.map((d, i) => <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: COLORS[i % COLORS.length], display: 'inline-block' }} />{d.label.length > 26 ? d.label.slice(0, 25) + '…' : d.label} <span className="soft">· {d.value} ({Math.round((d.value / total) * 100)}%)</span></div>)}</div>
+    </div>
+  );
+}
+
 function SummaryReportView({ def, tenant }: { def: ReportDef; tenant: TenantData }) {
+  const [chart, setChart] = useState<'table' | 'bars' | 'pie'>('table');
   const [unit, setUnit] = useState<'week' | 'month'>('week');
   const [offset, setOffset] = useState(0);
   const now = Date.now();
@@ -3132,8 +3214,17 @@ function SummaryReportView({ def, tenant }: { def: ReportDef; tenant: TenantData
         <span className="soft" style={{ fontSize: 12.5 }}>{fmt(from)} – {fmt(to - 1)}</span>
         <button className="ghost sm" onClick={download} disabled={!result.total} style={{ marginLeft: 'auto' }}><Icon name="file-text" size={14} /> Exportar CSV</button>
       </div>
-      <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8, fontVariantNumeric: 'tabular-nums' }}>{result.total} <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-soft)' }}>solicitudes en el periodo</span></div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+        <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{result.total} <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-soft)' }}>solicitudes en el periodo</span></div>
+        <span className="seg" style={{ marginLeft: 'auto' }}>
+          <button type="button" className={chart === 'table' ? 'on' : ''} onClick={() => setChart('table')}>Tabla</button>
+          <button type="button" className={chart === 'bars' ? 'on' : ''} onClick={() => setChart('bars')}>Barras</button>
+          <button type="button" className={chart === 'pie' ? 'on' : ''} onClick={() => setChart('pie')}>Tarta</button>
+        </span>
+      </div>
       {result.total === 0 ? <div className="empty" style={{ padding: 24 }}>Sin solicitudes activas en este periodo.</div>
+        : chart === 'bars' ? <div style={{ padding: '6px 0' }}><BarChart data={result.rows.map((r) => ({ label: label(r.key), value: r.count }))} /></div>
+        : chart === 'pie' ? <div style={{ padding: '6px 0' }}><PieChart data={result.rows.slice(0, 10).map((r) => ({ label: label(r.key), value: r.count }))} /></div>
         : <table className="mgmt"><thead><tr><th>{def.name}</th><th style={{ width: 90, textAlign: 'right' }}>Tickets</th><th style={{ width: 60, textAlign: 'right' }}>%</th><th style={{ width: '32%' }}></th></tr></thead>
           <tbody>{result.rows.map((r) => <tr key={r.key}>
             <td>{label(r.key)}</td>
@@ -3141,6 +3232,48 @@ function SummaryReportView({ def, tenant }: { def: ReportDef; tenant: TenantData
             <td style={{ textAlign: 'right', color: 'var(--ink-soft)' }}>{r.pct}%</td>
             <td><div style={{ height: 8, borderRadius: 4, background: 'var(--accent, #2f63e6)', width: `${Math.round((r.count / max) * 100)}%`, minWidth: 2 }} /></td>
           </tr>)}</tbody></table>}
+    </>
+  );
+}
+
+// Informe de MATRIZ (tabla cruzada fila × columna) sobre las solicitudes activas del periodo.
+function MatrixReportView({ def, tenant }: { def: ReportDef; tenant: TenantData }) {
+  const [unit, setUnit] = useState<'week' | 'month'>('week');
+  const [offset, setOffset] = useState(0);
+  const now = Date.now();
+  const base = unit === 'week' ? now + offset * 7 * 86400000 : new Date(new Date(now).getFullYear(), new Date(now).getMonth() + offset, 15).getTime();
+  const { from, to } = periodBounds(base, unit);
+  const res = runMatrixReport(def, tenant.tickets as unknown as import('../model.js').Ticket[], from, to);
+  const rowDim = def.dimension, colDim = def.dimension2 ?? 'status';
+  const fmt = (t: number) => new Date(t).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' });
+  const download = () => {
+    const blob = new Blob(['﻿' + matrixToCsv(res, (dim, key) => dimLabelOf(tenant, dim, key))], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${def.id}.csv`; a.click(); URL.revokeObjectURL(a.href);
+  };
+  const cell = { padding: '6px 10px', borderBottom: '1px solid var(--line, #eee)', textAlign: 'right' as const };
+  return (
+    <>
+      <div className="banner" style={{ marginBottom: 14 }}>Matriz <b>{def.name}</b>: filas por <b>{AVAILABLE_DIMENSIONS.find((d) => d[0] === rowDim)?.[1] ?? rowDim}</b> × columnas por <b>{AVAILABLE_DIMENSIONS.find((d) => d[0] === colDim)?.[1] ?? colDim}</b>, sobre las solicitudes activas del periodo.</div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 14 }}>
+        <label>Periodo <select value={unit} onChange={(e) => { setUnit(e.target.value as 'week' | 'month'); setOffset(0); }}><option value="week">Semana</option><option value="month">Mes</option></select></label>
+        <span className="seg">
+          <button type="button" onClick={() => setOffset(offset - 1)}>‹ Anterior</button>
+          <button type="button" className={offset === 0 ? 'on' : ''} onClick={() => setOffset(0)}>{unit === 'week' ? 'Esta semana' : 'Este mes'}</button>
+          <button type="button" disabled={offset >= 0} onClick={() => setOffset(Math.min(0, offset + 1))}>Siguiente ›</button>
+        </span>
+        <span className="soft" style={{ fontSize: 12.5 }}>{fmt(from)} – {fmt(to - 1)}</span>
+        <button className="ghost sm" onClick={download} disabled={!res.total} style={{ marginLeft: 'auto' }}><Icon name="file-text" size={14} /> Exportar CSV</button>
+      </div>
+      {res.total === 0 ? <div className="empty" style={{ padding: 24 }}>Sin solicitudes activas en este periodo.</div>
+        : <div style={{ overflowX: 'auto' }}><table className="mgmt" style={{ fontSize: 13 }}>
+          <thead><tr><th></th>{res.cols.map((c) => <th key={c} style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{dimLabelOf(tenant, colDim, c)}</th>)}<th style={{ textAlign: 'right' }}>Total</th></tr></thead>
+          <tbody>{res.rows.map((rk) => <tr key={rk}>
+            <td style={{ fontWeight: 600 }}>{dimLabelOf(tenant, rowDim, rk)}</td>
+            {res.cols.map((c) => <td key={c} style={cell}>{res.cells[rk]?.[c] || ''}</td>)}
+            <td style={{ ...cell, fontWeight: 600 }}>{res.rowTotals[rk] ?? 0}</td>
+          </tr>)}
+            <tr><td style={{ fontWeight: 700 }}>Total</td>{res.cols.map((c) => <td key={c} style={{ ...cell, fontWeight: 600 }}>{res.colTotals[c] ?? 0}</td>)}<td style={{ ...cell, fontWeight: 700 }}>{res.total}</td></tr>
+          </tbody></table></div>}
     </>
   );
 }
