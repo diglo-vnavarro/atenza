@@ -20,7 +20,7 @@ import { isArchivedStatus, ASSET_STATUS, ASSET_TYPES, assetStatusView } from '..
 import { queryArchive, getTicketById, queryTicketsByField, type ArchiveCursor } from '../data/firestore.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
-import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, type ReportSchedule, type ReportDimension, type ReportDef } from '../reports.js';
+import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, SCOPE_DB_FIELD, type ReportSchedule, type ReportDimension, type ReportDef } from '../reports.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
@@ -3002,17 +3002,22 @@ function SummaryReportView({ def, tenant }: { def: ReportDef; tenant: TenantData
 // Informe TABULAR (listado con columnas; p. ej. «Seguimiento BI»). Carga bajo demanda TODOS
 // los tickets del ámbito (activos + archivo) por igualdad de un campo; requiere scope 'all'.
 function TableReportView({ def, tenant }: { def: ReportDef; tenant: TenantData }) {
-  const [tickets, setTickets] = useState<import('../model.js').Ticket[] | null>(null);
+  type Tk = import('../model.js').Ticket;
+  const scopes = def.scopes ?? (def.filters ?? []).map((f) => ({ label: 'Ámbito', field: f.field as 'group' | 'area', value: f.value }));
+  const [scopeIdx, setScopeIdx] = useState(0);
+  const [tickets, setTickets] = useState<Tk[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Record<string, string>>({}); // colKey -> valor crudo ('' = todos)
+  const [fromStr, setFromStr] = useState(''); const [toStr, setToStr] = useState('');
+  const scope = scopes[Math.min(scopeIdx, scopes.length - 1)];
   useEffect(() => {
-    const f = (def.filters ?? [])[0];
-    if (!f) { setTickets([]); return; }
-    let alive = true; setTickets(null); setErr(null);
-    queryTicketsByField(tenant.id, f.field, f.value)
-      .then((ts) => { if (alive) setTickets(ts as unknown as import('../model.js').Ticket[]); })
+    if (!scope) { setTickets([]); return; }
+    let alive = true; setTickets(null); setErr(null); setFilters({}); setFromStr(''); setToStr('');
+    queryTicketsByField(tenant.id, SCOPE_DB_FIELD[scope.field] ?? scope.field, scope.value)
+      .then((ts) => { if (alive) setTickets(ts as unknown as Tk[]); })
       .catch((e) => { if (alive) { setErr((e as Error).message); setTickets([]); } });
     return () => { alive = false; };
-  }, [def.id, tenant.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [def.id, tenant.id, scopeIdx]); // eslint-disable-line react-hooks/exhaustive-deps
   const colLabel = (colKey: string, raw: string): string => {
     if (!raw) return '';
     switch (colKey) {
@@ -3025,8 +3030,26 @@ function TableReportView({ def, tenant }: { def: ReportDef; tenant: TenantData }
       default: return raw;
     }
   };
-  const result = tickets ? runTableReport(def, tickets) : null;
   const cols = def.columns ?? [];
+  const colHeader = (key: string) => cols.find((c) => c.key === key)?.label ?? key;
+  const fromMs = fromStr ? new Date(fromStr + 'T00:00:00').getTime() : null;
+  const toMs = toStr ? new Date(toStr + 'T00:00:00').getTime() + 86400000 : null;
+  // Valores distintos por columna filtrable (raw -> etiqueta), ordenados por etiqueta.
+  const distinct = (col: string): [string, string][] => {
+    const map = new Map<string, string>();
+    for (const t of tickets ?? []) { const raw = tableCellRaw(t, col); if (raw) map.set(raw, colLabel(col, raw)); }
+    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  };
+  const filtered = (tickets ?? []).filter((t) => {
+    for (const [k, v] of Object.entries(filters)) if (v && tableCellRaw(t, k) !== v) return false;
+    const c = t.createdAt ?? 0;
+    if (fromMs != null && c < fromMs) return false;
+    if (toMs != null && c >= toMs) return false;
+    return true;
+  });
+  const result = tickets ? runTableReport(def, filtered) : null;
+  const activeFilterCount = Object.values(filters).filter(Boolean).length + (fromStr ? 1 : 0) + (toStr ? 1 : 0);
+  const clearFilters = () => { setFilters({}); setFromStr(''); setToStr(''); };
   const download = () => {
     if (!result) return;
     const blob = new Blob(['﻿' + tableReportToCsv(result, colLabel)], { type: 'text/csv;charset=utf-8' });
@@ -3034,14 +3057,30 @@ function TableReportView({ def, tenant }: { def: ReportDef; tenant: TenantData }
   };
   return (
     <>
-      <div className="banner" style={{ marginBottom: 14 }}>Listado <b>{def.name}</b> — reproduce el informe de SDP con datos vivos (incluye activos y archivo). Exportable a CSV y programable por email.</div>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{result ? result.total : '…'} <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-soft)' }}>solicitudes</span></div>
+      <div className="banner" style={{ marginBottom: 14 }}>Listado <b>{def.name}</b> — reproduce el informe de SDP con datos vivos (activos + archivo). Elige el <b>ámbito</b>, afina con los <b>filtros</b> y expórtalo a CSV.</div>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+        {scopes.length > 1 && <label>Ámbito <select value={scopeIdx} onChange={(e) => setScopeIdx(Number(e.target.value))}>{scopes.map((s, i) => <option key={i} value={i}>{s.label}</option>)}</select></label>}
+        <div style={{ fontSize: 22, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{result ? result.total : '…'} <span style={{ fontSize: 13, fontWeight: 400, color: 'var(--ink-soft)' }}>{tickets && result && result.total !== tickets.length ? `de ${tickets.length} ` : ''}solicitudes</span></div>
         <button className="ghost sm" onClick={download} disabled={!result || !result.total} style={{ marginLeft: 'auto' }}><Icon name="file-text" size={14} /> Exportar CSV</button>
       </div>
+      {tickets && tickets.length > 0 && (def.filterCols?.length || true) && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 12, padding: '10px 12px', background: 'var(--panel-2, #f7f8fa)', borderRadius: 8 }}>
+          {(def.filterCols ?? []).map((col) => (
+            <label key={col} style={{ fontSize: 12 }}>{colHeader(col)}<br />
+              <select value={filters[col] ?? ''} onChange={(e) => setFilters((f) => ({ ...f, [col]: e.target.value }))} style={{ maxWidth: 190 }}>
+                <option value="">— Todos —</option>
+                {distinct(col).map(([raw, lab]) => <option key={raw} value={raw}>{lab}</option>)}
+              </select>
+            </label>
+          ))}
+          <label style={{ fontSize: 12 }}>Creado desde<br /><input type="date" value={fromStr} onChange={(e) => setFromStr(e.target.value)} /></label>
+          <label style={{ fontSize: 12 }}>hasta<br /><input type="date" value={toStr} onChange={(e) => setToStr(e.target.value)} /></label>
+          {activeFilterCount > 0 && <button className="ghost sm" onClick={clearFilters}>Limpiar ({activeFilterCount})</button>}
+        </div>
+      )}
       {err && <div className="banner err" style={{ marginBottom: 12 }}>No se pudo cargar el listado: {err}. (Requiere permiso de lectura amplio.)</div>}
       {!result ? <div className="empty" style={{ padding: 24 }}>Cargando listado…</div>
-        : result.total === 0 ? <div className="empty" style={{ padding: 24 }}>Sin solicitudes en este ámbito.</div>
+        : result.total === 0 ? <div className="empty" style={{ padding: 24 }}>Sin solicitudes con estos filtros.</div>
           : <div style={{ overflowX: 'auto', border: '1px solid var(--line, #e5e7eb)', borderRadius: 8 }}>
             <table className="mgmt" style={{ fontSize: 12.5, minWidth: 900 }}>
               <thead><tr>{cols.map((c) => <th key={c.key} style={{ whiteSpace: 'nowrap' }}>{c.label}</th>)}</tr></thead>

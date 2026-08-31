@@ -8,6 +8,8 @@ export interface ReportFilter { field: ReportDimension; value: string }
 /** Columna de un informe TABULAR. `key` es un selector: campo estándar
  *  ('subject','status','technician'…), 'templateName'/'closureComment', o 'udf:udf_char128'. */
 export interface ReportColumn { key: string; label: string }
+/** Ámbito BASE de un listado tabular: por qué campo indexado se cargan los tickets (grupo, área…). */
+export interface ReportScope { label: string; field: 'group' | 'area' | 'technician' | 'service'; value: string }
 export interface ReportDef {
   id: string; name: string; dimension: ReportDimension; filters?: ReportFilter[];
   /** 'summary' (por defecto) = agrega por dimensión; 'table' = listado con columnas. */
@@ -15,7 +17,13 @@ export interface ReportDef {
   columns?: ReportColumn[];
   /** Acotación temporal del listado tabular ('none' = todo el histórico del ámbito). */
   period?: 'none' | 'week' | 'month';
+  /** Ámbitos base seleccionables (primero = por defecto). Cada uno es una carga distinta. */
+  scopes?: ReportScope[];
+  /** Columnas por las que ofrecer un filtro desplegable en la vista (además del rango de fechas). */
+  filterCols?: string[];
 }
+/** Campo de Firestore para el ámbito base de un listado (índice de un solo campo). */
+export const SCOPE_DB_FIELD: Record<ReportScope['field'], string> = { group: 'groupId', area: 'area', technician: 'technicianId', service: 'service' };
 export interface ReportRow { key: string; count: number; pct: number }
 export interface ReportResult { def: ReportDef; from: number; to: number; total: number; rows: ReportRow[] }
 export interface TableResult { def: ReportDef; from?: number; to?: number; total: number; rows: Record<string, string>[] }
@@ -172,7 +180,14 @@ export const DEFAULT_TABLE_REPORTS: ReportDef[] = [
     dimension: 'area',
     kind: 'table',
     period: 'none',
-    filters: [{ field: 'area', value: 'ar-bi' }],
+    // Ámbito base (primero = por defecto = el del informe SDP original: grupo «Técnicos BI»).
+    scopes: [
+      { label: 'Grupo «Técnicos BI» (= informe SDP)', field: 'group', value: '9207000000690768' },
+      { label: 'Grupo «Técnicos BI» (actual)', field: 'group', value: '9207000001963083' },
+      { label: 'Área BI — todo el histórico', field: 'area', value: 'ar-bi' },
+    ],
+    // Columnas con filtro desplegable en la vista (+ rango de fechas de creación).
+    filterCols: ['status', 'udf:udf_char128', 'templateName', 'technician', 'udf:udf_char129'],
     columns: [
       { key: 'templateName', label: 'Plantilla' },
       { key: 'requester', label: 'Solicitante' },

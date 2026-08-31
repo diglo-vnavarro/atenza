@@ -19,7 +19,7 @@ import { dirname, join } from 'node:path';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { isArchivedStatus } from '../src/model.js';
-import { classifyToV3 } from '../src/data/classification-map.js';
+import { classifyToV3, isUnclassified } from '../src/data/classification-map.js';
 import { loadZoho, zohoRefresh, sdpGet, type Zoho } from './lib/sdp-attachments.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -31,6 +31,10 @@ const LIMIT = process.env.LIMIT ? Number(process.env.LIMIT) : 0;
 
 // Plantillas SDP que mapean a la categoría BI (ar-bi) — ver src/data/classification-map.ts.
 const BI_TEMPLATES = ['Solicitud de datos BI', 'Plantilla Incidencias BI', 'Peticion ITSM BI', 'Informes Looker', 'Solicitudes BI', 'ITSM BI'];
+// Grupos «Técnicos BI» en SDP (histórico pre-fusión + actual). El informe «Seguimiento BI» del
+// equipo filtra POR GRUPO (no por plantilla) → enriquecemos también los tickets de estos grupos,
+// aunque su plantilla no sea BI (p. ej. «Plantilla Incidencia»).
+const BI_GROUPS = ['9207000000690768', '9207000001963083'];
 // Campos personalizados que guardamos para informes (whitelist; = etl.ts UDF_KEYS).
 const UDF_KEYS = ['udf_char128', 'udf_char129', 'udf_char122', 'udf_char124', 'udf_char13', 'udf_long1', 'udf_char655', 'udf_char150'];
 const CLOSED = ['cerrada', 'resuelta', 'cancelada', 'closed', 'resolved', 'cancelled', 'canceled'];
@@ -55,21 +59,31 @@ async function loadIdmap(): Promise<Record<string, string>> {
   return map;
 }
 
-async function listBi(z: Zoho): Promise<SdpReq[]> {
+const LIST_FIELDS = ['subject', 'status', 'priority', 'requester', 'technician', 'group', 'template', 'display_id', 'created_time', 'is_service_request', 'udf_fields'];
+async function listBy(z: Zoho, criteria: object): Promise<SdpReq[]> {
   const out: SdpReq[] = []; let start = 1; const rows = 100;
-  const fields = ['subject', 'status', 'priority', 'requester', 'technician', 'group', 'template', 'display_id', 'created_time', 'is_service_request', 'udf_fields'];
   for (let page = 0; page < 200; page++) {
-    const li = { row_count: rows, start_index: start, fields_required: fields, search_criteria: [{ field: 'template.name', condition: 'is', values: BI_TEMPLATES }] };
+    const li = { row_count: rows, start_index: start, fields_required: LIST_FIELDS, search_criteria: [criteria] };
     const j = await sdpGet(z, `requests?input_data=${encodeURIComponent(JSON.stringify({ list_info: li }))}`);
     const arr = (j.requests as SdpReq[]) ?? [];
     out.push(...arr);
-    const info = j.list_info as { has_more_rows?: boolean; total_count?: number } | undefined;
-    if (page === 0 && info?.total_count) console.log(`  total BI en SDP: ${info.total_count}`);
+    const info = j.list_info as { has_more_rows?: boolean } | undefined;
     if (!info?.has_more_rows || !arr.length) break;
     start += rows;
-    if (LIMIT && out.length >= LIMIT) break;
   }
-  return LIMIT ? out.slice(0, LIMIT) : out;
+  return out;
+}
+
+// Une los tickets de las plantillas BI + los de los grupos «Técnicos BI», deduplicando por id.
+async function listBi(z: Zoho): Promise<SdpReq[]> {
+  const byId = new Map<string, SdpReq>();
+  const add = (arr: SdpReq[]) => { for (const r of arr) byId.set(String(r.id), r); };
+  add(await listBy(z, { field: 'template.name', condition: 'is', values: BI_TEMPLATES }));
+  console.log(`  por plantilla BI: ${byId.size}`);
+  for (const gid of BI_GROUPS) { add(await listBy(z, { field: 'group.id', condition: 'is', values: [gid] })); }
+  console.log(`  + grupos «Técnicos BI»: ${byId.size} en total (deduplicado)`);
+  const all = [...byId.values()];
+  return LIMIT ? all.slice(0, LIMIT) : all;
 }
 
 async function closureOf(z: Zoho, rid: string): Promise<string | undefined> {
@@ -107,9 +121,9 @@ async function main() {
         if (Object.keys(sdpUdf).length) patch.sdpUdf = sdpUdf;
         if (templateName) patch.templateName = templateName;
         if (closure) patch.closureComment = closure;
-        // Estampa el ámbito v3 (ar-bi/servicio) si falta: el histórico BI se importó sin
-        // clasificar (N4) y el informe filtra por `area`. Aditivo: NO toca category/subcategory.
-        if (!prev.area) { const v3 = classifyToV3({ template: templateName }); patch.area = v3.area; patch.service = v3.service; }
+        // Estampa el ámbito v3 (ar-bi/servicio) si falta Y la plantilla clasifica a BI de verdad
+        // (los tickets no-BI del grupo conservan su clasificación origen). Aditivo: NO toca category.
+        if (!prev.area) { const v3 = classifyToV3({ template: templateName }); if (!isUnclassified(v3)) { patch.area = v3.area; patch.service = v3.service; } }
         if (Object.keys(patch).length) { if (!DRY) { batch.set(refs[j]!, patch, { merge: true }); ops++; } enriched++; } else noop++;
       } else {
         missing++;
