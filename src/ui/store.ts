@@ -84,6 +84,8 @@ interface State {
   setRoles: (list: import('../data/seed.js').RoleDef[]) => void;
   setNotifRules: (rules: NotifRule[]) => void;
   setReportSchedules: (schedules: import('../reports.js').ReportSchedule[]) => void;
+  saveReport: (report: import('../reports.js').SavedReport) => void;
+  deleteReport: (id: string) => void;
   markNotifRead: (id: string) => void;
   markAllNotifsRead: () => void;
   addComment: (ticketId: string, text: string, authorName: string, internal: boolean) => void;
@@ -616,6 +618,14 @@ export const useStore = create<State>()(
         setNotifRules: (rules) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, notifRules: rules })) }));
           if (CLOUD) { const t = activeT(get()); if (t) void cloud.patchTenantDoc(t.id, { notifRules: rules }).catch(errlog); }
+        },
+        saveReport: (report) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, savedReports: [...(t.savedReports ?? []).filter((r) => r.id !== report.id), report] })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.saveReport(t.id, report).catch(errlog); }
+        },
+        deleteReport: (id) => {
+          set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, savedReports: (t.savedReports ?? []).filter((r) => r.id !== id) })) }));
+          if (CLOUD) { const t = activeT(get()); if (t) void cloud.deleteReport(t.id, id).catch(errlog); }
         },
         markNotifRead: (id) => {
           const t = activeT(get()); if (!t) return;

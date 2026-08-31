@@ -75,15 +75,15 @@ export const DEFAULT_NOTIF_RULES: NotifRule[] = [
 // Roles y capacidades. Cada rol mapea a un NIVEL BASE (el que gobierna las reglas
 // de Firestore: admin/técnico/solicitante) + capacidades de app (gobiernan la UI).
 export type RoleBase = 'tenant_admin' | 'technician' | 'requester';
-export type Cap = 'viewAllTickets' | 'assign' | 'changeStatus' | 'close' | 'manageConfig' | 'manageUsers' | 'viewReports';
+export type Cap = 'viewAllTickets' | 'assign' | 'changeStatus' | 'close' | 'manageConfig' | 'manageUsers' | 'viewReports' | 'manageReports';
 export const CAP_LIST: [Cap, string][] = [
   ['viewAllTickets', 'Ver todas las solicitudes'], ['assign', 'Asignar técnico'], ['changeStatus', 'Cambiar estado'],
-  ['close', 'Cerrar / resolver'], ['viewReports', 'Ver panel / informes'], ['manageUsers', 'Gestionar usuarios'],
-  ['manageConfig', 'Administrar configuración'],
+  ['close', 'Cerrar / resolver'], ['viewReports', 'Ver panel / informes'], ['manageReports', 'Crear / editar informes'],
+  ['manageUsers', 'Gestionar usuarios'], ['manageConfig', 'Administrar configuración'],
 ];
 export const DEFAULT_CAPS: Record<RoleBase, Cap[]> = {
   tenant_admin: CAP_LIST.map((c) => c[0]),
-  technician: ['viewAllTickets', 'assign', 'changeStatus', 'close', 'viewReports'],
+  technician: ['viewAllTickets', 'assign', 'changeStatus', 'close', 'viewReports', 'manageReports'],
   requester: [],
 };
 export interface RoleDef { name: string; base: RoleBase; caps?: Cap[] }
@@ -319,6 +319,8 @@ export interface TenantData {
   idContinuity?: boolean;
   /** M2 — informes programados (envío semanal por email). Los ejecuta el job send-reports. */
   reportSchedules?: import('../reports.js').ReportSchedule[];
+  /** Informes guardados por los usuarios (biblioteca). Subcolección: tenants/{tid}/reports. */
+  savedReports?: import('../reports.js').SavedReport[];
   capacity: Record<string, Capacity>; counter: number;
 }
 export interface DB { tenants: TenantData[]; platformAdmins: string[] }

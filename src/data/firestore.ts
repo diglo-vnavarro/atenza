@@ -191,6 +191,7 @@ export async function subscribeTenant(tid: string, requesterFilterUid: string | 
   subs.push(m.onSnapshot(col('slas'), (s) => { acc.slas = s.docs.map((d) => d.data() as Sla); emit(); }));
   subs.push(m.onSnapshot(col('groups'), (s) => { acc.groups = s.docs.map((d) => d.data() as Group); emit(); }));
   subs.push(m.onSnapshot(col('assets'), (s) => { acc.assets = s.docs.map((d) => ({ ...(d.data() as Asset), id: d.id })); emit(); }, () => { acc.assets = []; emit(); }));
+  subs.push(m.onSnapshot(col('reports'), (s) => { acc.savedReports = s.docs.map((d) => ({ ...(d.data() as import('../reports.js').SavedReport), id: d.id })); emit(); }, () => { acc.savedReports = []; emit(); }));
 
   // tickets EN VIVO: solo NO archivados (los ~23k terminales van a la vista Archivo,
   // no se suscriben, para que la bandeja sea rápida). Técnico/admin => todos los
@@ -253,6 +254,18 @@ export async function queryArchive(tid: string, opts: ArchiveFilters = {}): Prom
   clauses.push(m.limit(opts.pageSize ?? 50));
   const s = await m.getDocs(m.query(col, ...clauses));
   return { tickets: s.docs.map((d) => ({ ...(d.data() as StoredTicket), id: d.id })), last: s.docs[s.docs.length - 1] ?? null };
+}
+
+/** Crea o actualiza un informe guardado (biblioteca). Reglas: exige cap `manageReports`
+ *  y que seas el dueño (o admin) para editar. */
+export async function saveReport(tid: string, r: import('../reports.js').SavedReport): Promise<void> {
+  const { m, db } = await fs();
+  await m.setDoc(m.doc(db, `tenants/${tid}/reports`, r.id), r);
+}
+/** Borra un informe guardado (dueño con manageReports, o admin). */
+export async function deleteReport(tid: string, id: string): Promise<void> {
+  const { m, db } = await fs();
+  await m.deleteDoc(m.doc(db, `tenants/${tid}/reports`, id));
 }
 
 /** Carga tickets (activos + archivo) por igualdad de UN campo indexado — para INFORMES

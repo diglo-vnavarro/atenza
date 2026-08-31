@@ -20,7 +20,7 @@ import { isArchivedStatus, ASSET_STATUS, ASSET_TYPES, assetStatusView } from '..
 import { queryArchive, getTicketById, queryTicketsByField, type ArchiveCursor } from '../data/firestore.js';
 import type { Webhook } from '../webhooks.js';
 import { searchKb, type KbArticle } from '../kb.js';
-import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, SCOPE_DB_FIELD, type ReportSchedule, type ReportDimension, type ReportDef } from '../reports.js';
+import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, SCOPE_DB_FIELD, AVAILABLE_COLUMNS, AVAILABLE_DIMENSIONS, filterableColumns, type ReportSchedule, type ReportDimension, type ReportDef, type SavedReport, type ReportColumn, type ReportScope } from '../reports.js';
 import { visibleAnnouncements, type Announcement, type Audience } from '../announce.js';
 import { auditLabel } from '../audit.js';
 import { parseInbound } from '../inbound.js';
@@ -719,7 +719,7 @@ export function App() {
             {activeView === 'kb' && <KbModule tenant={tenant} canManage={role !== 'requester' && !readOnly} meName={tenant.members.find((m) => m.uid === currentUserId)?.name ?? 'Yo'} />}
             {activeView === 'activos' && !isReq && <AssetsModule tenant={tenant} canManage={!readOnly} onOpenTicket={(id) => { useStore.getState().select(id); setView('tickets'); }} />}
             {activeView === 'archivo' && <Archive tenant={tenant} role={role} user={user} caps={caps} meName={tenant.members.find((m) => m.uid === user.uid)?.name ?? 'Yo'} meUid={user.uid} cloud={firebaseEnabled} />}
-            {activeView === 'informes' && !isReq && <ReportsModule tenant={tenant} />}
+            {activeView === 'informes' && !isReq && <ReportsModule tenant={tenant} me={effectiveUserId} meName={tenant.members.find((m) => m.uid === effectiveUserId)?.name ?? 'Yo'} canManage={caps.includes('manageReports')} isAdmin={caps.includes('manageConfig')} />}
             {activeView === 'admin' && canManageConfig && <AdminConfig tenant={tenant} />}
           </ErrorBoundary>
         </main>
@@ -2921,20 +2921,126 @@ function BrandingAdmin({ tenant }: { tenant: TenantData }) {
 }
 
 const ADMIN_FIRST = ADMIN_AREAS.flatMap((a) => a[2]).find(([, k]) => k)?.[1] ?? 'catservicio';
-function ReportsModule({ tenant }: { tenant: TenantData }) {
-  const [defId, setDefId] = useState(DEFAULT_REPORTS[0]!.id);
-  const all: ReportDef[] = [...DEFAULT_REPORTS, ...DEFAULT_TABLE_REPORTS];
-  const def = all.find((d) => d.id === defId) ?? DEFAULT_REPORTS[0]!;
+// Preset de código → informe de la biblioteca (dueño «Sistema», público, carpeta «Predefinidos»).
+function builtInAsSaved(d: ReportDef): SavedReport {
+  return { ...d, folder: 'Predefinidos', ownerUid: '_system', ownerName: 'Sistema', accessibility: 'public', createdAt: 0 };
+}
+
+function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: TenantData; me: string; meName: string; canManage: boolean; isAdmin: boolean }) {
+  const saveReport = useStore((s) => s.saveReport);
+  const removeReport = useStore((s) => s.deleteReport);
+  const [selId, setSelId] = useState<string>('');
+  const [editing, setEditing] = useState<SavedReport | null>(null); // null = no builder; objeto = crear/editar
+
+  const builtIns = [...DEFAULT_REPORTS, ...DEFAULT_TABLE_REPORTS].map(builtInAsSaved);
+  // Informes guardados visibles: públicos + los míos privados.
+  const saved = (tenant.savedReports ?? []).filter((r) => r.accessibility === 'public' || r.ownerUid === me);
+  const all: SavedReport[] = [...builtIns, ...saved];
+  const sel = all.find((r) => r.id === selId) ?? all[0];
+  const isBuiltIn = (r: SavedReport) => r.ownerUid === '_system';
+  const canEditSel = sel && !isBuiltIn(sel) && canManage && (sel.ownerUid === me || isAdmin);
+
+  // Agrupar por carpeta para el selector.
+  const folders = [...new Set(all.map((r) => r.folder || 'Sin carpeta'))];
+  const blank = (): SavedReport => ({ id: 'rep-' + Date.now().toString(36), name: 'Nuevo informe', folder: 'Mis informes', kind: 'table', dimension: 'group', accessibility: 'private', ownerUid: me, ownerName: meName, createdAt: Date.now(), columns: [{ key: 'subject', label: 'Asunto' }, { key: 'status', label: 'Estado de solicitud' }], scopes: [], period: 'none' });
+
+  if (editing) return <ReportBuilder tenant={tenant} report={editing} onCancel={() => setEditing(null)} onSave={(r) => { saveReport(r); setEditing(null); setSelId(r.id); }} />;
+
   return (
     <div className="reports">
-      <h1><Icon name="bar-chart" size={20} /> Informes</h1>
-      <div style={{ marginBottom: 14 }}>
-        <label>Informe <select value={defId} onChange={(e) => setDefId(e.target.value)}>
-          <optgroup label="Resumen (conteos)">{DEFAULT_REPORTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</optgroup>
-          <optgroup label="Listados (detalle)">{DEFAULT_TABLE_REPORTS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</optgroup>
-        </select></label>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <h1 style={{ margin: 0 }}><Icon name="bar-chart" size={20} /> Informes</h1>
+        {canManage && <button className="primary sm" style={{ marginLeft: 'auto' }} onClick={() => setEditing(blank())}>＋ Nuevo informe</button>}
       </div>
-      {def.kind === 'table' ? <TableReportView def={def} tenant={tenant} /> : <SummaryReportView def={def} tenant={tenant} />}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
+        <label>Informe <select value={sel?.id ?? ''} onChange={(e) => setSelId(e.target.value)}>
+          {folders.map((f) => <optgroup key={f} label={f}>{all.filter((r) => (r.folder || 'Sin carpeta') === f).map((r) => <option key={r.id} value={r.id}>{r.name}{r.kind === 'table' ? ' · listado' : ''}</option>)}</optgroup>)}
+        </select></label>
+        {sel && <span className="soft" style={{ fontSize: 12 }}>{isBuiltIn(sel) ? 'Predefinido' : `${sel.ownerName ?? '—'} · ${sel.accessibility === 'public' ? '🌐 Público' : '🔒 Privado'}`}</span>}
+        {canEditSel && <span className="seg" style={{ marginLeft: 'auto' }}>
+          <button type="button" onClick={() => setEditing({ ...sel! })}>✎ Editar</button>
+          <button type="button" onClick={() => { if (confirm(`¿Borrar el informe «${sel!.name}»?`)) { removeReport(sel!.id); setSelId(''); } }}>🗑 Borrar</button>
+        </span>}
+      </div>
+      {!sel ? <div className="empty" style={{ padding: 24 }}>No hay informes. {canManage ? 'Crea uno con «Nuevo informe».' : ''}</div>
+        : sel.kind === 'table' ? <TableReportView def={sel} tenant={tenant} /> : <SummaryReportView def={sel} tenant={tenant} />}
+    </div>
+  );
+}
+
+// Constructor de informes (crear/editar): tipo, carpeta, accesibilidad, ámbito, columnas, filtros.
+function ReportBuilder({ tenant, report, onSave, onCancel }: { tenant: TenantData; report: SavedReport; onSave: (r: SavedReport) => void; onCancel: () => void }) {
+  const [r, setR] = useState<SavedReport>(report);
+  const upd = (patch: Partial<SavedReport>) => setR((x) => ({ ...x, ...patch }));
+  const isTable = r.kind === 'table';
+  // Ámbito base para tabulares: tipo de campo + valor concreto (grupo/categoría/subcategoría/técnico).
+  const scope = (r.scopes ?? [])[0];
+  const scopeField = scope?.field ?? 'group';
+  const scopeVal = scope?.value ?? '';
+  const scopeChoices: { field: ReportScope['field']; label: string; opts: [string, string][] }[] = [
+    { field: 'group', label: 'Grupo de soporte', opts: tenant.groups.map((g) => [g.id, g.name]) },
+    { field: 'area', label: 'Categoría', opts: (tenant.classificationTree ?? []).map((a) => [a.id, a.name]) },
+    { field: 'service', label: 'Subcategoría', opts: (tenant.classificationTree ?? []).flatMap((a) => a.services.map((s) => [s.id, `${a.name} › ${s.name}`] as [string, string])) },
+    { field: 'technician', label: 'Técnico', opts: tenant.members.filter((m) => m.role !== 'requester').map((m) => [m.uid, m.name]) },
+  ];
+  const curChoice = scopeChoices.find((c) => c.field === scopeField)!;
+  const setScope = (field: ReportScope['field'], value: string) => {
+    const label = scopeChoices.find((c) => c.field === field)?.label ?? field;
+    const optLabel = scopeChoices.find((c) => c.field === field)?.opts.find((o) => o[0] === value)?.[1] ?? '';
+    upd({ scopes: value ? [{ field, value, label: `${label}: ${optLabel}` }] : [] });
+  };
+  const toggleCol = (col: ReportColumn) => {
+    const has = (r.columns ?? []).some((c) => c.key === col.key);
+    const columns = has ? (r.columns ?? []).filter((c) => c.key !== col.key) : [...(r.columns ?? []), col];
+    upd({ columns, filterCols: filterableColumns(columns) });
+  };
+  const canSave = r.name.trim() && (!isTable || ((r.columns ?? []).length > 0 && scopeVal));
+  const commit = () => onSave({ ...r, name: r.name.trim(), updatedAt: Date.now(), filterCols: isTable ? filterableColumns(r.columns ?? []) : undefined });
+
+  return (
+    <div className="reports">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <h1 style={{ margin: 0 }}><Icon name="bar-chart" size={20} /> {(tenant.savedReports ?? []).some((x) => x.id === report.id) ? 'Editar informe' : 'Nuevo informe'}</h1>
+        <span className="seg" style={{ marginLeft: 'auto' }}>
+          <button type="button" onClick={onCancel}>Cancelar</button>
+          <button type="button" className="primary" disabled={!canSave} onClick={commit}>Guardar</button>
+        </span>
+      </div>
+      <div style={{ display: 'grid', gap: 14, maxWidth: 820 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <label style={{ flex: '1 1 260px' }}>Nombre<br /><input value={r.name} onChange={(e) => upd({ name: e.target.value })} style={{ width: '100%' }} /></label>
+          <label>Carpeta<br /><input value={r.folder ?? ''} list="rep-folders" onChange={(e) => upd({ folder: e.target.value })} placeholder="Mis informes" />
+            <datalist id="rep-folders">{[...new Set((tenant.savedReports ?? []).map((x) => x.folder).filter(Boolean))].map((f) => <option key={f} value={f} />)}</datalist>
+          </label>
+          <label>Accesibilidad<br /><select value={r.accessibility} onChange={(e) => upd({ accessibility: e.target.value as 'public' | 'private' })}><option value="private">🔒 Privado</option><option value="public">🌐 Público</option></select></label>
+        </div>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <span style={{ fontWeight: 600 }}>Tipo:</span>
+          <label><input type="radio" checked={r.kind === 'table'} onChange={() => upd({ kind: 'table' })} /> Listado (tabular)</label>
+          <label><input type="radio" checked={r.kind === 'summary'} onChange={() => upd({ kind: 'summary' })} /> Resumen (conteos)</label>
+          <label>Período<br /><select value={r.period ?? 'none'} onChange={(e) => upd({ period: e.target.value as 'none' | 'week' | 'month' })}><option value="none">Todo</option><option value="week">Semana</option><option value="month">Mes</option></select></label>
+        </div>
+        {r.kind === 'summary' ? (
+          <label>Agrupar por (dimensión)<br /><select value={r.dimension} onChange={(e) => upd({ dimension: e.target.value as ReportDimension })}>{AVAILABLE_DIMENSIONS.map(([d, l]) => <option key={d} value={d}>{l}</option>)}</select></label>
+        ) : (
+          <>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end', padding: '10px 12px', background: 'var(--panel-2, #f7f8fa)', borderRadius: 8 }}>
+              <label>Ámbito (qué cargar)<br /><select value={scopeField} onChange={(e) => setScope(e.target.value as ReportScope['field'], '')}>{scopeChoices.map((c) => <option key={c.field} value={c.field}>{c.label}</option>)}</select></label>
+              <label>{curChoice.label}<br /><select value={scopeVal} onChange={(e) => setScope(scopeField, e.target.value)} style={{ maxWidth: 260 }}><option value="">— Elegir —</option>{curChoice.opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></label>
+              <span className="soft" style={{ fontSize: 12 }}>Carga los tickets (activos + archivo) de ese ámbito.</span>
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>Columnas ({(r.columns ?? []).length})</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '4px 14px', maxHeight: 260, overflowY: 'auto', border: '1px solid var(--line, #e5e7eb)', borderRadius: 8, padding: 10 }}>
+                {AVAILABLE_COLUMNS.map((col) => (
+                  <label key={col.key} style={{ fontSize: 13 }}><input type="checkbox" checked={(r.columns ?? []).some((c) => c.key === col.key)} onChange={() => toggleCol(col)} /> {col.label}</label>
+                ))}
+              </div>
+              <div className="soft" style={{ fontSize: 12, marginTop: 6 }}>Orden de las columnas = orden en que las marcas. Las categóricas tendrán filtro automático.</div>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }

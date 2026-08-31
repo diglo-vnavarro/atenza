@@ -132,6 +132,51 @@ export function periodBounds(ref: number, unit: 'week' | 'month'): { from: numbe
 /** Informe PROGRAMADO (F2): un ReportDef + periodicidad + destinatarios, para el envío semanal. */
 export interface ReportSchedule extends ReportDef { unit: 'week' | 'month'; recipients: string[]; enabled: boolean }
 
+/** Informe GUARDADO por un usuario (biblioteca, estilo SDP): un ReportDef + carpeta, autoría y
+ *  accesibilidad. Vive en la subcolección `tenants/{tid}/reports`. */
+export interface SavedReport extends ReportDef {
+  folder?: string;
+  ownerUid: string;
+  ownerName?: string;
+  accessibility: 'public' | 'private';
+  createdAt: number;
+  updatedAt?: number;
+}
+
+/** Catálogo de COLUMNAS disponibles para el constructor de informes tabulares (estándar + udf SDP). */
+export const AVAILABLE_COLUMNS: ReportColumn[] = [
+  { key: 'id', label: 'Nº' },
+  { key: 'subject', label: 'Asunto' },
+  { key: 'status', label: 'Estado de solicitud' },
+  { key: 'priority', label: 'Prioridad' },
+  { key: 'type', label: 'Incidencia/Petición' },
+  { key: 'templateName', label: 'Plantilla' },
+  { key: 'requester', label: 'Solicitante' },
+  { key: 'technician', label: 'Técnico' },
+  { key: 'group', label: 'Grupo de soporte' },
+  { key: 'area', label: 'Categoría' },
+  { key: 'service', label: 'Subcategoría' },
+  { key: 'element', label: 'Tipología' },
+  { key: 'createdAt', label: 'Fecha de creación' },
+  { key: 'closureComment', label: 'Comentarios de cierre' },
+  { key: 'udf:udf_char128', label: 'Estado BI' },
+  { key: 'udf:udf_char129', label: 'Tipología Ticket' },
+  { key: 'udf:udf_long1', label: 'Prioridad BI' },
+  { key: 'udf:udf_char122', label: 'Gestión Datos Petición' },
+  { key: 'udf:udf_char13', label: 'Impacto en BI' },
+  { key: 'udf:udf_char124', label: 'Informe BI Afectado' },
+  { key: 'udf:udf_char655', label: 'Tipo de trabajo (BI)' },
+  { key: 'udf:udf_char150', label: 'Funcionalidad (REO)' },
+];
+/** Dimensiones disponibles para el constructor de informes de resumen. */
+export const AVAILABLE_DIMENSIONS: [ReportDimension, string][] = [
+  ['group', 'Grupo de soporte'], ['status', 'Estado'], ['area', 'Categoría'], ['service', 'Subcategoría'],
+  ['element', 'Tipología'], ['technician', 'Técnico'], ['priority', 'Prioridad'], ['type', 'Incidencia/Petición'],
+];
+/** Columnas «categóricas» que admiten filtro desplegable (el resto, texto/fecha, no). */
+const NON_FILTERABLE = new Set(['id', 'subject', 'createdAt', 'closureComment']);
+export function filterableColumns(cols: ReportColumn[]): string[] { return cols.filter((c) => !NON_FILTERABLE.has(c.key)).map((c) => c.key); }
+
 /** Render del informe a HTML (para el email). `label` resuelve id→nombre; `fmt` fecha. */
 export function reportToHtml(r: ReportResult, label: (key: string) => string, fmt: (t: number) => string): string {
   const cell = 'padding:6px 10px;border-bottom:1px solid #eee';

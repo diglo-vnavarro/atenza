@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, type ReportDef } from '../src/reports.js';
+import { runReport, periodBounds, reportToCsv, DEFAULT_REPORTS, DEFAULT_TABLE_REPORTS, runTableReport, tableReportToCsv, tableCellRaw, AVAILABLE_COLUMNS, AVAILABLE_DIMENSIONS, filterableColumns, type ReportDef } from '../src/reports.js';
 import type { Ticket } from '../src/model.js';
 
 const T0 = Date.UTC(2026, 7, 24, 12); // ref dentro del periodo
@@ -115,5 +115,19 @@ describe('reports · tabular (listados)', () => {
     expect(p!.scopes?.[0]).toMatchObject({ field: 'group' });
     expect(p!.scopes?.some((s) => s.field === 'area' && s.value === 'ar-bi')).toBe(true);
     expect(p!.filterCols).toContain('udf:udf_char128'); // filtro por Estado BI
+  });
+});
+
+describe('reports · constructor (catálogo)', () => {
+  it('AVAILABLE_COLUMNS incluye estándar + campos udf de SDP', () => {
+    const keys = AVAILABLE_COLUMNS.map((c) => c.key);
+    expect(keys).toContain('subject');
+    expect(keys).toContain('templateName');
+    expect(keys).toContain('udf:udf_char128'); // Estado BI
+    expect(AVAILABLE_DIMENSIONS.map((d) => d[0])).toContain('group');
+  });
+  it('filterableColumns excluye texto/fecha (asunto, id, createdAt, cierre)', () => {
+    const cols = [{ key: 'subject', label: 'Asunto' }, { key: 'status', label: 'Estado' }, { key: 'createdAt', label: 'Fecha' }, { key: 'udf:udf_char128', label: 'Estado BI' }];
+    expect(filterableColumns(cols)).toEqual(['status', 'udf:udf_char128']);
   });
 });

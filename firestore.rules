@@ -197,6 +197,15 @@ service cloud.firestore {
         allow read:  if isMember(tid) || isPlatformAdmin();
         allow write: if hasCap(tid, 'manageConfig') || isPlatformAdmin();
       }
+      // --- INFORMES guardados (biblioteca): los lee cualquier miembro (la privacidad
+      // público/privado se aplica en la UI; la definición no es dato sensible). Crear exige
+      // la cap `manageReports` y ser el dueño; editar/borrar, el dueño (con manageReports) o admin. ---
+      match /reports/{docId} {
+        allow read:   if isMember(tid) || isPlatformAdmin();
+        allow create: if hasCap(tid, 'manageReports') && request.resource.data.ownerUid == uid();
+        allow update, delete: if isPlatformAdmin()
+          || (hasCap(tid, 'manageReports') && (resource.data.ownerUid == uid() || hasCap(tid, 'manageConfig')));
+      }
       // --- activos / CMDB: los lee cualquier miembro (los tickets los referencian);
       // los gestionan técnico/admin (alta/edición/asignación), no solo configuración.
       match /assets/{docId} {
