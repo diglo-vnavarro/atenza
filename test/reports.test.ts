@@ -106,15 +106,8 @@ describe('reports · tabular (listados)', () => {
     expect(csv.split('\n')[1]).toBe('"Con; punto y coma";Ana'); // escapado por el ';'
   });
 
-  it('el preset «Seguimiento BI» trae las 12 columnas del Excel + ámbitos y filtros', () => {
-    const p = DEFAULT_TABLE_REPORTS.find((d) => d.id === 'rep-seguimiento-bi');
-    expect(p).toBeTruthy();
-    expect(p!.columns).toHaveLength(12);
-    expect(p!.columns!.map((c) => c.label)).toContain('Impacto en BI');
-    // Ámbito base por defecto = grupo «Técnicos BI» (el del informe SDP original de 433 filas).
-    expect(p!.scopes?.[0]).toMatchObject({ field: 'group' });
-    expect(p!.scopes?.some((s) => s.field === 'area' && s.value === 'ar-bi')).toBe(true);
-    expect(p!.filterCols).toContain('udf:udf_char128'); // filtro por Estado BI
+  it('no quedan presets tabulares de código (Seguimiento BI es ahora un informe guardado real)', () => {
+    expect(DEFAULT_TABLE_REPORTS).toHaveLength(0);
   });
 });
 

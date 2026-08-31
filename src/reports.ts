@@ -266,35 +266,7 @@ export const DEFAULT_REPORTS: ReportDef[] = [
   { id: 'rep-tipo', name: 'Incidencias vs peticiones', dimension: 'type' },
 ];
 
-/** Presets TABULARES del equipo (reproducen informes de SDP 1:1). */
-export const DEFAULT_TABLE_REPORTS: ReportDef[] = [
-  {
-    id: 'rep-seguimiento-bi',
-    name: 'Seguimiento BI',
-    dimension: 'area',
-    kind: 'table',
-    period: 'none',
-    // Ámbito base (primero = por defecto = el del informe SDP original: grupo «Técnicos BI»).
-    scopes: [
-      { label: 'Grupo «Técnicos BI» (= informe SDP)', field: 'group', value: '9207000000690768' },
-      { label: 'Grupo «Técnicos BI» (actual)', field: 'group', value: '9207000001963083' },
-      { label: 'Área BI — todo el histórico', field: 'area', value: 'ar-bi' },
-    ],
-    // Columnas con filtro desplegable en la vista (+ rango de fechas de creación).
-    filterCols: ['status', 'udf:udf_char128', 'templateName', 'technician', 'udf:udf_char129'],
-    columns: [
-      { key: 'templateName', label: 'Plantilla' },
-      { key: 'requester', label: 'Solicitante' },
-      { key: 'udf:udf_char129', label: 'Tipología Ticket' },
-      { key: 'subject', label: 'Asunto' },
-      { key: 'status', label: 'Estado de solicitud' },
-      { key: 'udf:udf_char128', label: 'Estado BI' },
-      { key: 'udf:udf_long1', label: 'Prioridad BI' },
-      { key: 'technician', label: 'Técnico' },
-      { key: 'closureComment', label: 'Comentarios de cierre' },
-      { key: 'udf:udf_char122', label: 'Gestión Datos Petición' },
-      { key: 'udf:udf_char13', label: 'Impacto en BI' },
-      { key: 'udf:udf_char124', label: 'Informe BI Afectado' },
-    ],
-  },
-];
+/** Presets TABULARES predefinidos. Vacío a propósito: «Seguimiento BI» pasó a ser un informe
+ *  GUARDADO real (propiedad del responsable, programado por email), no un predefinido de código.
+ *  Los informes tabulares del equipo se crean/guardan desde el constructor. */
+export const DEFAULT_TABLE_REPORTS: ReportDef[] = [];

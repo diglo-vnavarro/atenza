@@ -2996,9 +2996,12 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
                 </div>
                 {open && f.reports.map((r) => (
                   <button key={r.id} type="button" onClick={() => setSelId(r.id)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 12px 6px 30px', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', background: r.id === sel?.id ? 'var(--accent-soft, #eef2ff)' : 'none', color: r.id === sel?.id ? 'var(--accent, #2f63e6)' : 'inherit', fontWeight: r.id === sel?.id ? 600 : 400 }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
-                    <span style={{ marginLeft: 'auto', fontSize: 11, opacity: .7 }} title={r.kind === 'table' ? 'Listado' : 'Resumen'}>{r.kind === 'table' ? '▤' : '▦'}{isBuiltIn(r) ? '' : r.accessibility === 'public' ? ' 🌐' : ' 🔒'}</span>
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1, width: '100%', padding: '6px 12px 6px 30px', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', background: r.id === sel?.id ? 'var(--accent-soft, #eef2ff)' : 'none', color: r.id === sel?.id ? 'var(--accent, #2f63e6)' : 'inherit', fontWeight: r.id === sel?.id ? 600 : 400 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{r.name}</span>
+                      <span style={{ fontSize: 11, opacity: .85, whiteSpace: 'nowrap' }} title={(r.kind === 'table' ? 'Listado' : r.kind === 'matrix' ? 'Matriz' : 'Resumen') + (r.schedule?.enabled ? ' · programado por email' : '')}>{r.schedule?.enabled ? '📅 ' : ''}{r.kind === 'table' ? '▤' : r.kind === 'matrix' ? '⊞' : '▦'}{isBuiltIn(r) ? '' : r.accessibility === 'public' ? ' 🌐' : ' 🔒'}</span>
+                    </span>
+                    <span style={{ fontSize: 10.5, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: r.id === sel?.id ? 'var(--accent, #2f63e6)' : 'var(--ink-soft, #8891a0)' }}>{isBuiltIn(r) ? 'Sistema' : (r.ownerName ?? '—')}</span>
                   </button>
                 ))}
               </div>
