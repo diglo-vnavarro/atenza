@@ -98,6 +98,25 @@ describe('reports · tabular (listados)', () => {
     expect(r.rows[0]!['subject']).toBe('in');
   });
 
+  it('openOnly excluye los archivados (backlog)', () => {
+    const def: ReportDef = { id: 't', name: 'REO', dimension: 'group', kind: 'table', openOnly: true, columns: [{ key: 'subject', label: 'Asunto' }] };
+    const tickets = [tk({ subject: 'abierto' }), { ...tk({ subject: 'cerrado' }), archived: true } as unknown as Ticket];
+    const r = runTableReport(def, tickets);
+    expect(r.total).toBe(1);
+    expect(r.rows[0]!['subject']).toBe('abierto');
+  });
+
+  it('periodField:resolved filtra por fecha de cierre, no de creación', () => {
+    const def: ReportDef = { id: 't', name: 'Closed', dimension: 'group', kind: 'table', periodField: 'resolved', columns: [{ key: 'subject', label: 'Asunto' }] };
+    const tickets = [
+      { ...tk({ subject: 'cerrado en periodo', createdAt: T0 - 100 * DAY }), resolvedAt: T0 } as unknown as Ticket,
+      { ...tk({ subject: 'creado en periodo pero no cerrado', createdAt: T0 }), resolvedAt: T0 - 100 * DAY } as unknown as Ticket,
+    ];
+    const r = runTableReport(def, tickets, T0 - 1, T0 + 1);
+    expect(r.total).toBe(1);
+    expect(r.rows[0]!['subject']).toBe('cerrado en periodo');
+  });
+
   it('tableReportToCsv usa etiquetas de columna y humaniza con label()', () => {
     const def: ReportDef = { id: 't', name: 'BI', dimension: 'area', kind: 'table', filters: [{ field: 'area', value: 'ar-bi' }], columns: [{ key: 'subject', label: 'Asunto' }, { key: 'technician', label: 'Técnico' }] };
     const r = runTableReport(def, [bi({ subject: 'Con; punto y coma', technicianId: 'u1' })]);

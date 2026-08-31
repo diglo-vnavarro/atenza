@@ -79,14 +79,21 @@ interface SdpReqLite { id: string; display_id?: string; subject?: string; is_ser
   template?: { id?: string; name?: string }; status?: { name?: string }; created_time?: { value?: string }; due_by_time?: { value?: string };
   priority?: { name?: string } | null; category?: { name?: string } | null; subcategory?: { name?: string } | null; item?: { name?: string } | null;
   requester?: SdpPerson | null; technician?: SdpPerson | null; group?: { id?: string; name?: string } | null;
+  resolved_time?: { value?: string }; completed_time?: { value?: string };
   udf_fields?: Record<string, unknown> | null }
 // Campos que pedimos EN BLOQUE en el listado (evita una llamada de detalle por
 // ticket: inviable con ~23k). El endpoint de lista los devuelve todos.
-const LIST_FIELDS = ['subject', 'description', 'status', 'priority', 'category', 'subcategory', 'item', 'requester', 'technician', 'group', 'created_time', 'due_by_time', 'is_service_request', 'template', 'display_id', 'has_attachments', 'udf_fields'];
-// Campos personalizados de SDP que guardamos para INFORMES (whitelist; el resto se ignora).
-// BI: Estado(128)/Tipología(129)/Gestión datos(122)/Informe afectado(124)/Impacto(13)/Prioridad(long1)/Tipo trabajo(655).
-// REO/WEB: funcionalidad(150). Ampliar según los informes que se vayan reproduciendo.
-const UDF_KEYS = ['udf_char128', 'udf_char129', 'udf_char122', 'udf_char124', 'udf_char13', 'udf_long1', 'udf_char655', 'udf_char150'];
+const LIST_FIELDS = ['subject', 'description', 'status', 'priority', 'category', 'subcategory', 'item', 'requester', 'technician', 'group', 'created_time', 'due_by_time', 'resolved_time', 'completed_time', 'is_service_request', 'template', 'display_id', 'has_attachments', 'udf_fields'];
+// Campos personalizados de SDP que guardamos para INFORMES (whitelist compartido, derivado del
+// catálogo de columnas en src/reports.ts → BI, REO, Reclamaciones… se amplía ahí).
+import { REPORT_UDF_KEYS } from '../src/reports.js';
+const UDF_KEYS = REPORT_UDF_KEYS;
+// Valor de un udf como texto: los de fecha vienen como objeto {value, display_value}.
+function udfStr(v: unknown): string {
+  if (v == null || v === '') return '';
+  if (typeof v === 'object') { const o = v as { display_value?: string; value?: string }; return o.display_value ?? o.value ?? ''; }
+  return String(v);
+}
 interface SdpPerson { id?: string; name?: string; email_id?: string; is_technician?: boolean }
 
 const PALETTE = ['#4f46e5', '#0f766e', '#b45309', '#0369a1', '#be185d', '#7c3aed', '#15803d', '#0891b2'];
@@ -175,14 +182,15 @@ async function main() {
     const created = ms(r.created_time) ?? Date.now();
     const desc = typeof r.description === 'string' ? r.description : '';
     const v3 = classifyToV3({ template: r.template?.name, item: r.item?.name });
-    // UDF crudos de SDP para informes (solo la whitelist, solo valores no vacíos).
+    // UDF crudos de SDP para informes (solo la whitelist, solo valores no vacíos; fechas formateadas).
     const sdpUdf: Record<string, string> = {};
-    for (const k of UDF_KEYS) { const v = r.udf_fields?.[k]; if (v != null && v !== '') sdpUdf[k] = String(v); }
+    for (const k of UDF_KEYS) { const s = udfStr(r.udf_fields?.[k]); if (s) sdpUdf[k] = s; }
     tickets.push({
       id: `#${r.display_id ?? r.id}`,
       sdpRid: String(r.id), // id INTERNO de SDP (para adjuntos: /requests/{rid}); el doc es #display_id
       has_attachments: !!(r as { has_attachments?: boolean }).has_attachments,
       templateName: r.template?.name ?? undefined,
+      resolvedAt: ms(r.resolved_time) ?? ms(r.completed_time) ?? null,
       ...(Object.keys(sdpUdf).length ? { sdpUdf } : {}),
       type: r.is_service_request ? 'service_request' : 'incident',
       subject: r.subject ?? '(sin asunto)',

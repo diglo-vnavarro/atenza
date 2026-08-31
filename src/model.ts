@@ -143,6 +143,8 @@ export interface Ticket {
   templateName?: string;
   /** comentario de cierre del solicitante en SDP (closure_info.requester_ack_comments). Para informes. */
   closureComment?: string;
+  /** fecha de resolución/cierre real (SDP resolved_time/completed_time), epoch ms. Para informes por fecha de cierre. */
+  resolvedAt?: number | null;
   /** valores CRUDOS de campos personalizados de SDP (udf_char128…), fuente para informes
    *  tabulares (Estado BI, Impacto en BI…). Distinto de `udf` (que son los del formulario Atenza). */
   sdpUdf?: Record<string, string>;

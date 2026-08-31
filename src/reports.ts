@@ -9,7 +9,7 @@ export interface ReportFilter { field: ReportDimension; value: string }
  *  ('subject','status','technician'…), 'templateName'/'closureComment', o 'udf:udf_char128'. */
 export interface ReportColumn { key: string; label: string }
 /** Ámbito BASE de un listado tabular: por qué campo indexado se cargan los tickets (grupo, área…). */
-export interface ReportScope { label: string; field: 'group' | 'area' | 'technician' | 'service'; value: string }
+export interface ReportScope { label: string; field: 'group' | 'area' | 'technician' | 'service' | 'template'; value: string }
 /** Programación de envío por email de un informe guardado. */
 export interface ReportScheduleCfg { unit: 'week' | 'month'; recipients: string[]; enabled: boolean }
 export interface ReportDef {
@@ -25,11 +25,15 @@ export interface ReportDef {
   scopes?: ReportScope[];
   /** Columnas por las que ofrecer un filtro desplegable en la vista (además del rango de fechas). */
   filterCols?: string[];
+  /** Solo tickets ABIERTOS (no archivados) — para informes de backlog / seguimiento. */
+  openOnly?: boolean;
+  /** Sobre qué fecha aplica el periodo del listado: creación (por defecto) o resolución/cierre. */
+  periodField?: 'created' | 'resolved';
   /** Envío programado por email (opcional). */
   schedule?: ReportScheduleCfg;
 }
 /** Campo de Firestore para el ámbito base de un listado (índice de un solo campo). */
-export const SCOPE_DB_FIELD: Record<ReportScope['field'], string> = { group: 'groupId', area: 'area', technician: 'technicianId', service: 'service' };
+export const SCOPE_DB_FIELD: Record<ReportScope['field'], string> = { group: 'groupId', area: 'area', technician: 'technicianId', service: 'service', template: 'templateName' };
 export interface ReportRow { key: string; count: number; pct: number }
 export interface ReportResult { def: ReportDef; from: number; to: number; total: number; rows: ReportRow[] }
 export interface TableResult { def: ReportDef; from?: number; to?: number; total: number; rows: Record<string, string>[] }
@@ -85,7 +89,9 @@ export function tableCellRaw(t: Ticket, key: string): string {
     case 'area': return t.area ?? '';
     case 'service': return t.service ?? '';
     case 'element': return t.element ?? '';
+    case 'category': return t.category ?? '';
     case 'createdAt': return t.createdAt ? String(t.createdAt) : '';
+    case 'resolvedAt': return t.resolvedAt ? String(t.resolvedAt) : '';
     default: return '';
   }
 }
@@ -94,7 +100,8 @@ export function tableCellRaw(t: Ticket, key: string): string {
 export function runTableReport(def: ReportDef, tickets: Ticket[], from?: number, to?: number): TableResult {
   const cols = def.columns ?? [];
   const filtered = tickets.filter((t) => {
-    if (from != null && to != null) { const c = t.createdAt ?? 0; if (c < from || c >= to) return false; }
+    if (def.openOnly && (t as { archived?: boolean }).archived) return false;
+    if (from != null && to != null) { const c = (def.periodField === 'resolved' ? t.resolvedAt : t.createdAt) ?? 0; if (c < from || c >= to) return false; }
     return (def.filters ?? []).every((f) => dimValue(t, f.field) === f.value);
   });
   const rows = filtered.map((t) => { const r: Record<string, string> = {}; for (const c of cols) r[c.key] = tableCellRaw(t, c.key); return r; });
@@ -206,8 +213,11 @@ export const AVAILABLE_COLUMNS: ReportColumn[] = [
   { key: 'area', label: 'Categoría' },
   { key: 'service', label: 'Subcategoría' },
   { key: 'element', label: 'Tipología' },
+  { key: 'category', label: 'Categoría (SDP)' },
   { key: 'createdAt', label: 'Fecha de creación' },
+  { key: 'resolvedAt', label: 'Fecha de resolución' },
   { key: 'closureComment', label: 'Comentarios de cierre' },
+  // BI
   { key: 'udf:udf_char128', label: 'Estado BI' },
   { key: 'udf:udf_char129', label: 'Tipología Ticket' },
   { key: 'udf:udf_long1', label: 'Prioridad BI' },
@@ -215,8 +225,29 @@ export const AVAILABLE_COLUMNS: ReportColumn[] = [
   { key: 'udf:udf_char13', label: 'Impacto en BI' },
   { key: 'udf:udf_char124', label: 'Informe BI Afectado' },
   { key: 'udf:udf_char655', label: 'Tipo de trabajo (BI)' },
-  { key: 'udf:udf_char150', label: 'Funcionalidad (REO)' },
+  // REO
+  { key: 'udf:udf_char149', label: 'Aplicación REO' },
+  { key: 'udf:udf_char146', label: 'Estado REO' },
+  { key: 'udf:udf_char150', label: 'Funcionalidad REO' },
+  { key: 'udf:udf_char651', label: 'Comentario REO' },
+  { key: 'udf:udf_char147', label: 'Motivo Cierre' },
+  { key: 'udf:udf_char652', label: 'Estimación Esfuerzo' },
+  // Reclamaciones
+  { key: 'udf:udf_char690', label: 'Categoría Reclamación' },
+  { key: 'udf:udf_char685', label: 'Canal NPL' },
+  { key: 'udf:udf_char686', label: 'CCAA' },
+  { key: 'udf:udf_char688', label: 'Dpto Propietario Resolución' },
+  { key: 'udf:udf_char694', label: 'Importe Reclamado' },
+  { key: 'udf:udf_char3', label: 'Nombre' },
+  { key: 'udf:udf_char4', label: 'Apellidos' },
+  { key: 'udf:udf_char2', label: 'NIF/CIF' },
+  { key: 'udf:udf_datestamp1', label: 'Fecha origen Incidencia' },
+  { key: 'udf:udf_datestamp2', label: 'Fecha entrada en Diglo' },
+  { key: 'udf:udf_date6', label: 'Fecha resolución Diglo' },
 ];
+/** Claves udf de SDP que importamos para informes (derivadas del catálogo → nunca divergen). */
+export const REPORT_UDF_KEYS: string[] = AVAILABLE_COLUMNS.filter((c) => c.key.startsWith('udf:')).map((c) => c.key.slice(4));
+
 /** Dimensiones disponibles para el constructor de informes de resumen. */
 export const AVAILABLE_DIMENSIONS: [ReportDimension, string][] = [
   ['group', 'Grupo de soporte'], ['status', 'Estado'], ['area', 'Categoría'], ['service', 'Subcategoría'],
