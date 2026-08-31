@@ -2931,8 +2931,12 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
   const removeReport = useStore((s) => s.deleteReport);
   const [selId, setSelId] = useState<string>('');
   const [editing, setEditing] = useState<SavedReport | null>(null); // null = no builder; objeto = crear/editar
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({}); // carpetas plegadas
 
-  const builtIns = [...DEFAULT_REPORTS, ...DEFAULT_TABLE_REPORTS].map(builtInAsSaved);
+  const builtIns = [
+    ...DEFAULT_REPORTS.map((d) => ({ ...builtInAsSaved(d), folder: 'Resúmenes generales' })),
+    ...DEFAULT_TABLE_REPORTS.map((d) => ({ ...builtInAsSaved(d), folder: 'IT Diglo' })),
+  ];
   // Informes guardados visibles: públicos + los míos privados.
   const saved = (tenant.savedReports ?? []).filter((r) => r.accessibility === 'public' || r.ownerUid === me);
   const all: SavedReport[] = [...builtIns, ...saved];
@@ -2940,11 +2944,18 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
   const isBuiltIn = (r: SavedReport) => r.ownerUid === '_system';
   const canEditSel = sel && !isBuiltIn(sel) && canManage && (sel.ownerUid === me || isAdmin);
 
-  // Agrupar por carpeta para el selector.
-  const folders = [...new Set(all.map((r) => r.folder || 'Sin carpeta'))];
   const blank = (): SavedReport => ({ id: 'rep-' + Date.now().toString(36), name: 'Nuevo informe', folder: 'Mis informes', kind: 'table', dimension: 'group', accessibility: 'private', ownerUid: me, ownerName: meName, createdAt: Date.now(), columns: [{ key: 'subject', label: 'Asunto' }, { key: 'status', label: 'Estado de solicitud' }], scopes: [], period: 'none' });
 
   if (editing) return <ReportBuilder tenant={tenant} report={editing} onCancel={() => setEditing(null)} onSave={(r) => { saveReport(r); setEditing(null); setSelId(r.id); }} />;
+
+  // Explorador de carpetas: agrupa por carpeta (las de sistema primero, luego alfabético).
+  const SYS_FOLDERS = ['Resúmenes generales', 'IT Diglo'];
+  const folderNames = [...new Set(all.map((r) => r.folder || 'Sin carpeta'))].sort((a, b) => {
+    const ia = SYS_FOLDERS.indexOf(a), ib = SYS_FOLDERS.indexOf(b);
+    if (ia >= 0 || ib >= 0) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    return a.localeCompare(b);
+  });
+  const byFolder = folderNames.map((name) => ({ name, reports: all.filter((r) => (r.folder || 'Sin carpeta') === name) }));
 
   return (
     <div className="reports">
@@ -2952,18 +2963,47 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
         <h1 style={{ margin: 0 }}><Icon name="bar-chart" size={20} /> Informes</h1>
         {canManage && <button className="primary sm" style={{ marginLeft: 'auto' }} onClick={() => setEditing(blank())}>＋ Nuevo informe</button>}
       </div>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 14 }}>
-        <label>Informe <select value={sel?.id ?? ''} onChange={(e) => setSelId(e.target.value)}>
-          {folders.map((f) => <optgroup key={f} label={f}>{all.filter((r) => (r.folder || 'Sin carpeta') === f).map((r) => <option key={r.id} value={r.id}>{r.name}{r.kind === 'table' ? ' · listado' : ''}</option>)}</optgroup>)}
-        </select></label>
-        {sel && <span className="soft" style={{ fontSize: 12 }}>{isBuiltIn(sel) ? 'Predefinido' : `${sel.ownerName ?? '—'} · ${sel.accessibility === 'public' ? '🌐 Público' : '🔒 Privado'}`}</span>}
-        {canEditSel && <span className="seg" style={{ marginLeft: 'auto' }}>
-          <button type="button" onClick={() => setEditing({ ...sel! })}>✎ Editar</button>
-          <button type="button" onClick={() => { if (confirm(`¿Borrar el informe «${sel!.name}»?`)) { removeReport(sel!.id); setSelId(''); } }}>🗑 Borrar</button>
-        </span>}
+      <div style={{ display: 'flex', gap: 18, alignItems: 'flex-start' }}>
+        {/* Explorador de CARPETAS (estilo SDP): carpetas plegables con sus informes dentro. */}
+        <div style={{ width: 270, flexShrink: 0, border: '1px solid var(--line, #e5e7eb)', borderRadius: 10, overflow: 'hidden', fontSize: 13.5 }}>
+          <div style={{ padding: '8px 12px', fontWeight: 600, fontSize: 12, letterSpacing: '.03em', textTransform: 'uppercase', color: 'var(--ink-soft)', borderBottom: '1px solid var(--line, #e5e7eb)' }}>Carpetas</div>
+          {byFolder.map((f) => {
+            const open = !collapsed[f.name];
+            return (
+              <div key={f.name} style={{ borderBottom: '1px solid var(--line, #eef0f3)' }}>
+                <button type="button" onClick={() => setCollapsed((c) => ({ ...c, [f.name]: open }))}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '8px 12px', background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', fontWeight: 600 }}>
+                  <span style={{ color: 'var(--ink-soft)', width: 10 }}>{open ? '▾' : '▸'}</span>
+                  <span>📁 {f.name}</span>
+                  <span className="soft" style={{ marginLeft: 'auto', fontSize: 12 }}>{f.reports.length}</span>
+                </button>
+                {open && f.reports.map((r) => (
+                  <button key={r.id} type="button" onClick={() => setSelId(r.id)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', padding: '6px 12px 6px 30px', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', background: r.id === sel?.id ? 'var(--accent-soft, #eef2ff)' : 'none', color: r.id === sel?.id ? 'var(--accent, #2f63e6)' : 'inherit', fontWeight: r.id === sel?.id ? 600 : 400 }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</span>
+                    <span style={{ marginLeft: 'auto', fontSize: 11, opacity: .7 }} title={r.kind === 'table' ? 'Listado' : 'Resumen'}>{r.kind === 'table' ? '▤' : '▦'}{isBuiltIn(r) ? '' : r.accessibility === 'public' ? ' 🌐' : ' 🔒'}</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+        {/* Panel del informe seleccionado */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {!sel ? <div className="empty" style={{ padding: 24 }}>Elige un informe de la izquierda{canManage ? ', o crea uno con «Nuevo informe».' : '.'}</div>
+            : <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                <span style={{ fontWeight: 600 }}>{sel.name}</span>
+                <span className="soft" style={{ fontSize: 12 }}>{isBuiltIn(sel) ? 'Predefinido' : `${sel.ownerName ?? '—'} · ${sel.accessibility === 'public' ? '🌐 Público' : '🔒 Privado'}`}</span>
+                {canEditSel && <span className="seg" style={{ marginLeft: 'auto' }}>
+                  <button type="button" onClick={() => setEditing({ ...sel! })}>✎ Editar</button>
+                  <button type="button" onClick={() => { if (confirm(`¿Borrar el informe «${sel!.name}»?`)) { removeReport(sel!.id); setSelId(''); } }}>🗑 Borrar</button>
+                </span>}
+              </div>
+              {sel.kind === 'table' ? <TableReportView def={sel} tenant={tenant} /> : <SummaryReportView def={sel} tenant={tenant} />}
+            </>}
+        </div>
       </div>
-      {!sel ? <div className="empty" style={{ padding: 24 }}>No hay informes. {canManage ? 'Crea uno con «Nuevo informe».' : ''}</div>
-        : sel.kind === 'table' ? <TableReportView def={sel} tenant={tenant} /> : <SummaryReportView def={sel} tenant={tenant} />}
     </div>
   );
 }
