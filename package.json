@@ -14,7 +14,7 @@
     "import": "tsx importer/run.ts",
     "sync": "tsx scripts/sync-tickets.ts",
     "sync:dry": "tsx scripts/sync-tickets.ts --dry-run",
-    "sync:job": "tsx importer/etl.ts && tsx scripts/sync-tickets.ts",
+    "sync:job": "tsx importer/etl.ts && tsx scripts/sync-tickets.ts && tsx scripts/reconcile-closed.ts",
     "reports:job": "tsx scripts/send-reports.ts --apply",
     "reports:dry": "tsx scripts/send-reports.ts",
     "migrate:attachments": "tsx scripts/migrate-attachments.ts --apply",
