@@ -1,0 +1,139 @@
+/* Pantalla de acceso — misma plantilla que Diglo Recovery (web/src/styles/login.css de
+   hub360-module-debt-collector), con la paleta VERDE de la mesa de servicio. La estructura y las
+   medidas son idénticas a propósito: los módulos del Hub 360 se distinguen por el color, no por el
+   diseño. El naranja de Diglosfera no se toca — es lo que los mantiene en la misma familia.
+
+   Las clases conservan los nombres de Recovery para poder diferenciar los dos ficheros de un
+   vistazo. `.login-err` sí choca con la de styles.css, así que aquí va anidada bajo `.login-full`. */
+
+/* Fuente corporativa DIGLOAERO — NO bloqueante (font-display: swap). Solo se aplica al TEXTO DE MARCA. */
+@font-face { font-family: "Diglo Aero"; src: url("/fonts/DigloAero-Light.otf")   format("opentype"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "Diglo Aero"; src: url("/fonts/DigloAero-Regular.otf") format("opentype"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Diglo Aero"; src: url("/fonts/DigloAero-Medium.otf")  format("opentype"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Diglo Aero"; src: url("/fonts/DigloAero-Bold.otf")    format("opentype"); font-weight: 700; font-style: normal; font-display: swap; }
+
+.login-aero { font-family: "Diglo Aero", -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+
+/* ---------- Pantalla completa: verde corporativo + esfera de marca de agua ---------- */
+.login-full {
+  /* `clip` y no `hidden`: la esfera desborda por la derecha y con `hidden` esto sería un
+     contenedor scrollable — al enfocar un campo el navegador lo desplazaba y la marca se salía
+     de la pantalla. `hidden` queda de reserva para navegadores sin `clip`. */
+  position: relative; min-height: 100vh; overflow: hidden; overflow: clip; display: flex;
+  align-items: center; justify-content: space-between; gap: clamp(28px, 6vw, 90px);
+  flex-wrap: wrap; padding: 24px clamp(24px, 6vw, 90px); color: #e6f5ee;
+  font-size: 14px; line-height: 1.45;
+  background:
+    radial-gradient(80% 60% at 12% 8%, rgba(46, 190, 142, .34), transparent 55%),
+    radial-gradient(70% 55% at 92% 96%, rgba(245, 166, 35, .16), transparent 55%),
+    linear-gradient(150deg, #0a7a5e 0%, #044a3c 52%, #02312a 100%);
+}
+
+/* Marca corporativa GRANDE, fuera del popup, dominando la pantalla (arriba-izquierda). */
+.login-brand-big { position: relative; z-index: 1; align-self: flex-start; margin-top: clamp(56px, 13vh, 168px); }
+.login-brand-big h1 {
+  margin: 0; color: #fff; font-weight: 700; letter-spacing: -.01em; line-height: .98;
+  font-size: clamp(56px, 9vw, 108px);
+}
+/* "by [logo]" alineado a la DERECHA, bajo el nombre (al ancho del título). */
+.login-brand-big .by { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 16px; }
+.login-brand-big .by > span { color: #cfeee0; font-size: clamp(15px, 2vw, 20px); }
+@media (max-width: 860px) {
+  .login-full { justify-content: center; }
+  .login-brand-big { align-self: center; margin-top: 0; text-align: center; }
+  .login-brand-big .by { justify-content: center; }
+  .login-glass { margin-right: 0; }   /* apilado y centrado en pantallas estrechas */
+}
+/* Esfera de marca de agua (decorativa, protagonista de fondo) */
+.login-sphere {
+  position: absolute; right: -14%; bottom: -30%; opacity: .22; pointer-events: none;
+  filter: drop-shadow(0 0 70px rgba(245, 166, 35, .28));
+}
+@media (max-width: 620px) { .login-sphere { right: -40%; bottom: -14%; } }
+
+/* ---------- Bloque de acceso traslúcido (glassmorphism) ---------- */
+.login-glass {
+  position: relative; z-index: 1; width: 392px; max-width: 94vw;
+  margin-right: clamp(24px, 10vw, 200px);   /* separa el popup del borde derecho (más centrado) */
+  background: rgba(4, 48, 38, .42);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 20px;
+  box-shadow: 0 30px 80px rgba(0, 26, 20, .45), inset 0 1px 0 rgba(255, 255, 255, .08);
+  padding: 30px 30px 24px;
+}
+
+/* Cabecera del popup: badge + "Acceso" + "Diglo Atenza" */
+.login-glass-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.login-glass-badge {
+  width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(150deg, #12a074, #044a3c); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .15);
+}
+.login-glass-head .t1 { font-size: 19px; font-weight: 800; color: #fff; letter-spacing: -.01em; line-height: 1.1; }
+.login-glass-head .t2 { font-size: 12.5px; color: rgba(230, 245, 238, .6); }
+
+.login-lead { margin: 0 0 16px; color: rgba(230, 245, 238, .72); font-size: 13px; line-height: 1.55; }
+
+/* Botones */
+.login-btn {
+  width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 12px 14px; border-radius: 12px; font-family: inherit; font-weight: 650; font-size: 14px;
+  cursor: pointer; border: 1px solid transparent;
+  transition: background .15s, border-color .15s, box-shadow .15s, transform .05s;
+}
+.login-btn:disabled { cursor: not-allowed; opacity: .55; }
+.login-btn:not(:disabled):active { transform: translateY(1px); }
+.login-full :focus-visible { outline: 2px solid rgba(124, 224, 180, .9); outline-offset: 2px; }
+
+/* Google: pastilla blanca (como en Recovery) */
+.login-btn-google { background: #fff; color: #21332c; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+.login-btn-google:not(:disabled):hover { background: #f2f9f5; }
+
+/* Translúcidos sobre el glass */
+.login-btn-ghost { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .2); color: #e6f5ee; }
+.login-btn-ghost:not(:disabled):hover { background: rgba(255, 255, 255, .14); }
+.login-btn-primary { background: #12a074; color: #fff; margin-top: 6px; }
+.login-btn-primary:not(:disabled):hover { background: #17b483; }
+
+.login-hint { font-size: 11.5px; color: rgba(230, 245, 238, .5); margin: 7px 2px 0; line-height: 1.5; }
+.login-link {
+  color: #7ce0b4; font-weight: 600; text-decoration: none; cursor: pointer;
+  background: none; border: 0; padding: 0; font-family: inherit; font-size: inherit;
+}
+.login-link:hover { text-decoration: underline; }
+
+.login-sep { display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; }
+.login-sep::before, .login-sep::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, .14); }
+.login-sep span { color: rgba(230, 245, 238, .5); font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; }
+
+.login-crumb {
+  display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; cursor: pointer;
+  color: rgba(230, 245, 238, .7); font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 0; margin-bottom: 8px;
+}
+.login-crumb:hover { color: #fff; }
+
+.login-lbl { display: block; font-size: 10.5px; color: rgba(230, 245, 238, .55); text-transform: uppercase; letter-spacing: .05em; margin-top: 10px; }
+.login-input {
+  width: 100%; box-sizing: border-box; padding: 11px 12px; margin: 5px 0 4px; border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, .18); background: rgba(255, 255, 255, .07); color: #fff;
+  font-family: inherit; font-size: 14px; outline: none;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.login-input::placeholder { color: rgba(230, 245, 238, .4); }
+.login-input:focus { border-color: rgba(124, 224, 180, .7); box-shadow: 0 0 0 3px rgba(46, 190, 142, .25); background: rgba(255, 255, 255, .12); }
+
+/* Anidada: en styles.css hay otra `.login-err` (tarjeta clara) que aquí no sirve. */
+.login-full .login-err {
+  color: #ffdcdc; background: rgba(178, 59, 59, .28); border: 1px solid rgba(255, 150, 150, .35);
+  border-radius: 9px; padding: 9px 11px; font-size: 12.5px; margin-top: 12px;
+}
+
+.login-foot { color: rgba(230, 245, 238, .45); font-size: 11px; margin-top: 16px; border-top: 1px solid rgba(255, 255, 255, .12); padding-top: 12px; line-height: 1.5; }
+
+/* Versión de la app: abajo-izquierda, discreta (no roba protagonismo). */
+.login-version {
+  position: fixed; left: 16px; bottom: 12px; z-index: 2;
+  color: rgba(230, 245, 238, .4); font-size: 11px; letter-spacing: .04em; user-select: text;
+}

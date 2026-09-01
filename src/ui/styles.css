@@ -228,8 +228,6 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 /* login */
 .login-wrap{min-height:100vh; display:grid; place-items:center; background:var(--paper); padding:20px;}
 .login-card{width:min(360px,94vw); background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:26px 24px; box-shadow:0 12px 40px rgba(10,12,24,.12);}
-.gbtn{width:100%; border:1px solid var(--line); background:var(--surface); color:var(--ink); font-weight:600; font-size:13.5px; padding:10px; border-radius:10px;}
-.gbtn:hover{background:var(--sink);}
 .sep{display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--ink-faint); font-size:11.5px;}
 .sep::before,.sep::after{content:""; flex:1; height:1px; background:var(--line);}
 .login-err{font-size:12.5px; color:var(--crit); background:var(--crit-bg); border-radius:8px; padding:8px 10px;}
