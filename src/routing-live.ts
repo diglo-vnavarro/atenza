@@ -1,7 +1,7 @@
 // Enrutado VIVO a grupo (Fase 7), PURO y testeable. Sobre el suelo fijo (grupo declarado
 // en el árbol) puntúa cada grupo con la AFINIDAD histórica (quién resolvió de verdad,
 // pesando lo reciente) menos las reasignaciones salientes. Explicable (`why`).
-// Inerte hasta que el tenant activa `liveRouting` y Atenza crea/asigna (post-corte).
+// Inerte hasta que el tenant activa `liveRouting` y ticketIN crea/asigna (post-corte).
 import type { RoutingStats, GroupStat } from './model.js';
 
 export interface GroupScore { groupId: string; score: number; affinity: number; isPrior: boolean }

@@ -1,6 +1,6 @@
 name: Deploy sync job
 
-# Construye y despliega el Cloud Run Job `sync-sdp` (sync SDP → Atenza).
+# Construye y despliega el Cloud Run Job `sync-sdp` (sync SDP → ticketIN).
 # El CI de deploy.yml solo hace Firebase (hosting/reglas); esto es el Job de la sync.
 # Ver docs/deploy-sync.md. Autenticación sin claves: Workload Identity Federation.
 

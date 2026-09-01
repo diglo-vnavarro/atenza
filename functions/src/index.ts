@@ -102,7 +102,7 @@ export const adminProvisionAccess = onCall({ region: 'europe-west1' }, async (re
 
   let userRec;
   try { userRec = await getAuth().getUserByEmail(email); }
-  catch { throw new HttpsError('not-found', 'No hay ninguna cuenta con ese email. La persona debe iniciar sesión en Atenza al menos una vez antes de poder provisionar su acceso.'); }
+  catch { throw new HttpsError('not-found', 'No hay ninguna cuenta con ese email. La persona debe iniciar sesión en ticketIN al menos una vez antes de poder provisionar su acceso.'); }
   const uid = userRec.uid;
 
   // ¿había una ficha de referencia (id de SDP) con ese email? → idmap.

@@ -1,5 +1,5 @@
 # Bucket para adjuntos de tickets (binario aquí; metadatos en Firestore).
-# Preparado para cuando el módulo de adjuntos entre en Atenza.
+# Preparado para cuando el módulo de adjuntos entre en ticketIN.
 resource "google_storage_bucket" "files" {
   name                        = "${var.project_id}-atenza-files"
   project                     = var.project_id

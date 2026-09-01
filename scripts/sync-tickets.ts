@@ -1,11 +1,11 @@
-// Sincronización INCREMENTAL e IDEMPOTENTE de tickets SDP → Atenza (Firestore),
-// para la fase de CONVIVENCIA (los técnicos siguen trabajando en SDP; Atenza
+// Sincronización INCREMENTAL e IDEMPOTENTE de tickets SDP → ticketIN (Firestore),
+// para la fase de CONVIVENCIA (los técnicos siguen trabajando en SDP; ticketIN
 // refleja el estado). Reejecutable sin efectos colaterales:
 //
 //   - upsert por id de SDP (doc id estable) → no duplica.
 //   - SDP es la fuente de verdad de los campos del ticket (asunto, estado,
 //     prioridad, solicitante/técnico, grupo, categoría…): se sobrescriben.
-//   - los campos que SOLO existen en Atenza (colaboración añadida en el portal)
+//   - los campos que SOLO existen en ticketIN (colaboración añadida en el portal)
 //     se PRESERVAN: worklog, tasks, approvals, attachments, comments, resolution.
 //   - reconcilia identidades con importer/identity-map.json (uid SDP → uid Firebase)
 //     y NO recrea el miembro de referencia de SDP cuando ya está mapeado
@@ -42,13 +42,13 @@ const idMap: Record<string, string> = Object.fromEntries(Object.entries(rawMap).
 const TENANT = process.env.TENANT ?? 'diglo-it';
 const DRY = process.env.DRY_RUN === '1' || process.argv.includes('--dry-run');
 // Plantilla forzada por tipo (instancias cuyos tickets no traen la plantilla de
-// Atenza; p. ej. Leasys → tpl-leasys-inc/sr para que resuelvan su ciclo de vida).
+// ticketIN; p. ej. Leasys → tpl-leasys-inc/sr para que resuelvan su ciclo de vida).
 const FT_INC = process.env.TEMPLATE_INC, FT_SR = process.env.TEMPLATE_SR;
 
 initializeApp({ projectId: process.env.GOOGLE_CLOUD_PROJECT ?? 'diglo-desk-pd' });
 const db = getFirestore();
 
-// Campos propiedad de Atenza que NUNCA se pisan al re-sincronizar desde SDP.
+// Campos propiedad de ticketIN que NUNCA se pisan al re-sincronizar desde SDP.
 // Incluye lo de la migración al modo simplificado (serviceCategoryId/serviceCategory/
 // type) para NO deshacer F4c. `archived`/`createdAt` se recalculan aparte (abajo).
 // `closureComment` lo rellena el enriquecimiento BI (requiere detalle SDP, no viene en el listado):
@@ -60,7 +60,7 @@ const remap = (uid: unknown) => (typeof uid === 'string' && idMap[uid]) ? idMap[
 // que llegan de SDP SIN categoría se asignan por su templateId; el resto → default.
 const tplCatMap: Record<string, string> = (() => { const p = join(importer, 'template-category-map.json'); return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : {}; })();
 const DEFAULT_CAT = 'Incidencias generales';
-// ROSTER destino (hoja «Grupos» del Excel) → «traducción» de membresías a la verdad Atenza.
+// ROSTER destino (hoja «Grupos» del Excel) → «traducción» de membresías a la verdad ticketIN.
 const ROSTER: RosterRow[] = (() => { const p = join(importer, 'roster-v2.json'); return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : []; })();
 const GROUP_ALIAS: Record<string, string> = { 'Técnicos IT': 'IT' };
 type Cat = { id: string; name: string; incident?: unknown; service_request?: unknown };
@@ -84,7 +84,7 @@ async function syncTickets() {
       if (tech !== t.technicianId || reqr !== t.requesterId) remapped++;
       const next: Record<string, unknown> = { ...t, requesterId: reqr, technicianId: tech, sdpId: t.id, syncedAt: Date.now() };
       if (FT_INC || FT_SR) next.templateId = (next.type === 'service_request' ? FT_SR : FT_INC) ?? next.templateId;
-      for (const f of ATENZA_OWNED) if (prev[f] !== undefined) { next[f] = prev[f]; preserved++; } // preserva lo añadido en Atenza
+      for (const f of ATENZA_OWNED) if (prev[f] !== undefined) { next[f] = prev[f]; preserved++; } // preserva lo añadido en ticketIN
       // AUTO-CATEGORIZADO: si sigue sin categoría (ticket nuevo de SDP), se asigna
       // por su plantilla; NO pisa la de los tickets ya categorizados (arriba se preserva).
       if (!next.serviceCategoryId) { const cat = catOf(String(t.templateId ?? '')); if (cat) { next.serviceCategoryId = cat.id; next.serviceCategory = cat.name; next.type = typeOf(cat, next.type as string); autoCat++; } }
@@ -96,12 +96,12 @@ async function syncTickets() {
       next.ownerHistory = reconcileOwner(prev.ownerHistory as OwnerSegment[] | undefined,
         { group: (next.groupId as string | null) ?? null, tech: (next.technicianId as string | null) ?? null },
         Date.now(), next.createdAt as number);
-      if (!DRY) batch.set(refs[j]!, next); // set completo pero con los campos Atenza reinyectados
+      if (!DRY) batch.set(refs[j]!, next); // set completo pero con los campos ticketIN reinyectados
       if (snap.exists) updated++; else created++;
     });
     if (!DRY) await batch.commit();
   }
-  console.log(`${DRY ? '[DRY] ' : ''}tickets: ${created} nuevos, ${updated} actualizados · ${preserved} campos Atenza preservados · ${autoCat} auto-categorizados · ${remapped} identidades remapeadas.`);
+  console.log(`${DRY ? '[DRY] ' : ''}tickets: ${created} nuevos, ${updated} actualizados · ${preserved} campos ticketIN preservados · ${autoCat} auto-categorizados · ${remapped} identidades remapeadas.`);
 }
 
 // Campos de miembro que SON DECISIÓN DE ATENZA (rol/permisos/alta), no de SDP:
@@ -121,7 +121,7 @@ async function syncMembers() {
     slice.forEach((m, j) => {
       const prev = (snaps[j]!.exists ? snaps[j]!.data() : {}) as Record<string, unknown>;
       const next = { ...m } as Record<string, unknown>;
-      for (const f of MEMBER_OWNED) if (prev[f] !== undefined) { next[f] = prev[f]; preserved++; } // no degradar rol/permisos fijados en Atenza
+      for (const f of MEMBER_OWNED) if (prev[f] !== undefined) { next[f] = prev[f]; preserved++; } // no degradar rol/permisos fijados en ticketIN
       if (!DRY) batch.set(refs[j]!, next, { merge: true }); n++;
     });
     if (!DRY) await batch.commit();
@@ -164,7 +164,7 @@ async function loadIdmapFromFirestore() {
 }
 
 // TRADUCCIÓN de membresías: tras sincronizar los miembros desde SDP, deja cada grupo con el
-// roster destino del Excel (verdad Atenza). Así el reparto no lo revierte la sync.
+// roster destino del Excel (verdad ticketIN). Así el reparto no lo revierte la sync.
 async function applyRoster() {
   if (!ROSTER.length) return;
   const groups = (await db.collection(`tenants/${TENANT}/groups`).get()).docs.map((d) => ({ id: d.id, name: String(d.data().name ?? '') }));
@@ -181,11 +181,11 @@ async function applyRoster() {
     if (!DRY) { batch.update(db.doc(`tenants/${TENANT}/members/${uid}`), { groupIds: [...next] }); if (++n % 200 === 0) { await batch.commit(); batch = db.batch(); } } else n++;
   }
   if (!DRY) await batch.commit();
-  console.log(`${DRY ? '[DRY] ' : ''}roster: ${plan.addN} altas · ${plan.remN} bajas · ${plan.perMember.size} miembros alineados a la verdad Atenza.`);
+  console.log(`${DRY ? '[DRY] ' : ''}roster: ${plan.addN} altas · ${plan.remN} bajas · ${plan.perMember.size} miembros alineados a la verdad ticketIN.`);
 }
 
 // M1 — ADJUNTOS NUEVOS en la sync: para los tickets del lote con adjuntos (has_attachments) que
-// aún no los tengan en Atenza, descarga de SDP y sube a Storage. Idempotente (salta los que ya
+// aún no los tengan en ticketIN, descarga de SDP y sube a Storage. Idempotente (salta los que ya
 // tienen adjuntos «sdp-» → sin llamada a SDP). Desactivable con SYNC_ATTACHMENTS=0.
 async function syncAttachments(): Promise<void> {
   if (process.env.SYNC_ATTACHMENTS === '0') return;
@@ -214,7 +214,7 @@ async function syncAttachments(): Promise<void> {
 }
 
 async function main() {
-  console.log(`${DRY ? '=== DRY-RUN (no escribe nada) === ' : ''}Sync SDP → Atenza · tenant ${TENANT} · ${tickets.length} tickets · ${Object.keys(idMap).length} identidades mapeadas.`);
+  console.log(`${DRY ? '=== DRY-RUN (no escribe nada) === ' : ''}Sync SDP → ticketIN · tenant ${TENANT} · ${tickets.length} tickets · ${Object.keys(idMap).length} identidades mapeadas.`);
   await loadIdmapFromFirestore();
   await syncMembers();
   await applyRoster();

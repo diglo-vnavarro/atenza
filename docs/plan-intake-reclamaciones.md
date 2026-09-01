@@ -4,7 +4,7 @@
 > **2026-09-01** (cuando negocio vuelva de vacaciones). Redactado 2026-08-28.
 
 ## Objetivo
-Que un cliente abra una reclamación desde la **web pública** y entre como **ticket en Atenza**
+Que un cliente abra una reclamación desde la **web pública** y entre como **ticket en ticketIN**
 (`diglo-it`), clasificado a su cola de Reclamaciones y con **confirmación al cliente**.
 
 ## Lo que YA existe (no hay que construirlo)
@@ -41,9 +41,9 @@ Que un cliente abra una reclamación desde la **web pública** y entre como **ti
   nº + email).
 
 ## Decisiones de negocio PENDIENTES (para acotar F1)
-1. **¿Dónde vive el formulario?** ¿Lo integra Diglo en su web pública, o Atenza hostea una página
+1. **¿Dónde vive el formulario?** ¿Lo integra Diglo en su web pública, o ticketIN hostea una página
    (link/iframe)?
-2. **Identidad del cliente** (no es miembro de Atenza): ¿ticket con «solicitante web» + contacto en
+2. **Identidad del cliente** (no es miembro de ticketIN): ¿ticket con «solicitante web» + contacto en
    campos *(recomendado)*, o buscar/crear contacto por email?
 3. **Elección de cola**: ¿el cliente elige el tipo (12 colas) en el form, o entra a una cola de
    **triage** y se reasigna? *(recomendado: desplegable con las 12 + «No sé» → triage)*

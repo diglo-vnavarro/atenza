@@ -1,10 +1,10 @@
-// Puente Atenza → OrganiZate: refleja las TAREAS de los tickets (de los grupos de
+// Puente ticketIN → OrganiZate: refleja las TAREAS de los tickets (de los grupos de
 // soporte activados) como TAREAS de OrganiZate, para que sumen a la CARGA real del
 // técnico. Crear al asignar, cerrar al cerrar. Idempotente, con dry-run.
 //
 // OrganiZate guarda TODO su estado en un único doc `orgs/{ORG_ID}/state/app`
 // = { payload: <AppState JSON>, rev }. Escribimos con TRANSACCIÓN (guardia por rev)
-// y tocamos SOLO las tareas que este puente crea (marcadas `sourceAtenzaTaskId`);
+// y tocamos SOLO las tareas que este puente crea (marcadas `sourceticketINTaskId`);
 // nunca las tareas propias del equipo.
 //
 //   GOOGLE_APPLICATION_CREDENTIALS=<adc-owner-de-ambos> \
@@ -22,7 +22,7 @@ const DRY = process.env.DRY_RUN === '1' || process.argv.includes('--dry-run');
 
 interface AtTask { id: string; text: string; done: boolean; assigneeUid?: string | null; startAt?: number | null; dueAt?: number | null; estimatedHours?: number }
 interface AtTicket { id: string; groupId?: string | null; status?: string; priority?: string; subject?: string; tasks?: AtTask[]; statusHistory?: { from?: number }[] }
-interface OrgTask { id: string; title: string; projectId: string | null; startDate: string; endDate: string; estimatedHours: number; priority: string; status: string; assigneeId?: string | null; sourceAtenzaTaskId?: string; sourceAtenzaTicketId?: string }
+interface OrgTask { id: string; title: string; projectId: string | null; startDate: string; endDate: string; estimatedHours: number; priority: string; status: string; assigneeId?: string | null; sourceticketINTaskId?: string; sourceticketINTicketId?: string }
 
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -36,10 +36,10 @@ function initDbs(): { adb: Firestore; odb: Firestore } {
 }
 
 async function main() {
-  console.log(`${DRY ? '=== DRY-RUN === ' : ''}Sync Atenza(${ATENZA_PROJECT}/${TENANT}) → OrganiZate(${ORG_PROJECT}/orgs/${ORG_ID}).`);
+  console.log(`${DRY ? '=== DRY-RUN === ' : ''}Sync ticketIN(${ATENZA_PROJECT}/${TENANT}) → OrganiZate(${ORG_PROJECT}/orgs/${ORG_ID}).`);
   const { adb, odb } = initDbs();
 
-  // 1) Atenza: config de grupos integrados + miembros (uid→email) + tickets
+  // 1) ticketIN: config de grupos integrados + miembros (uid→email) + tickets
   const tSnap = await adb.doc(`tenants/${TENANT}`).get();
   const envGroups = process.env.SYNC_GROUPS ? process.env.SYNC_GROUPS.split(',').map((x) => x.trim()).filter(Boolean) : null;
   const syncGroups: string[] = envGroups ?? ((tSnap.data()?.organizateGroupIds as string[] | undefined) ?? []);
@@ -51,7 +51,7 @@ async function main() {
   const tickets = tkSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<AtTicket, 'id'>) })) as AtTicket[];
   const groupsSnap = await adb.collection(`tenants/${TENANT}/groups`).get();
   const groupName = new Map(groupsSnap.docs.map((d) => [d.id, (d.data() as { name?: string }).name ?? d.id]));
-  console.log(`Atenza: ${tickets.length} tickets · ${emailByUid.size} miembros (${techEmails.size} técnicos).`);
+  console.log(`ticketIN: ${tickets.length} tickets · ${emailByUid.size} miembros (${techEmails.size} técnicos).`);
 
   // 2) OrganiZate: modelo SHARDED (un doc por tipo de dato: orgs/{ORG_ID}/state/{clave},
   //    payload = JSON del array de ESE tipo). Leemos los shards `members` (identidad)
@@ -77,10 +77,10 @@ async function main() {
   for (const m of orgMembers) if (m.email) orgIdByEmail.set(m.email.toLowerCase(), m.id);
   const orgUidOf = (uid?: string | null): string | null => { if (!uid) return null; const e = emailByUid.get(uid); return e ? orgIdByEmail.get(e) ?? null : null; };
 
-  // Diagnóstico de identidad (email técnico Atenza ↔ miembro OrganiZate)
+  // Diagnóstico de identidad (email técnico ticketIN ↔ miembro OrganiZate)
   const matched = [...techEmails].filter((e) => orgIdByEmail.has(e));
   console.log(`OrganiZate (${sharded ? 'sharded' : 'legacy'}): ${orgMembers.length} miembros · ${orgTasks.length} tareas.`);
-  console.log(`Correspondencia de identidad: ${matched.length}/${techEmails.size} técnicos de Atenza casan con un miembro de OrganiZate (por email).`);
+  console.log(`Correspondencia de identidad: ${matched.length}/${techEmails.size} técnicos de ticketIN casan con un miembro de OrganiZate (por email).`);
   if (matched.length < techEmails.size) { const miss = [...techEmails].filter((e) => !orgIdByEmail.has(e)); console.log(`  Sin casar (${miss.length}): ${miss.slice(0, 8).join(', ')}${miss.length > 8 ? '…' : ''}`); }
 
   if (!syncGroups.length) {
@@ -88,12 +88,12 @@ async function main() {
     const byGroup = new Map<string, { tickets: number; tasks: number }>();
     for (const t of tickets) { if (!t.groupId) continue; const g = byGroup.get(t.groupId) ?? { tickets: 0, tasks: 0 }; g.tickets++; g.tasks += (t.tasks?.length ?? 0); byGroup.set(t.groupId, g); }
     for (const [gid, c] of [...byGroup.entries()].sort((a, b) => b[1].tasks - a[1].tasks).slice(0, 15)) console.log(`  ${groupName.get(gid) ?? gid} (${gid}): ${c.tickets} tickets · ${c.tasks} tareas`);
-    console.log('\nActiva grupos en Atenza → Administración → Integración OrganiZate (o SYNC_GROUPS=id1,id2 para probar). Nada que sincronizar.');
+    console.log('\nActiva grupos en ticketIN → Administración → Integración OrganiZate (o SYNC_GROUPS=id1,id2 para probar). Nada que sincronizar.');
     return;
   }
   console.log(`Grupos activados: ${syncGroups.map((g) => groupName.get(g) ?? g).join(', ')}`);
 
-  // 3) Tareas deseadas en OrganiZate (a partir de las tareas de Atenza en grupos activados)
+  // 3) Tareas deseadas en OrganiZate (a partir de las tareas de ticketIN en grupos activados)
   const desired: OrgTask[] = [];
   let skippedNoAssignee = 0, skippedNoMap = 0;
   for (const t of tickets) {
@@ -103,7 +103,7 @@ async function main() {
       if (!task.assigneeUid) { skippedNoAssignee++; continue; }
       const assigneeId = orgUidOf(task.assigneeUid);
       if (!assigneeId) { skippedNoMap++; continue; }
-      // Fechas previstas de la tarea (las que fija el técnico en Atenza); si faltan, se derivan:
+      // Fechas previstas de la tarea (las que fija el técnico en ticketIN); si faltan, se derivan:
       // inicio = hoy, fin = vencimiento (o inicio/hoy). Se garantiza inicio ≤ fin.
       const today = todayIso();
       const start = task.startAt ? iso(task.startAt) : today;
@@ -119,16 +119,16 @@ async function main() {
         priority: mapPriority(t.priority),
         status: (task.done || closed) ? 'done' : 'in_progress',
         assigneeId,
-        sourceAtenzaTaskId: task.id,
-        sourceAtenzaTicketId: t.id,
+        sourceticketINTaskId: task.id,
+        sourceticketINTicketId: t.id,
       });
     }
   }
 
   // 4) Reconciliar: conservar tareas propias de OrganiZate; sustituir el conjunto
   //    de tareas-puente por `desired`.
-  const own = orgTasks.filter((x) => !x.sourceAtenzaTaskId);
-  const prevBridge = orgTasks.filter((x) => x.sourceAtenzaTaskId);
+  const own = orgTasks.filter((x) => !x.sourceticketINTaskId);
+  const prevBridge = orgTasks.filter((x) => x.sourceticketINTaskId);
   const prevById = new Map(prevBridge.map((x) => [x.id, x]));
   const desiredIds = new Set(desired.map((x) => x.id));
   let added = 0, updated = 0, unchanged = 0;
@@ -164,7 +164,7 @@ async function main() {
           const cur = await tx.get(tasksRef);
           const curRev = (cur.data()?.rev as number | undefined) ?? 0;
           const curTasks = JSON.parse((cur.data()?.payload as string | undefined) ?? '[]') as OrgTask[];
-          const curOwn = curTasks.filter((x) => !x.sourceAtenzaTaskId);
+          const curOwn = curTasks.filter((x) => !x.sourceticketINTaskId);
           // merge:true conserva `version` y demás campos del shard.
           tx.set(tasksRef, { payload: JSON.stringify([...curOwn, ...desired]), rev: curRev + 1, updatedAt: new Date() }, { merge: true });
         });
@@ -183,7 +183,7 @@ async function main() {
           const curRev = (cur.data()?.rev as number | undefined) ?? 0;
           const curEnv = JSON.parse((cur.data()?.payload as string | undefined) ?? '{}') as { state?: { tasks?: OrgTask[] }; version?: number };
           const curState = (curEnv.state ?? {}) as { tasks?: OrgTask[] };
-          const curOwn = (curState.tasks ?? []).filter((x) => !x.sourceAtenzaTaskId);
+          const curOwn = (curState.tasks ?? []).filter((x) => !x.sourceticketINTaskId);
           const mergedEnv = { ...curEnv, state: { ...curState, tasks: [...curOwn, ...desired] } };
           tx.set(ref, { payload: JSON.stringify(mergedEnv), rev: curRev + 1, updatedAt: new Date() }, { merge: true });
         });

@@ -28,7 +28,7 @@ async function refresh() { if (!zoho.refresh_token) return; const b = new URLSea
 async function api(p: string): Promise<Record<string, unknown>> { for (let a = 0; a < 4; a++) { const r = await fetch(`${BASE}/api/v3/${p}`, { headers: { Authorization: `Zoho-oauthtoken ${zoho.access_token}`, Accept: ACCEPT } }); if (r.status === 401) { await refresh(); continue; } if (r.status === 429) { await new Promise((s) => setTimeout(s, 2000)); continue; } if (!r.ok) throw new Error(`${p}: HTTP ${r.status}`); return (await r.json()) as Record<string, unknown>; } throw new Error(`${p}: reintentos`); }
 const q = (o: object) => encodeURIComponent(JSON.stringify(o));
 
-// UDF de SDP → FieldType de Atenza
+// UDF de SDP → FieldType de ticketIN
 const mapType = (t: string): string => ({ string: 'text', multi_select: 'select', refered_field: 'reference', datetime: 'date', datestamp: 'date', boolean: 'bool', number: 'number', double: 'number', long: 'number' } as Record<string, string>)[t] ?? 'text';
 
 initializeApp({ projectId: process.env.GOOGLE_CLOUD_PROJECT ?? 'diglo-desk-pd' });
@@ -63,7 +63,7 @@ async function main() {
     patch.type = tpl.is_service_template ? 'service_request' : 'incident';
     if (Object.keys(patch).length) patchByTpl.set(t.id, patch);
   }
-  console.log(`plantillas: ${atenzaIds.size} en Atenza · ${patchByTpl.size} enriquecidas · ${withCat} con categoría de servicio · ${withPerm} con permisos (user_groups)`);
+  console.log(`plantillas: ${atenzaIds.size} en ticketIN · ${patchByTpl.size} enriquecidas · ${withCat} con categoría de servicio · ${withPerm} con permisos (user_groups)`);
 
   if (DRY) { console.log('DRY-RUN: nada escrito.'); return; }
   await db.doc(`tenants/${TENANT}`).set({ customFields }, { merge: true });

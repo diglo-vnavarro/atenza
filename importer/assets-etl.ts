@@ -2,7 +2,7 @@
 // ETL de ACTIVOS: SDP (API v3) -> importer/imported-assets.json
 //   Trae la lista + el detalle de cada activo (usuario asignado, nº serie,
 //   etiqueta, garantía, compra, departamento…) y los mapea al modelo Asset de
-//   Atenza. El usuario asignado se guarda como email en `_email` (el cargador
+//   ticketIN. El usuario asignado se guarda como email en `_email` (el cargador
 //   scripts/load-assets.ts lo resuelve a uid contra los miembros del tenant).
 //   Solo LECTURA de SDP. Token: refresh desde .zoho.local (scope assets.READ).
 //     npx tsx importer/assets-etl.ts

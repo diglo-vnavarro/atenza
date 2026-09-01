@@ -11,6 +11,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { writeFileSync } from 'node:fs';
 import { runReport, reportToHtml, previousPeriod, DEFAULT_REPORTS, runTableReport, runMatrixReport, matrixToHtml, SCOPE_DB_FIELD, type ReportSchedule, type ReportDef, type ReportDimension, type SavedReport } from '../src/reports.js';
 import type { Ticket } from '../src/model.js';
+import { NOMBRE_PRODUCTO } from '../src/lib/marca.js';
 
 const APPLY = process.argv.includes('--apply');
 const PROJECT = process.env.GOOGLE_CLOUD_PROJECT ?? 'diglo-desk-pd';
@@ -42,7 +43,7 @@ function emailShell(inner: string): string {
       + `<img src="${ICONO}" width="24" height="24" alt="" style="vertical-align:-5px;margin-right:9px;border:0">`
       + `<span style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.2px">Diglo ITSM</span><span style="color:#9fb3d1;font-size:13px;margin-left:8px;vertical-align:1px">· Informes</span></td></tr>`
     + `<tr><td style="padding:22px 28px 26px">${inner}</td></tr>`
-    + `<tr><td style="padding:14px 28px;border-top:1px solid #eef0f4;color:#9aa3b2;font-size:11.5px">Enviado automáticamente por <b>Atenza</b> · Mesa de servicio Diglo ITSM. No respondas a este correo.</td></tr>`
+    + `<tr><td style="padding:14px 28px;border-top:1px solid #eef0f4;color:#9aa3b2;font-size:11.5px">Enviado automáticamente por <b>${NOMBRE_PRODUCTO}</b> · Mesa de servicio Diglo ITSM. No respondas a este correo.</td></tr>`
     + `</table></td></tr></table></body></html>`;
 }
 
@@ -135,7 +136,7 @@ async function main(): Promise<void> {
         const note = total > MAX_XLSX_ROWS ? `primeras ${MAX_XLSX_ROWS} de ${total} filas` : `${total} ${total === 1 ? 'fila' : 'filas'}`;
         inner = `<h1 style="margin:0 0 4px;font-size:19px;color:#1b2a4a">${rep.name}</h1>`
           + `<p style="margin:0 0 18px;color:#6b7688;font-size:13px">${periodTxt(from, to)} · <b>${total}</b> solicitudes</p>`
-          + `<div style="padding:14px 16px;background:#eef3fb;border:1px solid #dce6f5;border-radius:8px;color:#1b2a4a;font-size:14px">📎 Los datos completos van en el <b>Excel adjunto</b> (${note}). El listado también está en Atenza → Informes.</div>`;
+          + `<div style="padding:14px 16px;background:#eef3fb;border:1px solid #dce6f5;border-radius:8px;color:#1b2a4a;font-size:14px">📎 Los datos completos van en el <b>Excel adjunto</b> (${note}). El listado también está en ${NOMBRE_PRODUCTO} → Informes.</div>`;
         attachments.push(await xlsxAttachment(rep.name, rep.columns ?? [], res.rows, colLabel));
       } else if (kind === 'matrix') {
         const { from, to } = previousPeriod(NOW, unit);

@@ -1,9 +1,9 @@
-// N3 — CORTE de numeración: al pasar Atenza a ser la fuente de verdad, siembra el `counter`
+// N3 — CORTE de numeración: al pasar ticketIN a ser la fuente de verdad, siembra el `counter`
 // del tenant en el MÁXIMO id de SDP + margen y activa `idContinuity`, para que los tickets
 // nativos continúen la numeración con «#NNNN» sin reinicio ni colisión.
 //
 // EJECUTAR SOLO EN EL CORTE (cuando SDP deje de crear tickets). En convivencia NO tocar:
-// SDP sigue generando «#», y Atenza usa el prefijo INC-/SR- (no colisiona).
+// SDP sigue generando «#», y ticketIN usa el prefijo INC-/SR- (no colisiona).
 //
 //   dry-run (por defecto): calcula y muestra el máx + counter propuesto; NO escribe.
 //   --apply: escribe counter + idContinuity=true.

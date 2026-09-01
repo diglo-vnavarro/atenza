@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "description": "Atenza (nombre en clave) — piloto ITSM multi-tenant: núcleo de dominio, reglas Firestore y app local-first.",
+  "description": "ticketIN (nombre en clave) — piloto ITSM multi-tenant: núcleo de dominio, reglas Firestore y app local-first.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

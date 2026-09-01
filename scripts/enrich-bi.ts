@@ -1,11 +1,11 @@
 // Enriquecimiento BI — trae los CAMPOS PERSONALIZADOS de SDP (Estado BI, Impacto en BI,
 // Tipología, Prioridad BI, Gestión de datos, Informe afectado) + el comentario de cierre a los
-// tickets BI de Atenza, para reproducir el informe «Seguimiento BI» (tabular) con datos vivos.
+// tickets BI de ticketIN, para reproducir el informe «Seguimiento BI» (tabular) con datos vivos.
 //
 //   - Lista de SDP las solicitudes de las plantillas BI (todas, abiertas + cerradas).
 //   - `udf_fields` viene en el LISTADO en bloque (barato); `closure_info` requiere DETALLE
 //     por ticket → solo se pide para los CERRADOS que aún no tengan `closureComment` (idempotente).
-//   - Docs que YA existen en Atenza → merge de {sdpUdf, templateName, closureComment}.
+//   - Docs que YA existen en ticketIN → merge de {sdpUdf, templateName, closureComment}.
 //   - Docs que FALTAN (histórico cerrado no importado) → se cuentan; con CREATE_MISSING=1 se crean.
 //
 //   GOOGLE_APPLICATION_CREDENTIALS=<adc> GOOGLE_CLOUD_PROJECT=diglo-desk-pd \
@@ -49,7 +49,7 @@ interface SdpReq {
   udf_fields?: Record<string, unknown> | null;
 }
 
-// idmap (Firestore idmap + identity-map.json) → remapea personas SDP a cuentas Atenza al crear docs.
+// idmap (Firestore idmap + identity-map.json) → remapea personas SDP a cuentas ticketIN al crear docs.
 async function loadIdmap(): Promise<Record<string, string>> {
   const raw: Record<string, string> = process.env.IDENTITY_MAP_JSON
     ? JSON.parse(process.env.IDENTITY_MAP_JSON)
@@ -152,6 +152,6 @@ async function main() {
     console.log(`  procesados ${Math.min(i + 100, reqs.length)}/${reqs.length}…`);
   }
   console.log(`\n${DRY ? '[DRY] ' : ''}Hecho. Enriquecidos: ${enriched} · creados: ${created} · sin cambios: ${noop} · faltantes${CREATE ? ' (creados)' : ' (NO creados)'}: ${missing} · comentarios de cierre: ${closures} · errores: ${errors}`);
-  if (missing && !CREATE) console.log(`  → ${missing} tickets BI de SDP no existen en Atenza (histórico cerrado). Relanza con CREATE_MISSING=1 para importarlos.`);
+  if (missing && !CREATE) console.log(`  → ${missing} tickets BI de SDP no existen en ticketIN (histórico cerrado). Relanza con CREATE_MISSING=1 para importarlos.`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

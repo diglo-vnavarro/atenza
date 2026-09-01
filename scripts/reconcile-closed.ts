@@ -1,8 +1,8 @@
 // ============================================================================
-// RECONCILIACIÓN de cierres SDP → Atenza. El ETL solo trae los tickets ACTIVOS
+// RECONCILIACIÓN de cierres SDP → ticketIN. El ETL solo trae los tickets ACTIVOS
 // (excluye Cancelada/Cerrada/Resuelta); cuando un ticket se cierra en SDP sale
-// del fetch y el upsert deja de tocarlo → en Atenza se queda "activo" (estancado).
-// Este paso detecta los tickets que están activos en Atenza (con sdpId) pero YA
+// del fetch y el upsert deja de tocarlo → en ticketIN se queda "activo" (estancado).
+// Este paso detecta los tickets que están activos en ticketIN (con sdpId) pero YA
 // NO están en el conjunto activo de SDP, consulta su estado REAL en SDP y los
 // archiva con ese estado. Preciso y seguro: si SDP dijera que sigue abierto, no
 // se archiva; y solo actúa si el fetch de activos vino COMPLETO (== total_count).
@@ -98,7 +98,7 @@ async function main() {
   const db = getFirestore();
   const snap = await db.collection(`tenants/${TENANT}/tickets`).where('archived', '==', false).get();
   const disappeared = snap.docs.filter((d) => { const sid = d.get('sdpId'); const dd = digits(String(d.id)); return sid && dd && !ids.has(dd); });
-  console.log(`[${TENANT}] Atenza activos: ${snap.size} · fuera del activo de SDP (a reconciliar): ${disappeared.length}`);
+  console.log(`[${TENANT}] ticketIN activos: ${snap.size} · fuera del activo de SDP (a reconciliar): ${disappeared.length}`);
   if (!disappeared.length) { console.log('Nada que reconciliar.'); return; }
 
   const statusMap = await statusByDisplayIds(disappeared.map((d) => digits(String(d.id))));

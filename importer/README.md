@@ -1,8 +1,8 @@
-# Importador SDP → Atenza (API v3)
+# Importador SDP → ticketIN (API v3)
 
-Trae **metadatos reales** de ServiceDesk Plus Cloud (categorías, plantillas, SLAs, grupos, técnicos, solicitantes, prioridades, estados) y los transforma al modelo de Atenza, escribiendo `imported-seed.json`.
+Trae **metadatos reales** de ServiceDesk Plus Cloud (categorías, plantillas, SLAs, grupos, técnicos, solicitantes, prioridades, estados) y los transforma al modelo de ticketIN, escribiendo `imported-seed.json`.
 
-> **Qué NO trae:** la estructura interna de los ciclos de vida (estados/transiciones) — SDP la dibuja en un canvas y la v3 no la expone de forma fiable. Los **nombres** de flujo y sus plantillas sí se pueden listar; los internos se definen en el editor de Atenza o se piden a soporte de ManageEngine.
+> **Qué NO trae:** la estructura interna de los ciclos de vida (estados/transiciones) — SDP la dibuja en un canvas y la v3 no la expone de forma fiable. Los **nombres** de flujo y sus plantillas sí se pueden listar; los internos se definen en el editor de ticketIN o se piden a soporte de ManageEngine.
 
 ## 1. Conseguir un token OAuth (Zoho)
 
@@ -32,7 +32,7 @@ Genera `importer/imported-seed.json`.
 
 ## 3. Cargar en la app
 
-Abre Atenza → **Administración → Catálogo → «Importar datos»** y pega el contenido de `imported-seed.json`. Reemplaza categorías, plantillas, SLAs, grupos y personas de la instancia activa por los importados.
+Abre ticketIN → **Administración → Catálogo → «Importar datos»** y pega el contenido de `imported-seed.json`. Reemplaza categorías, plantillas, SLAs, grupos y personas de la instancia activa por los importados.
 
 ## Notas y ajustes
 

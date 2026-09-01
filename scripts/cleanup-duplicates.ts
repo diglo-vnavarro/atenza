@@ -1,4 +1,4 @@
-// Limpieza GLOBAL de fichas de miembro duplicadas (convivencia SDP→Atenza). Por cada entrada del
+// Limpieza GLOBAL de fichas de miembro duplicadas (convivencia SDP→ticketIN). Por cada entrada del
 // idmap {uidSDP → uidFirebase}, consolida en la ficha de LOGIN (Firebase): une los grupos de la
 // duplicada y la DESACTIVA (status:inactive). No borra (conserva la resolución de nombres en el
 // histórico). Solo actúa si la ficha de login existe y está activa. Idempotente.

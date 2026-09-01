@@ -3,7 +3,7 @@
 //   Alcance "abiertos/activos": todo estado excepto Cancelada / Cerrada / Resuelta
 //   (Resuelta = ~17,5k resueltos-sin-cerrar, backlog parado, no trabajo activo).
 // Trae lista + detalle (descripción/prioridad/categoría) de cada ticket, los
-// mapea a StoredTicket de Atenza y recopila las personas (solicitante/técnico)
+// mapea a StoredTicket de ticketIN y recopila las personas (solicitante/técnico)
 // referenciadas para importarlas también (subconjunto acotado, no las 929).
 // El estado se mapea al key del estado del ciclo si su etiqueta coincide; si no,
 // se guarda el nombre literal (la UI lo tolera). Token desde .zoho.local.

@@ -30,7 +30,7 @@ const q = (o: object) => encodeURIComponent(JSON.stringify(o));
 type FieldType = 'text' | 'textarea' | 'select' | 'bool' | 'date' | 'number' | 'person' | 'attachment' | 'reference';
 const mapUdfType = (t: string): FieldType => (({ string: 'text', multi_select: 'select', pick_list: 'select', refered_field: 'reference', datetime: 'date', datestamp: 'date', boolean: 'bool', number: 'number', double: 'number', long: 'number' } as Record<string, FieldType>)[t] ?? 'text');
 
-// Campos de sistema de SDP → etiqueta + tipo en Atenza. Los NO listados se omiten.
+// Campos de sistema de SDP → etiqueta + tipo en ticketIN. Los NO listados se omiten.
 const SYS: Record<string, { label: string; type: FieldType }> = {
   requester: { label: 'Solicitante', type: 'person' },
   subject: { label: 'Asunto', type: 'text' },
@@ -79,7 +79,7 @@ async function main() {
   // 2) Plantillas en Firestore (match por id)
   const tSnap = await db.collection(`tenants/${TENANT}/templates`).get();
   const atenzaIds = new Set(tSnap.docs.map((d) => d.id));
-  console.log(`Plantillas en Atenza: ${atenzaIds.size}`);
+  console.log(`Plantillas en ticketIN: ${atenzaIds.size}`);
 
   const patchByTpl = new Map<string, { fieldDefs: FieldDef[]; fields: string[] }>();
   let done = 0;

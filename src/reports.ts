@@ -75,9 +75,9 @@ export function runReport(def: ReportDef, tickets: Ticket[], from: number, to: n
 /** Valor CRUDO de una columna para un ticket (ids sin resolver; el nombre lo pone `label`). */
 export function tableCellRaw(t: Ticket, key: string): string {
   if (key.startsWith('udf:')) return t.sdpUdf?.[key.slice(4)] ?? '';
-  // Campo del FORMULARIO NATIVO (Atenza), indexado por id de FieldDef (cf-*).
+  // Campo del FORMULARIO NATIVO (ticketIN), indexado por id de FieldDef (cf-*).
   if (key.startsWith('cf:')) return t.udf?.[key.slice(3)] ?? '';
-  // DOBLE FUENTE `dual:<cf-id>:<udf_key>`: nativo primero (tickets creados en Atenza),
+  // DOBLE FUENTE `dual:<cf-id>:<udf_key>`: nativo primero (tickets creados en ticketIN),
   // histórico de SDP como respaldo (tickets sincronizados). Para informes que deben salir
   // completos antes y después del corte (p. ej. Altas/Bajas de usuarios).
   if (key.startsWith('dual:')) {

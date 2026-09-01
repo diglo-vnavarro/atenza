@@ -83,7 +83,7 @@ describe('reports · tabular (listados)', () => {
   });
 
   it('tableCellRaw · doble fuente dual: nativo (cf) primero, SDP (udf) de respaldo', () => {
-    // Ticket nativo de Atenza: valor en udf[cf-*] → gana sobre el histórico de SDP.
+    // Ticket nativo de ticketIN: valor en udf[cf-*] → gana sobre el histórico de SDP.
     const nativo = tk({ udf: { 'cf-dep': 'FIN - Financiero' }, sdpUdf: { udf_char673: 'Otro dpto SDP' } });
     expect(tableCellRaw(nativo, 'dual:cf-dep:udf_char673')).toBe('FIN - Financiero');
     expect(tableCellRaw(nativo, 'cf:cf-dep')).toBe('FIN - Financiero');

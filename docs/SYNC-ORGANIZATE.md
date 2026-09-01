@@ -1,12 +1,12 @@
-# Puente Atenza → OrganiZate (carga del técnico)
+# Puente ticketIN → OrganiZate (carga del técnico)
 
-Refleja las **tareas** de los tickets de Atenza (de los grupos de soporte activados)
+Refleja las **tareas** de los tickets de ticketIN (de los grupos de soporte activados)
 como **tareas** en OrganiZate, para que sumen a la **carga real** del técnico:
 crear al asignar, cerrar al cerrar (deja de contar).
 
 ## Cómo funciona
 
-- Config en Atenza: **Administración → Gobierno → Integración OrganiZate** activa,
+- Config en ticketIN: **Administración → Gobierno → Integración OrganiZate** activa,
   por **grupo de soporte**, qué tickets sincronizan sus tareas (`tenant.organizateGroupIds`).
   De momento solo el tenant **diglo-it**.
 - Las tareas necesitan **horas estimadas** (se definen en la plantilla, pestaña
@@ -16,10 +16,10 @@ crear al asignar, cerrar al cerrar (deja de contar).
   `{ payload: <JSON del array de ese tipo>, rev, version }`. El puente lee el shard
   `members` (identidad) y `tasks`, y **escribe SOLO el shard `tasks`** con una
   **transacción** (re-lee dentro de la transacción, conserva las tareas propias
-  actuales y toca solo las suyas `sourceAtenzaTaskId`). Fallback: si aún no se hubiera
+  actuales y toca solo las suyas `sourceticketINTaskId`). Fallback: si aún no se hubiera
   migrado a shards, lee/escribe el doc legacy único `orgs/{ORG_ID}/state/app`
   (`{ payload: {state,version}, rev }`).
-- Identidad: técnico de Atenza ↔ miembro de OrganiZate **por email**. Los que no
+- Identidad: técnico de ticketIN ↔ miembro de OrganiZate **por email**. Los que no
   casan se omiten (se registran en el log).
 
 ## Ejecución manual (requiere ADC con acceso de lectura/escritura a AMBOS proyectos)
@@ -45,7 +45,7 @@ Infra en `infra/terraform/sync_organizate_job.tf` (Cloud Run Job `sync-organizat
 Registry `atenza` y la imagen del job de SDP (mismo contenedor, distinto comando).
 
 Service account `atenza-organizate-sync` con `roles/datastore.user` en **ambos**
-proyectos: `diglo-desk-pd` (lee Atenza) y `diglo-organizate-pd` (escribe OrganiZate,
+proyectos: `diglo-desk-pd` (lee ticketIN) y `diglo-organizate-pd` (escribe OrganiZate,
 acceso cruzado — el binding lo aplica el propietario de ese proyecto).
 
 Pasos del propietario (una vez):
@@ -74,7 +74,7 @@ la transacción + reintentos.
 
 ## Notas / límites
 
-- Mapeo de prioridad Atenza→OrganiZate: Crítica/Alta→high, Baja→low, resto→medium.
+- Mapeo de prioridad ticketIN→OrganiZate: Crítica/Alta→high, Baja→low, resto→medium.
 - Estado de tarea: `done` si la tarea está hecha o el ticket está cerrado/resuelto.
 - `projectId: null` (v1): las tareas del puente no se agrupan en un proyecto de
   OrganiZate; cuentan igual para la carga. Se puede asignar un proyecto dedicado.

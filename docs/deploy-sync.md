@@ -1,4 +1,4 @@
-# Despliegue de la sync SDP → Atenza (Cloud Run Job)
+# Despliegue de la sync SDP → ticketIN (Cloud Run Job)
 
 La sincronización corre como **Cloud Run Job `sync-sdp`** (proyecto `diglo-desk-pd`,
 región `europe-west1`), disparado por **Cloud Scheduler** (cada hora). La imagen se
@@ -55,5 +55,5 @@ gcloud logging read \
 ```
 idmap: +N de Firestore (total M).
 members: … · K omitidos por estar en el mapa de identidad.   ← dedup durable
-roster: A altas · B bajas · C miembros alineados a la verdad Atenza.   ← roster durable
+roster: A altas · B bajas · C miembros alineados a la verdad ticketIN.   ← roster durable
 ```

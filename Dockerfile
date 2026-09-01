@@ -1,6 +1,6 @@
-# Imagen del Cloud Run Job de sincronización SDP → Atenza.
+# Imagen del Cloud Run Job de sincronización SDP → ticketIN.
 # Corre `npm run sync:job` = ETL de tickets activos de SDP + merge idempotente a
-# Firestore (preservando lo añadido en Atenza). Sin estado; se dispara por Scheduler.
+# Firestore (preservando lo añadido en ticketIN). Sin estado; se dispara por Scheduler.
 #
 # Credenciales:
 #   - Firestore: ADC de la service account del job (automático en Cloud Run).

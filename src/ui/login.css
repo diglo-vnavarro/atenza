@@ -64,7 +64,7 @@
   padding: 30px 30px 24px;
 }
 
-/* Cabecera del popup: badge + "Acceso" + "Diglo Atenza" */
+/* Cabecera del popup: badge + "Acceso" + "Diglo ticketIN" */
 .login-glass-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .login-glass-badge {
   width: 40px; height: 40px; border-radius: 11px; flex-shrink: 0; color: #fff;

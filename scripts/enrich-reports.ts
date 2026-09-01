@@ -80,6 +80,6 @@ async function main() {
     if (!DRY && ops) await batch.commit();
     console.log(`  procesados ${Math.min(i + 100, reqs.length)}/${reqs.length}…`);
   }
-  console.log(`\n${DRY ? '[DRY] ' : ''}Hecho. Enriquecidos: ${enriched} · sin doc en Atenza: ${missing} · comentarios cierre: ${closures} · errores: ${errors}`);
+  console.log(`\n${DRY ? '[DRY] ' : ''}Hecho. Enriquecidos: ${enriched} · sin doc en ticketIN: ${missing} · comentarios cierre: ${closures} · errores: ${errors}`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

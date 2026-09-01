@@ -20,7 +20,7 @@
   update send-reports --image …`. Ver también `docs/deploy-sync.md`.
 
 ## Objetivo
-Automatizar los **informes semanales** actuales (altas/bajas, BI, WEB/REO…) desde Atenza, con
+Automatizar los **informes semanales** actuales (altas/bajas, BI, WEB/REO…) desde ticketIN, con
 **entrega por email** y **consulta/descarga en la app**. Es un **módulo nuevo** («Informes»), no un
 ajuste.
 

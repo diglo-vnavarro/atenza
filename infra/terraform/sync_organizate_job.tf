@@ -1,5 +1,5 @@
 # ============================================================================
-# Puente periódico Atenza → OrganiZate (carga del técnico).
+# Puente periódico ticketIN → OrganiZate (carga del técnico).
 #
 #   Cloud Scheduler --(HTTP :run, OAuth SA)--> Cloud Run Job "sync-organizate"
 #     El job ejecuta `npm run sync:organizate` (scripts/sync-organizate.ts):
@@ -8,7 +8,7 @@
 #     carga. Idempotente; escribe con transacción tocando solo tareas propias.
 #
 # CLAVE — acceso CRUZADO a dos proyectos:
-#   - lee Atenza      → Firestore de var.project_id (diglo-desk-pd)
+#   - lee ticketIN    → Firestore de var.project_id (diglo-desk-pd)
 #   - escribe OrganiZate → Firestore de var.organizate_project_id (diglo-organizate-pd)
 #   La service account del job necesita roles/datastore.user en AMBOS proyectos.
 #   El binding en diglo-organizate-pd lo aplica el propietario de ESE proyecto.
@@ -34,7 +34,7 @@ variable "organizate_project_id" {
 }
 variable "organizate_sync_schedule" {
   type        = string
-  description = "Cron (zona horaria en sync_timezone) del puente Atenza→OrganiZate."
+  description = "Cron (zona horaria en sync_timezone) del puente ticketIN→OrganiZate."
   default     = "*/30 * * * *" # cada 30 min
 }
 variable "organizate_job_name" {
@@ -42,14 +42,14 @@ variable "organizate_job_name" {
   default = "sync-organizate"
 }
 
-# --- Service account del job del puente (lee Atenza, escribe OrganiZate) ---
+# --- Service account del job del puente (lee ticketIN, escribe OrganiZate) ---
 resource "google_service_account" "org_sync" {
   project      = var.project_id
   account_id   = "atenza-organizate-sync"
-  display_name = "Atenza · puente de carga Atenza→OrganiZate"
+  display_name = "ticketIN · puente de carga ticketIN→OrganiZate"
 }
 
-# Lectura/escritura de Firestore en Atenza (proyecto del job).
+# Lectura/escritura de Firestore en ticketIN (proyecto del job).
 resource "google_project_iam_member" "org_sync_atenza_datastore" {
   project = var.project_id
   role    = "roles/datastore.user"
@@ -69,7 +69,7 @@ resource "google_project_iam_member" "org_sync_organizate_datastore" {
 resource "google_service_account" "org_sync_invoker" {
   project      = var.project_id
   account_id   = "atenza-org-sync-invoker"
-  display_name = "Atenza · Scheduler que dispara el puente OrganiZate"
+  display_name = "ticketIN · Scheduler que dispara el puente OrganiZate"
 }
 resource "google_project_iam_member" "org_invoker_run" {
   project = var.project_id

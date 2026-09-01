@@ -1,5 +1,5 @@
 # Configuración de Identity Platform (Authentication).
-# Atenza admite identidades EXTERNAS: email/contraseña siempre activo (clientes,
+# ticketIN admite identidades EXTERNAS: email/contraseña siempre activo (clientes,
 # invitados) + Google opcional (internos). Sin candado de dominio: el aislamiento
 # multi-tenant se impone en firestore.rules.
 resource "google_identity_platform_config" "default" {
@@ -30,7 +30,7 @@ resource "google_identity_platform_config" "default" {
   }
 
   # Multi-tenancy NATIVA de Identity Platform desactivada: el aislamiento entre
-  # clientes de Atenza vive en firestore.rules (tenants/{id}), no en IP.
+  # clientes de ticketIN vive en firestore.rules (tenants/{id}), no en IP.
   multi_tenant {
     allow_tenants = false
   }

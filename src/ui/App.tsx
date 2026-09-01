@@ -8,6 +8,7 @@ import { firebaseEnabled } from '../firebase.js';
 import { useAuth, doSignOut } from '../auth/auth.js';
 import { Login } from './Login.js';
 import { Glifo } from './brand/Glifo.js';
+import { NOMBRE_PRODUCTO } from '../lib/marca.js';
 import { ErrorBoundary } from './ErrorBoundary.js';
 import { Icon } from './Icon.js';
 import { stateOf } from '../lifecycle.js';
@@ -227,7 +228,7 @@ function InstancePicker({ tenants, user, onPick, account }: { tenants: TenantDat
   return (
     <div className="pick-page">
       <header className="top">
-        <div className="brand"><Glifo size={22} /> Atenza</div>
+        <div className="brand"><Glifo size={22} /> {NOMBRE_PRODUCTO}</div>
         <div className="spring" />
         <UserMenu {...account} />
       </header>
@@ -280,7 +281,7 @@ function DirectProvision({ headers }: { headers: TenantHeader[] }) {
   };
   return <div className="card" style={{ padding: 16, marginBottom: 14 }}>
     <div className="section-t">Provisionar acceso directo</div>
-    <p className="cfg-lead">Concede acceso a alguien por su email sin esperar a que lo solicite. La persona debe haber iniciado sesión en Atenza al menos una vez.</p>
+    <p className="cfg-lead">Concede acceso a alguien por su email sin esperar a que lo solicite. La persona debe haber iniciado sesión en {NOMBRE_PRODUCTO} al menos una vez.</p>
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
       <input type="email" placeholder="email@empresa.com" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 220 }} />
       <select value={tid} onChange={(e) => setTid(e.target.value)} title="Instancia">{headers.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}</select>
@@ -328,7 +329,7 @@ function NewInstanceWizard({ meEmail, onClose, onCreated }: { meEmail?: string; 
         <label>Identificador<input value={key} onChange={(e) => setKey(e.target.value)} placeholder="soporte-rrhh" style={{ width: '100%', boxSizing: 'border-box' }} /><span style={hint}>id/clave: <b>{id || '—'}</b></span></label>
         <label>Configuración base<select value={bp} onChange={(e) => setBp(e.target.value)} style={{ width: '100%' }}>{BLUEPRINTS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}</select><span style={hint}>{getBlueprint(bp).description}</span></label>
         <label>Color de marca<br /><input type="color" value={color} onChange={(e) => setColor(e.target.value)} style={{ width: 46, height: 32, padding: 2, marginTop: 4 }} /></label>
-        <label>Email del primer administrador<input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@empresa.com" style={{ width: '100%', boxSizing: 'border-box' }} /><span style={hint}>Debe haber iniciado sesión en Atenza al menos una vez.</span></label>
+        <label>Email del primer administrador<input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@empresa.com" style={{ width: '100%', boxSizing: 'border-box' }} /><span style={hint}>Debe haber iniciado sesión en {NOMBRE_PRODUCTO} al menos una vez.</span></label>
         {err && <div style={{ color: 'var(--crit)', fontSize: 12.5 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="ghost" onClick={onClose}>Cancelar</button>
@@ -361,7 +362,7 @@ function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail, account, s
   return (
     <div className="pick-page">
       <header className="top">
-        <div className="brand"><Glifo size={22} /> Atenza <small>Plataforma</small></div>
+        <div className="brand"><Glifo size={22} /> {NOMBRE_PRODUCTO} <small>Plataforma</small></div>
         <div className="spring" />
         {showBack && <button className="ghost" onClick={onClose}>← Volver a mi instancia</button>}
         <UserMenu {...account} />
@@ -574,7 +575,7 @@ export function App() {
   if (firebaseEnabled && !cloudReady) return card('Conectando con la nube…');
   if (firebaseEnabled && !hasAccess) return (
     <div className="login-wrap"><div className="login-card" style={{ textAlign: 'center' }}>
-      <div className="brand" style={{ justifyContent: 'center', fontSize: 20 }}><Glifo size={26} /> Atenza</div>
+      <div className="brand" style={{ justifyContent: 'center', fontSize: 20 }}><Glifo size={26} /> {NOMBRE_PRODUCTO}</div>
       {accessRequested
         ? <>
           <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>✅ Solicitud enviada.<br />Si ya estabas dado de alta, tu acceso se activa en unos segundos: pulsa <b>Recargar</b>. Si no, un administrador la aprobará.</p>
@@ -2400,7 +2401,7 @@ const ADMIN_AREAS: [string, string, [string, string | null][]][] = [
   ['Configuración del correo', 'mail', [['Correo entrante → ticket', 'entrante'], ['Servidor de correo', null], ['Respuestas predefinidas', 'respuestas'], ['Plantillas de aviso', null]]],
   ['Gobierno y auditoría', 'shield', [['Registro de auditoría', 'auditoria'], ['Sincronización SDP', 'sync'], ['Integración OrganiZate', 'organizate'], ['Exportar / archivar', null]]],
 ];
-const ADMIN_TITLE: Record<string, string> = { marca: 'Marca de la instancia', plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', informesprog: 'Informes programados · envío semanal', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: 'Sincronización SDP → Atenza', formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio', clasificacion: 'Clasificación · Área › Servicio › Elemento' };
+const ADMIN_TITLE: Record<string, string> = { marca: 'Marca de la instancia', plantillas: 'Plantillas y formularios', categoria: 'Categoría › Subcategoría › Artículo', estado: 'Estado', valores: 'Valores del servicio de asistencia', matriz: 'Matriz de prioridades', horario: 'Horario laboral y festivos', maestros: 'Datos maestros · sedes, departamentos y grupos de usuarios', roles: 'Roles y permisos', notif: 'Reglas de notificación', informesprog: 'Informes programados · envío semanal', ciclos: 'Ciclos de vida', sla: 'SLA y grupos de soporte', miembros: 'Usuarios', accesos: 'Solicitudes de acceso', gruposusuarios: 'Grupos de usuarios', gruposoporte: 'Grupos de soporte', cierre: 'Reglas de cierre', respuestas: 'Respuestas predefinidas', reglas: 'Reglas de negocio', webhooks: 'Activadores · webhooks salientes', anuncios: 'Anuncios', auditoria: 'Registro de auditoría', entrante: 'Correo entrante → ticket', campos: 'Campos adicionales', sync: `Sincronización SDP → ${NOMBRE_PRODUCTO}`, formreglas: 'Reglas del formulario', organizate: 'Integración con OrganiZate', catservicio: 'Categorías de servicio', clasificacion: 'Clasificación · Área › Servicio › Elemento' };
 
 // Catálogo de estados: los 15 reales agrupados por temporizador, editables.
 function StatusAdmin({ tenant }: { tenant: TenantData }) {
@@ -2915,7 +2916,7 @@ function BrandingAdmin({ tenant }: { tenant: TenantData }) {
         <div className="lbl" style={{ marginBottom: 12 }}>Vista previa</div>
         <div className="brand-prev-top">
           {draft.logoUrl ? <img className="brand-logo" src={draft.logoUrl} alt="" /> : <span className="glyph" style={{ background: accent }}>{initial}</span>}
-          <span className="brand-name">{tenant.name}</span><small>Atenza</small>
+          <span className="brand-name">{tenant.name}</span><small>{NOMBRE_PRODUCTO}</small>
         </div>
         <div className="pick-inst brand-prev-card" style={{ ['--accent']: accent } as CSS}>
           <div className="pick-logo">{draft.logoUrl ? <img src={draft.logoUrl} alt="" /> : <span className="pick-glyph" style={{ background: accent }}>{initial}</span>}</div>
@@ -3486,12 +3487,12 @@ function AdminConfig({ tenant }: { tenant: TenantData }) {
 
 // Paleta de iconos sugeridos para categorías de servicio (IT).
 
-// Estado de la sincronización SDP → Atenza (el job corre server-side; aquí se ve).
+// Estado de la sincronización SDP → ticketIN (el job corre server-side; aquí se ve).
 function SyncAdmin({ tenant }: { tenant: TenantData }) {
   const synced = tenant.tickets.filter((t) => (t as unknown as { syncedAt?: number }).syncedAt);
   const last = synced.reduce((m, t) => Math.max(m, (t as unknown as { syncedAt?: number }).syncedAt ?? 0), 0);
   return <div className="card" style={{ padding: 16 }}>
-    <p className="cfg-lead">La sincronización SDP → Atenza corre <b>server-side</b> como un Cloud Run Job disparado por Cloud Scheduler (cada 4 h), de forma desatendida. Trae los tickets activos de SDP y hace un <i>merge</i> idempotente preservando lo añadido en Atenza.</p>
+    <p className="cfg-lead">La sincronización SDP → {NOMBRE_PRODUCTO} corre <b>server-side</b> como un Cloud Run Job disparado por Cloud Scheduler (cada 4 h), de forma desatendida. Trae los tickets activos de SDP y hace un <i>merge</i> idempotente preservando lo añadido en {NOMBRE_PRODUCTO}.</p>
     <div className="facts" style={{ gridTemplateColumns: '1fr 1fr', gap: 12 }}>
       <div><div className="k">Tickets sincronizados desde SDP</div><div style={{ fontSize: 20, fontWeight: 700 }}>{synced.length}<span style={{ fontSize: 12, color: 'var(--ink-faint)', fontWeight: 400 }}> / {tenant.tickets.length} totales</span></div></div>
       <div><div className="k">Última sincronización</div><div style={{ fontSize: 15, fontWeight: 600 }}>{last ? fmtDate(last) : '—'}</div></div>
@@ -3509,7 +3510,7 @@ function OrganizateAdmin({ tenant }: { tenant: TenantData }) {
   const ticketsOf = (gid: string) => tenant.tickets.filter((t) => t.groupId === gid).length;
   const tasksOf = (gid: string) => tenant.tickets.filter((t) => t.groupId === gid).reduce((n, t) => n + (t.tasks?.length ?? 0), 0);
   return <div className="card" style={{ padding: 16 }}>
-    <p className="cfg-lead">Integra Atenza con <b>OrganiZate</b> para reflejar la carga real del técnico: cuando se asigna una tarea de un ticket de un grupo activado, se crea la tarea equivalente en OrganiZate (suma a su carga); al cerrarla, se marca como hecha (deja de contar). Activa la integración <b>por grupo de soporte</b>, de forma escalonada. La sincronización corre <b>server-side</b> (job periódico), preservando las tareas propias de OrganiZate.</p>
+    <p className="cfg-lead">Integra {NOMBRE_PRODUCTO} con <b>OrganiZate</b> para reflejar la carga real del técnico: cuando se asigna una tarea de un ticket de un grupo activado, se crea la tarea equivalente en OrganiZate (suma a su carga); al cerrarla, se marca como hecha (deja de contar). Activa la integración <b>por grupo de soporte</b>, de forma escalonada. La sincronización corre <b>server-side</b> (job periódico), preservando las tareas propias de OrganiZate.</p>
     <div className="banner" style={{ marginBottom: 12 }}>Requiere <b>horas estimadas</b> en la tarea (se definen en la plantilla o en el ticket) para calcular la carga. Sin horas, se asume un valor por defecto.</div>
     <table className="mgmt"><thead><tr><th style={{ width: 90 }}>Integrar</th><th>Grupo de soporte</th><th style={{ width: 110 }}>Tickets</th><th style={{ width: 110 }}>Tareas</th></tr></thead>
       <tbody>{tenant.groups.map((g) => <tr key={g.id}>
@@ -3867,7 +3868,7 @@ function AccessRequestsAdmin({ tenant }: { tenant: TenantData }) {
 }
 
 // USUARIOS: listado filtrable (texto · grupo de soporte · rol · estado) + ficha
-// editable al seleccionar. Integra el «traspaso a Atenza» (enabled) — la pantalla
+// editable al seleccionar. Integra el «traspaso a ticketIN» (enabled) — la pantalla
 // separada de Traspaso se retira. Invitar = pre-crea la ficha (status invitado); la
 // Cloud Function de auto-alta la vincula al primer login por email.
 function MembersAdmin({ tenant }: { tenant: TenantData }) {
@@ -3886,7 +3887,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
   const groups = tenant.groups ?? [];
   const corp = tenant.members[0]?.email.split('@')[1] ?? 'digloservicer.com';
   const gName = (id: string) => groups.find((g) => g.id === id)?.name ?? id;
-  // Deduplicar por PERSONA (email): en la convivencia SDP→Atenza una persona puede tener varias
+  // Deduplicar por PERSONA (email): en la convivencia SDP→ticketIN una persona puede tener varias
   // fichas (SDP + login + sintética). Se muestra UNA fila: la activa y, entre iguales, la de más
   // grupos (la consolidada). Las inactivas duplicadas se conservan en datos (para resolver nombres
   // en el histórico) pero no ensucian la lista.
@@ -3924,7 +3925,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
   return <div className="card" style={{ padding: 16 }}>
     <div className="hd" style={{ marginBottom: 4 }}>
       <h2 style={{ margin: 0 }}>Usuarios <span className="badge">{people.length}</span></h2>
-      <span className="sub">{enabledCount} en Atenza · {people.length - enabledCount} aún en SDP</span>
+      <span className="sub">{enabledCount} en {NOMBRE_PRODUCTO} · {people.length - enabledCount} aún en SDP</span>
       <button className="primary" style={{ marginLeft: 'auto' }} onClick={() => setInvite(true)}>＋ Invitar usuario</button>
     </div>
     <div className="card fbar" style={{ marginTop: 10 }}>
@@ -3941,7 +3942,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
     </div>
     <div className="card" style={{ overflow: 'hidden', marginTop: 12 }}>
       <table className="mgmt">
-        <thead><tr>{sortTh('name', 'Usuario')}{sortTh('role', 'Tipo')}<th>Grupos de soporte</th>{sortTh('status', 'Estado')}{sortTh('enabled', 'En Atenza', { textAlign: 'center' })}</tr></thead>
+        <thead><tr>{sortTh('name', 'Usuario')}{sortTh('role', 'Tipo')}<th>Grupos de soporte</th>{sortTh('status', 'Estado')}{sortTh('enabled', `En ${NOMBRE_PRODUCTO}`, { textAlign: 'center' })}</tr></thead>
         <tbody>{list.map((m) => <tr key={m.uid} className="mrow" onClick={() => setSelId(m.uid)}>
           <td><div className="who"><Avatar m={m} /><span><span className="nm">{m.name}</span><span style={{ display: 'block', fontSize: 11, color: 'var(--ink-faint)' }}>{m.email}{m.external ? ' · externo' : ''}</span></span></div></td>
           <td style={{ fontSize: 12 }}>{m.roleName ?? ROLE_LABEL[m.role]}</td>
@@ -3966,7 +3967,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
               : <select value={sel.role} onChange={(e) => updateMember(sel.uid, { role: e.target.value as Role })}>{(['tenant_admin', 'technician', 'requester'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}</select>}</label>
             <label>{fcap('Estado')}<select value={sel.status} onChange={(e) => updateMember(sel.uid, { status: e.target.value as UiMember['status'] })}>{['active', 'invited', 'disabled'].map((s) => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}</select></label>
           </div>
-          <label className="te-vis"><span>Traspasado a Atenza (trabaja aquí, no en SDP)</span><button className={'toggle' + (sel.enabled ? ' on' : '')} onClick={() => updateMember(sel.uid, { enabled: !sel.enabled })} aria-label="En Atenza" /></label>
+          <label className="te-vis"><span>Traspasado a {NOMBRE_PRODUCTO} (trabaja aquí, no en SDP)</span><button className={'toggle' + (sel.enabled ? ' on' : '')} onClick={() => updateMember(sel.uid, { enabled: !sel.enabled })} aria-label={`En ${NOMBRE_PRODUCTO}`} /></label>
           <label className="te-vis"><span>Usuario externo (fuera del dominio {corp})</span><button className={'toggle' + (sel.external ? ' on' : '')} onClick={() => updateMember(sel.uid, { external: !sel.external })} aria-label="Externo" /></label>
           {sel.status !== 'disabled' && <button className="ghost" style={{ color: 'var(--crit)', alignSelf: 'flex-start' }} onClick={() => { if (confirm(`¿Revocar el acceso de ${sel.name} a ${tenant.name}? Se deshabilita su ficha y deja de poder entrar a esta instancia.`)) revokeAccess(sel.uid); }}>Revocar acceso a la instancia</button>}
           <div><div className="k" style={{ marginBottom: 4 }}>Grupos de soporte</div>

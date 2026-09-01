@@ -30,11 +30,11 @@ variable "github_repo" {
 variable "web_app_display_name" {
   type        = string
   description = "Nombre visible de la app web en Firebase."
-  default     = "Atenza"
+  default     = "ticketIN"
 }
 
 # --- Google como proveedor de identidad (usuarios internos) ---
-# Atenza NO bloquea por dominio (es multi-tenant con clientes externos): el
+# ticketIN NO bloquea por dominio (es multi-tenant con clientes externos): el
 # aislamiento vive en firestore.rules. Google se ofrece para los internos;
 # email/contraseña (abajo, siempre activo) para externos e invitados.
 # Si dejas estos vacíos, habilita Google desde la consola de Firebase.

@@ -1,4 +1,4 @@
-# Propuesta: clasificación de 3 niveles + asignación viva (Atenza)
+# Propuesta: clasificación de 3 niveles + asignación viva (ticketIN)
 
 > Estado: **borrador para revisión**. Documento reescrito 2026-07-24 sobre datos reales de
 > Diglo-ITSM (23.535 tickets en Zoho SDP) y las decisiones tomadas hasta la fecha.
@@ -23,9 +23,9 @@
 
 ---
 
-## 2. Punto de partida en Atenza (lo que NO cambia)
+## 2. Punto de partida en ticketIN (lo que NO cambia)
 
-Atenza opera en modo simplificado: **1 plantilla única** + `Tipo` + `Categoría de servicio`
+ticketIN opera en modo simplificado: **1 plantilla única** + `Tipo` + `Categoría de servicio`
 (ver `operationMode: 'simplified'`, [`seed.ts:293`](../src/data/seed.ts)). El formulario
 pide:
 
@@ -64,7 +64,7 @@ N1 ÁREA        IT · Operaciones · BI · Negocio          (= categoría de ser
         └ N3 ELEMENTO   Gmail · Outlook · Citrix · Looker …   (aplicación afectada, opcional)
 ```
 
-- **N1 Área** = la categoría de servicio de Atenza, pero coarse: `IT/Operaciones/BI/Negocio`.
+- **N1 Área** = la categoría de servicio de ticketIN, pero coarse: `IT/Operaciones/BI/Negocio`.
 - **N2 Servicio** hereda lo que hoy hace la categoría de servicio fina: **grupo de soporte,
   permisos, Tipo permitido + ciclo de vida, campos propios, aprobaciones, activo/inactivo**.
   Es el nivel donde de verdad cambia el enrutado (Gemini≠Recovery≠CAU dentro de IT).
@@ -93,7 +93,7 @@ Es el mismo comportamiento de hoy (`serviceCategory.groupId`,
 Confirmado con SDP: cada plantilla (`request_templates/{id}`) trae **las dos**. En el modelo
 nuevo cuelgan del **Servicio (N2)**:
 
-| Eje | Pregunta | Campo SDP | Campo Atenza |
+| Eje | Pregunta | Campo SDP | Campo ticketIN |
 |---|---|---|---|
 | **Solicitante** | ¿quién puede *levantar* esto? | `user_groups` + `show_to_requester` | `userGroups` (nodo) |
 | **Técnico** | ¿quién puede *ver/atender* esto? | `support_groups` | grupo + `visibilityScope` |

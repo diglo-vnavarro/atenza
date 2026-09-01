@@ -1,8 +1,8 @@
-// Tests de los mappers del importador (SDP v3 -> Atenza). Sin red ni credenciales.
+// Tests de los mappers del importador (SDP v3 -> ticketIN). Sin red ni credenciales.
 import { describe, it, expect } from 'vitest';
 import { mapSnapshot, mapTemplate, mapSla, mapUser, durationToMins, statusCategory, type SdpRaw } from '../importer/map.js';
 
-describe('importador · mappers SDP v3 -> Atenza', () => {
+describe('importador · mappers SDP v3 -> ticketIN', () => {
   it('duración {days,hours,minutes} -> minutos', () => {
     expect(durationToMins({ hours: 2 })).toBe(120);
     expect(durationToMins({ days: 1, hours: 1, minutes: 30 })).toBe(1530);

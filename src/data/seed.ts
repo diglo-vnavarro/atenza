@@ -185,7 +185,7 @@ export interface UiMember {
   /** datos maestros del solicitante. */
   site?: string;
   department?: string;
-  /** traspaso escalonado: true = habilitado para trabajar en Atenza (si no, sigue en SDP).
+  /** traspaso escalonado: true = habilitado para trabajar en ticketIN (si no, sigue en SDP).
    *  En la fase de convivencia es informativo/preparatorio; gobierna el corte cuando llegue. */
   enabled?: boolean;
 }
@@ -311,7 +311,7 @@ export interface TenantData {
    *  cambiar a 'v3' NO borra la config anterior (rollback = volver a 'legacy'). */
   classificationVersion?: 'legacy' | 'v3';
   /** Enrutado vivo a grupo (Fase 7): índice histórico + flag de activación (default off).
-   *  Inerte hasta que Atenza cree/asigne tickets (post-corte). */
+   *  Inerte hasta que ticketIN cree/asigne tickets (post-corte). */
   routingStats?: RoutingStats;
   liveRouting?: boolean;
   /** N3 — al CORTE: los tickets nativos continúan la numeración de SDP con «#NNNN» (el

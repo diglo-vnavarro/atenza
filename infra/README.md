@@ -1,4 +1,4 @@
-# Infraestructura de Atenza (GCP + Firebase)
+# Infraestructura de ticketIN (GCP + Firebase)
 
 Terraform que aprovisiona el proyecto: Firestore, Identity Platform (Google +
 email/contraseña, sin candado de dominio), Cloud Storage, Firebase Hosting y

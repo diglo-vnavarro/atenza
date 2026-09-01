@@ -1,13 +1,13 @@
 # Portal de Administración de Plataforma — Plan de diseño
 
 > Estado: **PROPUESTA** para validar antes de implementar. Autor de borrador: sesión de trabajo 2026‑07‑23.
-> Ámbito: Atenza multi‑instancia (proyecto `diglo-desk-pd`). Piloto con 2 instancias (`diglo-it`, `leasys`), previsión de crecer.
+> Ámbito: ticketIN multi‑instancia (proyecto `diglo-desk-pd`). Piloto con 2 instancias (`diglo-it`, `leasys`), previsión de crecer.
 
 ---
 
 ## 1. Objetivo
 
-Dar una **superficie de administración transversal** a Atenza para que:
+Dar una **superficie de administración transversal** a ticketIN para que:
 
 1. El **administrador de plataforma** vea el estado de todas las instancias, cree instancias nuevas desde cero con una configuración base, gestione accesos y permisos transversales, y personalice el branding de cada una (logo, color…).
 2. **Cualquier usuario con ≥1 instancia** disponga de una pantalla de **selección de instancia** (landing), complementaria al selector del topbar.
@@ -22,7 +22,7 @@ La distinción que motiva este trabajo **ya existe en el esquema de datos**; el 
 
 | Concepto | Dónde vive hoy | Notas |
 |---|---|---|
-| **Usuario de plataforma** (Atenza) | `platformAdmins/{uid}` (colección top‑level) | `buildUser` → `platformAdmin`. Poder transversal: en las reglas, `isPlatformAdmin()` salta el aislamiento entre instancias |
+| **Usuario de plataforma** (ticketIN) | `platformAdmins/{uid}` (colección top‑level) | `buildUser` → `platformAdmin`. Poder transversal: en las reglas, `isPlatformAdmin()` salta el aislamiento entre instancias |
 | **Usuario de instancia** | `tenants/{tid}/members/{uid}` con `role` | `tenant_admin` \| `technician` \| `requester` |
 | **Qué instancias ve un usuario** | `userTenants/{uid}.tenantIds` | índice uid → instancias |
 | **Permisos finos dentro de la instancia** | `members/{uid}.caps` (+ `roles` del tenant) | `hasCap()` |
@@ -162,7 +162,7 @@ interface Branding {
 
 ### 6.3 Dónde se aplica
 
-- **Topbar**: sustituye el `"A Atenza"` hardcodeado (App.tsx:301) por `logo de instancia` + "en Atenza" pequeño (co‑marca).
+- **Topbar**: sustituye el `"A ticketIN"` hardcodeado (App.tsx:301) por `logo de instancia` + "en ticketIN" pequeño (co‑marca).
 - **Landing/selector** (§5.1): cada tarjeta con su logo y color.
 - **Pantalla de login por *deep‑link***: si entras a la URL de una instancia concreta, la pantalla de acceso muestra **su** logo y tagline → sensación de portal propio.
 - **`favicon` y `<title>` dinámicos** por instancia activa.

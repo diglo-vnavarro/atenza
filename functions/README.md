@@ -1,4 +1,4 @@
-# Atenza Cloud Functions — auto-onboarding
+# ticketIN Cloud Functions — auto-onboarding
 
 `autoOnboard` es un **trigger de autenticación bloqueante** (`beforeUserSignedIn`,
 firebase-functions v2 / `firebase-functions/v2/identity`). Se dispara justo antes de

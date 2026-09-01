@@ -20,6 +20,7 @@ import { makeSeed, SLA_BY_PRIORITY, memberCaps, type DB, type TenantData, type S
 import { firebaseEnabled } from '../firebase.js';
 import * as cloud from '../data/firestore.js';
 import { materializeTenant, type InstanceSpec } from '../data/blueprints.js';
+import { NOMBRE_PRODUCTO } from '../lib/marca.js';
 
 export interface ImportSnapshot { categories: string[]; templates: Template[]; slas: Sla[]; groups: Group[]; members: UiMember[] }
 export type Role = 'tenant_admin' | 'technician' | 'requester';
@@ -297,7 +298,7 @@ export const useStore = create<State>()(
           if (rule.technician.mail) mailWho.push('Técnico asignado');
           if (rule.group.mail) mailWho.push('Grupo de soporte');
           if (mailWho.length && MAIL_TEST_MODE) {
-            const subject = `[Atenza · PRUEBA] ${NOTIF_LABEL[event]} · ${ticket.id}`;
+            const subject = `[${NOMBRE_PRODUCTO} · PRUEBA] ${NOTIF_LABEL[event]} · ${ticket.id}`;
             const html = `<p><b>${NOTIF_LABEL[event]}</b> — ${ticket.id}: ${ticket.subject}</p>`
               + `<p style="color:#888;font-size:13px">Aviso de prueba. Destinatarios reales (no notificados en pruebas): ${mailWho.join(', ')}.</p>`;
             void cloud.enqueueMail(TEST_EMAIL, subject, html).catch(errlog);
@@ -450,7 +451,7 @@ export const useStore = create<State>()(
           const v3svc = v3path?.service;
           const v3group = v3path ? resolveGroup(v3path) : undefined;
           // Enrutado VIVO (Fase 7): sobre el prior (v3group), el histórico ajusta el grupo.
-          // Inerte salvo que el tenant active liveRouting (y Atenza cree/asigne, post-corte).
+          // Inerte salvo que el tenant active liveRouting (y ticketIN cree/asigne, post-corte).
           const livePick = (v3 && t.liveRouting) ? pickGroupLive(t.routingStats, nt.service, nt.element, v3group) : null;
           const routedGroup = livePick?.groupId ?? v3group;
           const tpl = (cat || v3) ? undefined : (t.templates.find((x) => x.id === nt.templateId) ?? t.templates[0]);
@@ -1073,12 +1074,12 @@ export const useStore = create<State>()(
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.map((x) => { if (x.uid !== uid) return x; const nx = { ...x, ...patch }; nx.caps = memberCaps(nx, t.roles); return nx; }) })) }));
           if (CLOUD) { const t = activeT(get()); const m = t?.members.find((x) => x.uid === uid); if (t && m) void cloud.writeMember(t.id, m).catch(errlog); }
         },
-        // Habilitación escalonada de traspaso a Atenza (varios miembros a la vez).
+        // Habilitación escalonada de traspaso a ticketIN (varios miembros a la vez).
         setMembersEnabled: (uids, enabled) => {
           const ids = new Set(uids);
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.map((x) => (ids.has(x.uid) ? { ...x, enabled } : x)) })) }));
           if (CLOUD) { const t = activeT(get()); if (t) for (const m of t.members) if (ids.has(m.uid)) void cloud.writeMember(t.id, m).catch(errlog); }
-          const t = activeT(get()); if (t) logAudit(t, 'member.enable', `${uids.length} miembro(s) ${enabled ? 'habilitados' : 'deshabilitados'} en Atenza`);
+          const t = activeT(get()); if (t) logAudit(t, 'member.enable', `${uids.length} miembro(s) ${enabled ? 'habilitados' : 'deshabilitados'} en ${NOMBRE_PRODUCTO}`);
         },
         removeMember: (uid) => {
           set((s) => ({ db: mapTenant(s.db, s.activeTenantId, (t) => ({ ...t, members: t.members.filter((x) => x.uid !== uid) })) }));

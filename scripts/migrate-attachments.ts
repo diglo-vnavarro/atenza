@@ -43,7 +43,7 @@ async function main(): Promise<void> {
       if (!atts.length) continue;
       withA++; files += atts.length; for (const a of atts) bytes += a.size;
       if (APPLY) {
-        const docId = await findTicketDoc(String(d.display_id ?? r.id)); // el doc de Atenza es #{display_id}
+        const docId = await findTicketDoc(String(d.display_id ?? r.id)); // el doc de ticketIN es #{display_id}
         if (!docId) { noDoc++; continue; }
         const ref = db.doc(`tenants/${TENANT}/tickets/${docId}`);
         const cur = ((await ref.get()).data() ?? {}) as { attachments?: AttRec[] };
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
     if (page % 5 === 0) console.error(`  …${scanned} escaneados · ${withA} con adj · ${files} fich · ${(bytes / 1048576).toFixed(0)} MB${APPLY ? ` · ${migrated} migrados · ${errors} err` : ''}`);
   }
   console.log(`\nSDP: ${scanned} solicitudes · ${withA} con adjuntos · ${files} ficheros · ${(bytes / 1073741824).toFixed(2)} GB`);
-  if (APPLY) console.log(`✓ Migrados: ${migrated} tickets · saltados: ${skipped} · sin doc en Atenza: ${noDoc} · errores: ${errors}`);
+  if (APPLY) console.log(`✓ Migrados: ${migrated} tickets · saltados: ${skipped} · sin doc en ticketIN: ${noDoc} · errores: ${errors}`);
   else console.log(`(dry-run: NO descargó ni escribió. --apply para migrar. LIMIT=N acota.)`);
 }
 main().then(() => process.exit(0)).catch((e) => { console.error('ERROR:', (e as Error).message); process.exit(1); });

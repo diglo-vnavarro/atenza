@@ -1,5 +1,5 @@
 // Orquestador del importador: trae metadatos de SDP v3, los mapea al modelo de
-// Atenza y escribe importer/imported-seed.json.
+// ticketIN y escribe importer/imported-seed.json.
 //
 //   SDP_OAUTH_TOKEN=xxxx npm run import
 //

@@ -1,5 +1,5 @@
 // ============================================================================
-// Mappers PUROS: JSON de ServiceDesk Plus (API v3) -> modelo de Atenza.
+// Mappers PUROS: JSON de ServiceDesk Plus (API v3) -> modelo de ticketIN.
 //
 // Son el núcleo del importador y están testeados (test/importer.test.ts) con
 // JSON de ejemplo con la forma de la v3, sin necesidad de credenciales ni red.
@@ -59,7 +59,7 @@ export function mapUser(u: SdpUser, role: 'technician' | 'requester', i: number,
   return { uid: String(u.id), name, email, role, status: 'active', external, color: colorAt(i) };
 }
 
-/** Estado SDP -> categoría de temporizador de Atenza (por si se reconstruyen ciclos). */
+/** Estado SDP -> categoría de temporizador de ticketIN (por si se reconstruyen ciclos). */
 export interface SdpStatus { id: string | number; name: string; stop_timer?: boolean; in_progress?: boolean }
 export function statusCategory(s: SdpStatus): 'in_progress' | 'stop_timer' | 'completed' {
   if (s.in_progress) return 'in_progress';
@@ -80,7 +80,7 @@ export interface SdpRaw {
   statuses?: SdpStatus[];
 }
 
-/** Snapshot importado, con la forma que consume un tenant de Atenza (+ referencia). */
+/** Snapshot importado, con la forma que consume un tenant de ticketIN (+ referencia). */
 export interface ImportedSnapshot {
   name: string;
   categories: string[];

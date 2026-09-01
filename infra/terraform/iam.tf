@@ -3,7 +3,7 @@
 resource "google_service_account" "deployer" {
   project      = var.project_id
   account_id   = "atenza-deployer"
-  display_name = "Atenza CI deployer"
+  display_name = "ticketIN CI deployer"
   depends_on   = [google_project_service.services]
 }
 

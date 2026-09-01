@@ -1,3 +1,4 @@
+import { NOMBRE_PRODUCTO } from './lib/marca.js';
 // Registro de auditoría: traza append-only de acciones relevantes (quién, cuándo,
 // qué). En la nube vive en la subcolección tenants/{tid}/audit; en local, en un
 // array acotado. Tipos + etiquetas; el registro lo escribe el store.
@@ -20,7 +21,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'ticket.status': 'Cambio de estado',
   'ticket.resolve': 'Solicitud resuelta',
   'approval.decide': 'Aprobación decidida',
-  'member.enable': 'Habilitación en Atenza',
+  'member.enable': `Habilitación en ${NOMBRE_PRODUCTO}`,
   'kb.publish': 'Solución publicada',
   'inbound.create': 'Ticket creado por correo',
   'inbound.comment': 'Respuesta por correo',

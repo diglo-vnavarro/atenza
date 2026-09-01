@@ -1,4 +1,4 @@
-# Backlog — feedback del piloto Atenza
+# Backlog — feedback del piloto ticketIN
 
 > Fuente: email de revisión de los compañeros + `ITSM.xlsx` (hojas **Tipologías** y **Grupos**;
 > tachado/rojo = quitar, azul = nuevo). Fecha 2026-08-19.
@@ -135,7 +135,7 @@ no como mecanismo primario. → Decisión: ¿mantenerlos o aparcarlos?
    separadas? Choca con el modelo multi-tenant actual (Leasys era tenant propio).
 4. **❓ ITSM BI vs BI/Datos:** unificar o distinguir.
 5. **❓ «Funcionalidad»:** definir valores con Elena (REO) y Bea (BI).
-6. **❓ Flujos «por fuera»:** ¿dentro de Atenza con ciclo dedicado, o sistemas separados? Aplica a
+6. **❓ Flujos «por fuera»:** ¿dentro de ticketIN con ciclo dedicado, o sistemas separados? Aplica a
    Reclamaciones (web), Liquidaciones y Altas/Bajas.
 
 ---

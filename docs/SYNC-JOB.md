@@ -1,8 +1,8 @@
-# Sincronización periódica SDP → Atenza (Cloud Run Job + Scheduler)
+# Sincronización periódica SDP → ticketIN (Cloud Run Job + Scheduler)
 
-Mantiene Atenza alineado con SDP durante la convivencia: cada N horas trae los
+Mantiene ticketIN alineado con SDP durante la convivencia: cada N horas trae los
 tickets **activos** de SDP (API v3) y hace un **merge idempotente** en Firestore,
-**preservando** lo añadido en Atenza (worklog, tareas, aprobaciones, adjuntos,
+**preservando** lo añadido en ticketIN (worklog, tareas, aprobaciones, adjuntos,
 comentarios, resolución) y **reconciliando identidades** (uid SDP → uid Firebase).
 
 - Job: `npm run sync:job` = `importer/etl.ts` (ETL) + `scripts/sync-tickets.ts` (merge).
@@ -69,13 +69,13 @@ SCOPE=all npx tsx importer/etl.ts   # regenera imported-tickets.json con TODO
 GOOGLE_APPLICATION_CREDENTIALS=<adc> GOOGLE_CLOUD_PROJECT=diglo-desk-pd TENANT=diglo-it npm run sync
 ```
 
-El merge sigue siendo idempotente y preserva lo añadido en Atenza. El **archivado /
+El merge sigue siendo idempotente y preserva lo añadido en ticketIN. El **archivado /
 retención** a largo plazo (mover histórico frío a almacenamiento barato / BigQuery)
 queda como política de gobierno posterior, no bloquea el corte.
 
 ## Seguridad / convivencia
 - Solo trae tickets **activos** (excluye Cancelada/Cerrada/Resuelta).
-- Es **idempotente** y **no destructivo** (preserva lo de Atenza). Reejecutable.
+- Es **idempotente** y **no destructivo** (preserva lo de ticketIN). Reejecutable.
 - **No cambia dónde llega el correo**: los técnicos siguen en SDP. El corte por
   instancia (redirigir buzón) es el hito de correo entrante, más adelante.
 - Secretos: solo en Secret Manager. Nunca en el repo ni en la imagen (ver `.gcloudignore`).

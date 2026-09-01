@@ -1,4 +1,4 @@
-// Resolución de ROSTER (hoja «Grupos» del Excel → membresías Atenza), compartida por
+// Resolución de ROSTER (hoja «Grupos» del Excel → membresías ticketIN), compartida por
 // scripts/apply-rosters.ts (aplicación manual) y scripts/sync-tickets.ts (traducción en el
 // volcado). Resuelve nombres cortos del Excel → uid de miembro ACTIVO (fuzzy + preferencia por
 // cuenta real) y grupos del Excel → id real (gkey + alias), y calcula las altas/bajas por

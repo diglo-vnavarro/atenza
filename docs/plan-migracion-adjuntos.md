@@ -5,8 +5,8 @@
 
 ## Objetivo
 Traer los **adjuntos históricos de SDP** a **Firebase Storage** y referenciarlos en cada ticket
-de Atenza (`diglo-it`). Hoy el **ETL no los trae** → el histórico está sin adjuntos (la sync
-preserva los adjuntos nativos de Atenza pero no importa los de SDP).
+de ticketIN (`diglo-it`). Hoy el **ETL no los trae** → el histórico está sin adjuntos (la sync
+preserva los adjuntos nativos de ticketIN pero no importa los de SDP).
 
 ## Volumen y coste
 - **Prevalencia**: ~27-41% de tickets con adjuntos · ~0,5 ficheros/ticket · media ~1-1,8 MB.

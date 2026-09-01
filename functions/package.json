@@ -1,6 +1,6 @@
 {
   "name": "atenza-functions",
-  "description": "Cloud Functions de Atenza (auto-onboarding por email en el inicio de sesión).",
+  "description": "Cloud Functions de ticketIN (auto-onboarding por email en el inicio de sesión).",
   "type": "module",
   "main": "lib/index.js",
   "engines": {

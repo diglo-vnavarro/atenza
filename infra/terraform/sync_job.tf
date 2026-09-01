@@ -1,9 +1,9 @@
 # ============================================================================
-# Sincronización periódica SDP → Atenza (fase de convivencia).
+# Sincronización periódica SDP → ticketIN (fase de convivencia).
 #
 #   Cloud Scheduler  --(HTTP :run, OAuth SA)-->  Cloud Run Job "sync-sdp"
 #     El job: ETL de tickets activos de SDP (API v3) + merge idempotente a
-#     Firestore (preservando lo añadido en Atenza). Ver scripts/sync-tickets.ts
+#     Firestore (preservando lo añadido en ticketIN). Ver scripts/sync-tickets.ts
 #     e importer/etl.ts (npm run sync:job).
 #
 # Reparto de responsabilidades:
@@ -22,7 +22,7 @@
 
 variable "sync_schedule" {
   type        = string
-  description = "Cron (zona horaria en sync_timezone) para la sincronización SDP→Atenza."
+  description = "Cron (zona horaria en sync_timezone) para la sincronización SDP→ticketIN."
   default     = "0 */4 * * *" # cada 4 horas
 }
 variable "sync_timezone" {
@@ -41,7 +41,7 @@ resource "google_artifact_registry_repository" "atenza" {
   location      = var.region
   repository_id = "atenza"
   format        = "DOCKER"
-  description   = "Imágenes de Atenza (job de sincronización SDP→Atenza)."
+  description   = "Imágenes de ticketIN (job de sincronización SDP→ticketIN)."
   depends_on    = [google_project_service.services]
 }
 
@@ -63,7 +63,7 @@ resource "google_secret_manager_secret" "zoho" {
 resource "google_service_account" "sync" {
   project      = var.project_id
   account_id   = "atenza-sync"
-  display_name = "Atenza · job de sincronización SDP→Atenza"
+  display_name = "ticketIN · job de sincronización SDP→ticketIN"
 }
 resource "google_project_iam_member" "sync_datastore" {
   project = var.project_id
@@ -82,7 +82,7 @@ resource "google_secret_manager_secret_iam_member" "sync_secret_access" {
 resource "google_service_account" "sync_invoker" {
   project      = var.project_id
   account_id   = "atenza-sync-invoker"
-  display_name = "Atenza · Scheduler que dispara el job de sincronización"
+  display_name = "ticketIN · Scheduler que dispara el job de sincronización"
 }
 # Permite ejecutar (run) el Cloud Run Job.
 resource "google_project_iam_member" "invoker_run" {

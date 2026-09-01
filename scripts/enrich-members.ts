@@ -129,7 +129,7 @@ async function main() {
     if (!DRY) batch.set(d.ref, patch, { merge: true });
   });
   if (!DRY) await batch.commit();
-  console.log(`${DRY ? '[DRY] ' : ''}miembros: ${ms.size} en Atenza · ${matched} casan con SDP · ${patched} enriquecidos (site/department/userGroups).`);
+  console.log(`${DRY ? '[DRY] ' : ''}miembros: ${ms.size} en ticketIN · ${matched} casan con SDP · ${patched} enriquecidos (site/department/userGroups).`);
   if (DRY) console.log('DRY-RUN: nada escrito.');
 }
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
