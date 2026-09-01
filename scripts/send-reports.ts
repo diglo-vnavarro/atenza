@@ -9,7 +9,7 @@
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { writeFileSync } from 'node:fs';
-import { runReport, reportToHtml, previousPeriod, DEFAULT_REPORTS, runTableReport, tableReportToHtml, runMatrixReport, matrixToHtml, SCOPE_DB_FIELD, type ReportSchedule, type ReportDef, type ReportDimension, type SavedReport } from '../src/reports.js';
+import { runReport, reportToHtml, previousPeriod, DEFAULT_REPORTS, runTableReport, runMatrixReport, matrixToHtml, SCOPE_DB_FIELD, type ReportSchedule, type ReportDef, type ReportDimension, type SavedReport } from '../src/reports.js';
 import type { Ticket } from '../src/model.js';
 
 const APPLY = process.argv.includes('--apply');
@@ -19,13 +19,40 @@ const LIVE = process.env.REPORTS_LIVE === '1';
 const TEST_EMAIL = process.env.REPORTS_TEST_EMAIL ?? 'testerino-ia@digloservicer.com';
 // Filtro opcional: enviar SOLO estos informes guardados (ids separados por coma). Vacío = todos.
 const ONLY_IDS = (process.env.REPORT_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
-// Máximo de filas en el HTML del email (Firestore limita el doc a 1MB; el listado completo va en la app).
-const MAX_EMAIL_ROWS = 300;
 const NOW = Date.now();
 
 initializeApp({ projectId: PROJECT });
 const db = getFirestore();
 const fmt = (t: number) => new Date(t).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+// Tope de filas del Excel adjunto (base64 va inline en el doc `mail`, límite 1MB de Firestore).
+const MAX_XLSX_ROWS = 5000;
+
+// Envoltorio de marca para el email (cabecera Diglo ITSM + pie). `inner` = contenido del informe.
+function emailShell(inner: string): string {
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f6f9">`
+    + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 0"><tr><td align="center">`
+    + `<table role="presentation" width="660" cellpadding="0" cellspacing="0" style="max-width:660px;background:#fff;border-radius:12px;overflow:hidden;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;box-shadow:0 1px 4px rgba(20,30,60,.08)">`
+    + `<tr><td style="background:#1b2a4a;padding:16px 28px"><span style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.2px">Diglo ITSM</span><span style="color:#9fb3d1;font-size:13px;margin-left:8px;vertical-align:1px">· Informes</span></td></tr>`
+    + `<tr><td style="padding:22px 28px 26px">${inner}</td></tr>`
+    + `<tr><td style="padding:14px 28px;border-top:1px solid #eef0f4;color:#9aa3b2;font-size:11.5px">Enviado automáticamente por <b>Atenza</b> · Mesa de servicio Diglo ITSM. No respondas a este correo.</td></tr>`
+    + `</table></td></tr></table></body></html>`;
+}
+
+// Adjunto Excel (.xlsx) con las filas del informe. Devuelve el adjunto en base64 (formato Nodemailer).
+async function xlsxAttachment(name: string, columns: { key: string; label: string }[], rows: Record<string, string>[], label: (k: string, raw: string) => string): Promise<{ filename: string; content: string; encoding: 'base64' }> {
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Informe');
+  const header = ws.addRow(columns.map((c) => c.label));
+  header.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  header.eachCell((c) => { c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B2A4A' } }; });
+  for (const row of rows.slice(0, MAX_XLSX_ROWS)) ws.addRow(columns.map((c) => label(c.key, row[c.key] ?? '')));
+  ws.views = [{ state: 'frozen', ySplit: 1 }];
+  columns.forEach((c, i) => { ws.getColumn(i + 1).width = Math.min(44, Math.max(12, c.label.length + 4)); });
+  const buf = await wb.xlsx.writeBuffer();
+  const safe = name.replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '_').slice(0, 60) || 'Informe';
+  return { filename: `${safe}.xlsx`, content: Buffer.from(buf as ArrayBuffer).toString('base64'), encoding: 'base64' };
+}
 
 async function main(): Promise<void> {
   const root = (await db.doc(`tenants/${TENANT}`).get()).data() ?? {};
@@ -72,8 +99,8 @@ async function main(): Promise<void> {
     const snap = await db.collection(`tenants/${TENANT}/tickets`).where('createdAt', '>=', from).where('createdAt', '<', to).get();
     const tickets = snap.docs.map((d) => d.data() as Ticket);
     const result = runReport(sch, tickets, from, to);
-    const html = reportToHtml(result, label(sch), fmt);
-    const subject = `Informe ${sch.unit === 'week' ? 'semanal' : 'mensual'} · ${sch.name} · ${fmt(from)}`;
+    const html = emailShell(reportToHtml(result, label(sch), fmt));
+    const subject = `[Diglo ITSM] ${sch.name} · informe ${sch.unit === 'week' ? 'semanal' : 'mensual'}`;
     const to_ = LIVE ? sch.recipients : [TEST_EMAIL];
     console.log(`• ${sch.name} [${sch.unit}] ${fmt(from)}–${fmt(to - 1)}: ${result.total} tickets → ${to_.join(', ')}${LIVE ? '' : ' (TEST)'}`);
     previews.push(html);
@@ -81,12 +108,14 @@ async function main(): Promise<void> {
   }
 
   // --- Informes guardados programados (resumen / tabular / matriz) ---
+  const periodTxt = (from?: number, to?: number) => (from != null && to != null ? `${fmt(from)} – ${fmt(to - 1)}` : 'Todo el histórico');
+  type Attach = { filename: string; content: string; encoding: 'base64' };
   let sentSaved = 0;
   for (const rep of savedSched) {
     if (ONLY_IDS.length && !ONLY_IDS.includes(rep.id)) continue;
     try {
       const unit = rep.schedule!.unit, kind = rep.kind ?? 'summary';
-      let html = '', total = 0;
+      let inner = '', total = 0; const attachments: Attach[] = [];
       if (kind === 'table') {
         const scope = (rep.scopes ?? [])[0];
         if (!scope) { console.log(`• [guardado] ${rep.name}: sin ámbito, omitido`); continue; }
@@ -95,24 +124,26 @@ async function main(): Promise<void> {
         let from: number | undefined, to: number | undefined;
         if (rep.period && rep.period !== 'none') ({ from, to } = previousPeriod(NOW, rep.period));
         const res = runTableReport(rep, tickets, from, to); total = res.total;
-        // Cap de filas para no exceder el límite de 1MB del doc `mail` de Firestore.
-        const capped = res.rows.length > MAX_EMAIL_ROWS ? { ...res, rows: res.rows.slice(0, MAX_EMAIL_ROWS) } : res;
-        html = tableReportToHtml(capped, colLabel, fmt);
-        if (res.rows.length > MAX_EMAIL_ROWS) html += `<p style="color:#777;font-size:12px;font-family:system-ui,Arial,sans-serif">Mostrando las primeras ${MAX_EMAIL_ROWS} de ${res.total} filas. El listado completo, en Atenza → Informes.</p>`;
+        const note = total > MAX_XLSX_ROWS ? `primeras ${MAX_XLSX_ROWS} de ${total} filas` : `${total} ${total === 1 ? 'fila' : 'filas'}`;
+        inner = `<h1 style="margin:0 0 4px;font-size:19px;color:#1b2a4a">${rep.name}</h1>`
+          + `<p style="margin:0 0 18px;color:#6b7688;font-size:13px">${periodTxt(from, to)} · <b>${total}</b> solicitudes</p>`
+          + `<div style="padding:14px 16px;background:#eef3fb;border:1px solid #dce6f5;border-radius:8px;color:#1b2a4a;font-size:14px">📎 Los datos completos van en el <b>Excel adjunto</b> (${note}). El listado también está en Atenza → Informes.</div>`;
+        attachments.push(await xlsxAttachment(rep.name, rep.columns ?? [], res.rows, colLabel));
       } else if (kind === 'matrix') {
         const { from, to } = previousPeriod(NOW, unit);
         const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where('createdAt', '>=', from).where('createdAt', '<', to).get()).docs.map((d) => d.data() as Ticket);
-        const res = runMatrixReport(rep, tickets, from, to); total = res.total; html = matrixToHtml(res, dimLabel, fmt);
+        const res = runMatrixReport(rep, tickets, from, to); total = res.total; inner = matrixToHtml(res, dimLabel, fmt);
       } else {
         const { from, to } = previousPeriod(NOW, unit);
         const tickets = (await db.collection(`tenants/${TENANT}/tickets`).where('createdAt', '>=', from).where('createdAt', '<', to).get()).docs.map((d) => d.data() as Ticket);
-        const res = runReport(rep, tickets, from, to); total = res.total; html = reportToHtml(res, label(rep), fmt);
+        const res = runReport(rep, tickets, from, to); total = res.total; inner = reportToHtml(res, label(rep), fmt);
       }
-      const subject = `Informe ${unit === 'week' ? 'semanal' : 'mensual'} · ${rep.name}`;
+      const html = emailShell(inner);
+      const subject = `[Diglo ITSM] ${rep.name} · informe ${unit === 'week' ? 'semanal' : 'mensual'}`;
       const to_ = LIVE ? rep.schedule!.recipients : [TEST_EMAIL];
-      console.log(`• [guardado] ${rep.name} [${kind}/${unit}]: ${total} tickets → ${to_.join(', ')}${LIVE ? '' : ' (TEST)'}`);
+      console.log(`• [guardado] ${rep.name} [${kind}/${unit}]: ${total} tickets → ${to_.join(', ')}${LIVE ? '' : ' (TEST)'}${attachments.length ? ' +xlsx' : ''}`);
       previews.push(html);
-      if (APPLY && to_.length) { await db.collection('mail').add({ to: to_, message: { subject, html } }); sentSaved++; }
+      if (APPLY && to_.length) { await db.collection('mail').add({ to: to_, message: { subject, html, ...(attachments.length ? { attachments } : {}) } }); sentSaved++; }
     } catch (e) { console.error(`✗ [guardado] ${rep.name}: ${(e as Error).message}`); }
   }
   console.log(`  (${sentSaved} informes guardados encolados)`);
