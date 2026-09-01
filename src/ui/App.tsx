@@ -690,7 +690,7 @@ export function App() {
               <Icon name="archive" />
               <span className="ml-l">Archivo</span></button>
             {!isReq && caps.includes('viewReports') && <button title="Informes" className={'modlink' + (activeView === 'informes' ? ' on' : '')} onClick={() => setView('informes')}>
-              <Icon name="bar-chart" />
+              <Icon name="pie-chart" />
               <span className="ml-l">Informes</span></button>}
           </div>
           <div className="side-bottom">
@@ -2972,7 +2972,7 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
     <div className="reports">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
         <button type="button" className="ghost sm" title={showFolders ? 'Ocultar carpetas' : 'Mostrar carpetas'} aria-label="Mostrar u ocultar carpetas" onClick={() => setShowFolders((v) => !v)} style={{ padding: '4px 9px' }}>☰</button>
-        <h1 style={{ margin: 0 }}><Icon name="bar-chart" size={20} /> Informes</h1>
+        <h1 style={{ margin: 0 }}><Icon name="pie-chart" size={20} /> Informes</h1>
         {canManage && <button className="ghost sm" style={{ marginLeft: 'auto' }} onClick={createFolder}>📁 Nueva carpeta</button>}
         {canManage && <button className="primary sm" onClick={() => setEditing(blank())}>＋ Nuevo informe</button>}
       </div>
@@ -2999,7 +2999,11 @@ function ReportsModule({ tenant, me, meName, canManage, isAdmin }: { tenant: Ten
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: 1, width: '100%', padding: '6px 12px 6px 30px', border: 'none', cursor: 'pointer', font: 'inherit', textAlign: 'left', background: r.id === sel?.id ? 'var(--accent-soft, #eef2ff)' : 'none', color: r.id === sel?.id ? 'var(--accent, #2f63e6)' : 'inherit', fontWeight: r.id === sel?.id ? 600 : 400 }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{r.name}</span>
-                      <span style={{ fontSize: 11, opacity: .85, whiteSpace: 'nowrap' }} title={(r.kind === 'table' ? 'Listado' : r.kind === 'matrix' ? 'Matriz' : 'Resumen') + (r.schedule?.enabled ? ' · programado por email' : '')}>{r.schedule?.enabled ? '📅 ' : ''}{r.kind === 'table' ? '▤' : r.kind === 'matrix' ? '⊞' : '▦'}{isBuiltIn(r) ? '' : r.accessibility === 'public' ? ' 🌐' : ' 🔒'}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }} title={(r.kind === 'table' ? 'Listado' : r.kind === 'matrix' ? 'Matriz' : 'Resumen') + (r.schedule?.enabled ? ' · programado por email' : '')}>
+                        {r.schedule?.enabled && <span style={{ fontSize: 11 }}>📅</span>}
+                        <Icon name={r.kind === 'table' ? 'table' : r.kind === 'matrix' ? 'grid' : 'bar-chart'} size={13} />
+                        {!isBuiltIn(r) && <span style={{ fontSize: 11 }}>{r.accessibility === 'public' ? '🌐' : '🔒'}</span>}
+                      </span>
                     </span>
                     <span style={{ fontSize: 10.5, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: r.id === sel?.id ? 'var(--accent, #2f63e6)' : 'var(--ink-soft, #8891a0)' }}>{isBuiltIn(r) ? 'Sistema' : (r.ownerName ?? '—')}</span>
                   </button>
@@ -3062,7 +3066,7 @@ function ReportBuilder({ tenant, report, onSave, onCancel }: { tenant: TenantDat
   return (
     <div className="reports">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <h1 style={{ margin: 0 }}><Icon name="bar-chart" size={20} /> {(tenant.savedReports ?? []).some((x) => x.id === report.id) ? 'Editar informe' : 'Nuevo informe'}</h1>
+        <h1 style={{ margin: 0 }}><Icon name="pie-chart" size={20} /> {(tenant.savedReports ?? []).some((x) => x.id === report.id) ? 'Editar informe' : 'Nuevo informe'}</h1>
         <span className="seg" style={{ marginLeft: 'auto' }}>
           <button type="button" onClick={onCancel}>Cancelar</button>
           <button type="button" className="primary" disabled={!canSave} onClick={commit}>Guardar</button>
@@ -3414,7 +3418,7 @@ function ScheduledReportsAdmin({ tenant }: { tenant: TenantData }) {
             <td><button className="xbtn" onClick={() => del(i)} aria-label="Quitar">✕</button></td>
           </tr>)}</tbody></table>}
       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <button className="ghost" onClick={add}><Icon name="bar-chart" size={14} /> Añadir informe</button>
+        <button className="ghost" onClick={add}><Icon name="pie-chart" size={14} /> Añadir informe</button>
         <span className="soft" style={{ fontSize: 12 }}>Plantillas:</span>
         <button className="ghost sm" onClick={() => addTpl('Altas/Bajas (semanal)', 'service', areaFilter(/gesti[oó]n managers/i))}>＋ Altas/Bajas</button>
         <button className="ghost sm" onClick={() => addTpl('Informes BI (semanal)', 'service', areaFilter(/datos e informes/i))}>＋ BI</button>
