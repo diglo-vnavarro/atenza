@@ -14,10 +14,16 @@ const cols = (...keys: string[]): ReportColumn[] => keys.map((k) => AVAILABLE_CO
 const gscope = (label: string, value: string): ReportScope => ({ label, field: 'group', value });
 const tscope = (label: string, value: string): ReportScope => ({ label, field: 'template', value });
 
+// Resuelve el email a su uid REAL de login (Firebase). Los miembros de SDP pueden tener varias
+// fichas (id SDP + id sintético); el idmap las mapea al uid real. El informe debe ir a nombre del
+// uid real para que el dueño pueda editarlo (check `ownerUid === uid()` en UI y reglas).
 async function findUid(email: string): Promise<{ uid: string; name: string }> {
+  const idmap: Record<string, string> = {};
+  (await db.collection(`tenants/${TENANT}/idmap`).get()).forEach((d) => { const u = d.data().uid as string | undefined; if (u) idmap[d.id] = u; });
   const ms = await db.collection(`tenants/${TENANT}/members`).get();
   let r = { uid: '_system', name: 'Elena Andrés' };
   ms.forEach((d) => { if ((d.data().email || '').toLowerCase() === email) r = { uid: d.id, name: (d.data().name as string) ?? email }; });
+  r.uid = idmap[r.uid] ?? r.uid; // → uid real de login si venía de una ficha SDP
   return r;
 }
 
@@ -39,7 +45,21 @@ async function main() {
   const BACKLOG = cols('id', 'udf:udf_char129', 'udf:udf_char149', 'subject', 'priority', 'requester', 'technician', 'createdAt', 'status', 'templateName');
   const SEG_CRM = cols('id', 'requester', 'udf:udf_char129', 'subject', 'status', 'udf:udf_char146', 'priority', 'udf:udf_char149', 'technician', 'createdAt', 'udf:udf_char652', 'udf:udf_char147', 'udf:udf_char651');
   const SEG_WEB = cols('id', 'udf:udf_char129', 'subject', 'status', 'udf:udf_char146', 'priority', 'udf:udf_char149', 'udf:udf_char150', 'requester', 'technician', 'createdAt', 'resolvedAt', 'udf:udf_char652');
-  const RECLAM = cols('id', 'udf:udf_datestamp1', 'udf:udf_datestamp2', 'udf:udf_date6', 'udf:udf_char688', 'udf:udf_char686', 'status', 'udf:udf_char690', 'udf:udf_char685', 'udf:udf_char3', 'udf:udf_char4');
+  // Reclamaciones: las DOS fechas de resolución con etiquetas claras (negocio vs mesa).
+  const RECLAM: ReportColumn[] = [
+    { key: 'id', label: 'Nº' },
+    { key: 'udf:udf_datestamp1', label: 'Fecha origen incidencia' },
+    { key: 'udf:udf_datestamp2', label: 'Fecha entrada en Diglo' },
+    { key: 'udf:udf_date6', label: 'Resolución Diglo (negocio)' },
+    { key: 'resolvedAt', label: 'Cierre del ticket (mesa)' },
+    { key: 'udf:udf_char688', label: 'Dpto Propietario' },
+    { key: 'udf:udf_char686', label: 'CCAA' },
+    { key: 'status', label: 'Estado de solicitud' },
+    { key: 'udf:udf_char690', label: 'Categoría Reclamación' },
+    { key: 'udf:udf_char685', label: 'Canal NPL' },
+    { key: 'udf:udf_char3', label: 'Nombre' },
+    { key: 'udf:udf_char4', label: 'Apellidos' },
+  ];
 
   const reports: SavedReport[] = [
     base('reo-created-lw-crm', 'Created Last Week CRM', { scopes: [gscope('Grupo Tecnicos REO - CRM', REO_CRM)], columns: CREATED, period: 'week', periodField: 'created' }),
