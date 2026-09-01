@@ -1,11 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <!-- Favicon de la mesa de servicio. Misma receta que el de OrganiZate (el rayo morado): silueta
+       a sangre, sin marco, rellena de una aurora borrosa recortada por una máscara con la forma.
+       Aquí el glifo es un globo de conversación — la petición que entra — con el check CALADO
+       (negro en la máscara = agujero), que es lo que la mesa hace con ella: resolverla.
+       Paleta: los verdes del acceso + el destello naranja de Diglosfera abajo-derecha, igual que
+       el degradado del login. No lleva letra a propósito: sobrevive a un cambio de nombre. -->
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#3f77ff"/>
-      <stop offset="1" stop-color="#1e4fd6"/>
-    </linearGradient>
+    <!-- La silueta, definida una vez: se usa para pintar y para la máscara. -->
+    <g id="gl"><path d="M16 6h16a10 10 0 0 1 10 10v10a10 10 0 0 1-10 10H20.5L8.8 43.2Q6 45 6 41.6V16A10 10 0 0 1 16 6z"/></g>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="6.2"/>
+    </filter>
+    <mask id="m" maskUnits="userSpaceOnUse" x="0" y="0" width="48" height="48">
+      <use href="#gl" fill="#fff"/>
+      <path d="m14.4 21.6 6.9 6.9L34.4 15.4" fill="none" stroke="#000" stroke-width="5.6"
+            stroke-linecap="round" stroke-linejoin="round"/>
+    </mask>
   </defs>
-  <rect width="48" height="48" rx="11" fill="url(#g)"/>
-  <path d="M14 35 L24 13 L34 35" fill="none" stroke="#fff" stroke-width="4.3" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M18.2 28 H29.8" fill="none" stroke="#fff" stroke-width="4.3" stroke-linecap="round"/>
+  <g mask="url(#m)">
+    <rect width="48" height="48" fill="#0d8f66"/>
+    <g filter="url(#soft)">
+      <ellipse cx="8"  cy="2"  rx="18" ry="14" fill="#cdf7e4"/>
+      <ellipse cx="25" cy="20" rx="21" ry="15" fill="#12a074"/>
+      <ellipse cx="44" cy="45" rx="20" ry="18" fill="#04553f"/>
+      <ellipse cx="46" cy="30" rx="13" ry="11" fill="#f5a623" opacity=".72"/>
+    </g>
+  </g>
 </svg>
