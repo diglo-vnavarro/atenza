@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Glifo } from './brand/Glifo.js';
 
 type Props = {
   children: ReactNode;
@@ -36,7 +37,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if ((this.props.variant ?? 'inline') === 'page') {
       return (
         <div className="login-wrap"><div className="login-card" style={{ textAlign: 'center' }}>
-          <div className="brand" style={{ justifyContent: 'center', fontSize: 20 }}><span className="glyph">A</span> Atenza</div>
+          <div className="brand" style={{ justifyContent: 'center', fontSize: 20 }}><Glifo size={26} /> Atenza</div>
           <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>{msg}</p>
           <button className="primary" onClick={() => window.location.reload()}>Recargar</button>
         </div></div>

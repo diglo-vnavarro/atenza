@@ -7,6 +7,7 @@ import { useStore, buildUser, tenantsForUser, lifecycleOfTicket, type Role } fro
 import { firebaseEnabled } from '../firebase.js';
 import { useAuth, doSignOut } from '../auth/auth.js';
 import { Login } from './Login.js';
+import { Glifo } from './brand/Glifo.js';
 import { ErrorBoundary } from './ErrorBoundary.js';
 import { Icon } from './Icon.js';
 import { stateOf } from '../lifecycle.js';
@@ -226,7 +227,7 @@ function InstancePicker({ tenants, user, onPick, account }: { tenants: TenantDat
   return (
     <div className="pick-page">
       <header className="top">
-        <div className="brand"><span className="glyph">A</span> Atenza</div>
+        <div className="brand"><Glifo size={22} /> Atenza</div>
         <div className="spring" />
         <UserMenu {...account} />
       </header>
@@ -360,7 +361,7 @@ function PlatformPortal({ headers, loaded, onEnter, onClose, meEmail, account, s
   return (
     <div className="pick-page">
       <header className="top">
-        <div className="brand"><span className="glyph">A</span> Atenza <small>Plataforma</small></div>
+        <div className="brand"><Glifo size={22} /> Atenza <small>Plataforma</small></div>
         <div className="spring" />
         {showBack && <button className="ghost" onClick={onClose}>← Volver a mi instancia</button>}
         <UserMenu {...account} />
@@ -573,7 +574,7 @@ export function App() {
   if (firebaseEnabled && !cloudReady) return card('Conectando con la nube…');
   if (firebaseEnabled && !hasAccess) return (
     <div className="login-wrap"><div className="login-card" style={{ textAlign: 'center' }}>
-      <div className="brand" style={{ justifyContent: 'center', fontSize: 20 }}><span className="glyph">A</span> Atenza</div>
+      <div className="brand" style={{ justifyContent: 'center', fontSize: 20 }}><Glifo size={26} /> Atenza</div>
       {accessRequested
         ? <>
           <p style={{ margin: '16px 0', color: 'var(--ink-soft)', fontSize: 14 }}>✅ Solicitud enviada.<br />Si ya estabas dado de alta, tu acceso se activa en unos segundos: pulsa <b>Recargar</b>. Si no, un administrador la aprobará.</p>
@@ -611,7 +612,7 @@ export function App() {
     demo: !firebaseEnabled ? { people, currentUserId, onSwitch: (uid) => { setUser(uid); setView('home'); } } : undefined,
   };
   // UNIFICADO: para el admin de plataforma, el PORTAL es su pantalla de instancias
-  // (misma pantalla como entrada y como acceso vía ▦). Los usuarios normales con
+  // (misma pantalla como entrada y como acceso vía el botón de capas). Los usuarios normales con
   // ≥2 instancias ven el selector simple. Así cada usuario ve UNA sola pantalla.
   if (user.platformAdmin && (showPlatform || (myTenants.length > 1 && !instanceChosen))) return (
     <PlatformPortal
@@ -638,7 +639,7 @@ export function App() {
   return (
     <div>
       <div className="top">
-        {user.platformAdmin && <button className="iconbtn plat-launch" onClick={() => setShowPlatform(true)} title="Portal de plataforma" aria-label="Portal de plataforma">▦</button>}
+        {user.platformAdmin && <button className="iconbtn plat-launch" onClick={() => setShowPlatform(true)} title="Portal de plataforma" aria-label="Portal de plataforma"><Icon name="layers" size={15} /></button>}
         <BrandSwitcher tenant={tenant} tenants={myTenants} onSwitch={(id) => { setTenant(id); setInstanceChosen(true); }} />
         <GlobalSearch tenant={tenant} onOpen={(id) => { select(id); setView(isReq ? 'requests' : 'tickets'); }} />
         <div className="spring" />
@@ -655,7 +656,7 @@ export function App() {
       </div>
 
       {user.platformAdmin && !user.memberships[tenant.id] && <div className="imp-banner plat-vbanner">
-        <span>▦ Estás viendo <b>{tenant.name}</b> como administrador de plataforma (no eres miembro de esta instancia).</span>
+        <span><Icon name="layers" size={13} /> Estás viendo <b>{tenant.name}</b> como administrador de plataforma (no eres miembro de esta instancia).</span>
         <button className="ghost" onClick={() => setShowPlatform(true)}>Volver al portal</button>
       </div>}
 

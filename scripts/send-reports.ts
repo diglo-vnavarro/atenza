@@ -27,12 +27,20 @@ const fmt = (t: number) => new Date(t).toLocaleDateString('es-ES', { day: '2-dig
 // Tope de filas del Excel adjunto (base64 va inline en el doc `mail`, límite 1MB de Firestore).
 const MAX_XLSX_ROWS = 5000;
 
+// Icono de la marca para la cabecera del correo. Va como PNG remoto y no como SVG porque Gmail y
+// Outlook descartan el SVG; se sirve desde Firebase Hosting (`public/icon-email.png`, desplegado
+// con la app). Muchos clientes bloquean imágenes remotas por defecto: el `alt` es vacío a
+// propósito para que, si no carga, no aparezca un texto suelto delante del nombre.
+const ICONO = 'https://diglo-desk-pd.web.app/icon-email.png';
+
 // Envoltorio de marca para el email (cabecera Diglo ITSM + pie). `inner` = contenido del informe.
 function emailShell(inner: string): string {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f6f9">`
     + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 0"><tr><td align="center">`
     + `<table role="presentation" width="660" cellpadding="0" cellspacing="0" style="max-width:660px;background:#fff;border-radius:12px;overflow:hidden;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;box-shadow:0 1px 4px rgba(20,30,60,.08)">`
-    + `<tr><td style="background:#1b2a4a;padding:16px 28px"><span style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.2px">Diglo ITSM</span><span style="color:#9fb3d1;font-size:13px;margin-left:8px;vertical-align:1px">· Informes</span></td></tr>`
+    + `<tr><td style="background:#1b2a4a;padding:16px 28px">`
+      + `<img src="${ICONO}" width="24" height="24" alt="" style="vertical-align:-5px;margin-right:9px;border:0">`
+      + `<span style="color:#fff;font-size:17px;font-weight:700;letter-spacing:.2px">Diglo ITSM</span><span style="color:#9fb3d1;font-size:13px;margin-left:8px;vertical-align:1px">· Informes</span></td></tr>`
     + `<tr><td style="padding:22px 28px 26px">${inner}</td></tr>`
     + `<tr><td style="padding:14px 28px;border-top:1px solid #eef0f4;color:#9aa3b2;font-size:11.5px">Enviado automáticamente por <b>Atenza</b> · Mesa de servicio Diglo ITSM. No respondas a este correo.</td></tr>`
     + `</table></td></tr></table></body></html>`;
