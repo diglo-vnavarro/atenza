@@ -25,7 +25,10 @@ const ROOT = join(here, '..');
 const TENANT = process.env.TENANT ?? 'diglo-it';
 const BASE = process.env.SDP_BASE ?? 'https://digloitsm.sdpondemand.manageengine.eu/app/itdesk';
 const ACCEPT = 'application/vnd.manageengine.sdp.v3+json';
-const EXCLUDE = ['Cancelada', 'Cerrada', 'Resuelta'];
+// Estados terminales de SDP para esta instancia (los que definen "no activo").
+// Configurable por env porque varían por instancia: diglo-it usa español
+// (Cancelada/Cerrada/Resuelta) y leasys inglés (Closed/Canceled/Resolved).
+const EXCLUDE = (process.env.SDP_EXCLUDE ?? 'Cancelada,Cerrada,Resuelta').split(',').map((s) => s.trim()).filter(Boolean);
 const DRY = process.env.WRITE !== '1';
 
 interface Tok { access_token?: string; refresh_token: string; client_id: string; client_secret: string }
