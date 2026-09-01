@@ -20,7 +20,7 @@ const ORG_ID = process.env.ORGANIZATE_ORG_ID ?? 'diglo';
 const DEFAULT_HOURS = Number(process.env.DEFAULT_TASK_HOURS ?? 1);
 const DRY = process.env.DRY_RUN === '1' || process.argv.includes('--dry-run');
 
-interface AtTask { id: string; text: string; done: boolean; assigneeUid?: string | null; dueAt?: number | null; estimatedHours?: number }
+interface AtTask { id: string; text: string; done: boolean; assigneeUid?: string | null; startAt?: number | null; dueAt?: number | null; estimatedHours?: number }
 interface AtTicket { id: string; groupId?: string | null; status?: string; priority?: string; subject?: string; tasks?: AtTask[]; statusHistory?: { from?: number }[] }
 interface OrgTask { id: string; title: string; projectId: string | null; startDate: string; endDate: string; estimatedHours: number; priority: string; status: string; assigneeId?: string | null; sourceAtenzaTaskId?: string; sourceAtenzaTicketId?: string }
 
@@ -103,16 +103,18 @@ async function main() {
       if (!task.assigneeUid) { skippedNoAssignee++; continue; }
       const assigneeId = orgUidOf(task.assigneeUid);
       if (!assigneeId) { skippedNoMap++; continue; }
-      // La carga es trabajo ACTUAL: empieza hoy y termina en el vencimiento (o hoy).
-      // No usamos la creación del ticket (puede ser de hace meses → carga diluida).
+      // Fechas previstas de la tarea (las que fija el técnico en Atenza); si faltan, se derivan:
+      // inicio = hoy, fin = vencimiento (o inicio/hoy). Se garantiza inicio ≤ fin.
       const today = todayIso();
-      const end = task.dueAt ? iso(task.dueAt) : today;
+      const start = task.startAt ? iso(task.startAt) : today;
+      let end = task.dueAt ? iso(task.dueAt) : (start > today ? start : today);
+      if (end < start) end = start;
       desired.push({
         id: `atz-${t.id}-${task.id}`,
         title: `[${t.id}] ${task.text}`,
         projectId: null,
-        startDate: end < today ? end : today,
-        endDate: end < today ? today : end,
+        startDate: start,
+        endDate: end,
         estimatedHours: task.estimatedHours != null ? task.estimatedHours : DEFAULT_HOURS,
         priority: mapPriority(t.priority),
         status: (task.done || closed) ? 'done' : 'in_progress',

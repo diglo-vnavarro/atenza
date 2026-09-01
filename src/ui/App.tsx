@@ -1692,7 +1692,9 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
   const [res, setRes] = useState(t.resolution ?? '');
   const [task, setTask] = useState('');
   const [taskAssignee, setTaskAssignee] = useState('');
+  const [taskStart, setTaskStart] = useState('');
   const [taskDue, setTaskDue] = useState('');
+  const [taskHours, setTaskHours] = useState('');
   const [taskType, setTaskType] = useState('');
   const [wlMins, setWlMins] = useState(30);
   const [wlNote, setWlNote] = useState('');
@@ -1895,8 +1897,8 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
       const done = tasks.filter((k) => k.done).length;
       const addNow = () => {
         if (!task.trim()) return;
-        addTask(t.id, task, { assigneeUid: taskAssignee || undefined, dueAt: taskDue ? new Date(taskDue).getTime() : undefined, type: taskType || undefined });
-        setTask(''); setTaskAssignee(''); setTaskDue(''); setTaskType('');
+        addTask(t.id, task, { assigneeUid: taskAssignee || undefined, startAt: taskStart ? new Date(taskStart).getTime() : undefined, dueAt: taskDue ? new Date(taskDue).getTime() : undefined, type: taskType || undefined, estimatedHours: taskHours ? Number(taskHours) : undefined });
+        setTask(''); setTaskAssignee(''); setTaskStart(''); setTaskDue(''); setTaskHours(''); setTaskType('');
       };
       return <div style={{ marginTop: 4 }}>
         {tasks.length === 0 && <div className="empty">Sin tareas.</div>}
@@ -1905,20 +1907,24 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
           <input type="checkbox" checked={k.done} disabled={!canAct} onChange={() => toggleTask(t.id, k.id)} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <span style={{ textDecoration: k.done ? 'line-through' : 'none', color: k.done ? 'var(--ink-faint)' : 'var(--ink)' }}>{k.text}</span>
-            {(k.type || k.assigneeUid || k.dueAt) && <div className="taskmeta">
+            {(k.type || k.assigneeUid || k.startAt || k.dueAt || k.estimatedHours != null) && <div className="taskmeta">
               {k.type && <span className="tchip">{k.type}</span>}
               {k.assigneeUid && <span className="tmeta"><Icon name="user" size={12} /> {memberName(k.assigneeUid) ?? '—'}</span>}
-              {k.dueAt && <span className="tmeta" style={{ color: !k.done && k.dueAt < Date.now() ? 'var(--crit)' : undefined }}><Icon name="calendar" size={12} /> {fmtDate(k.dueAt)}</span>}
+              {k.startAt && <span className="tmeta"><Icon name="calendar" size={12} /> Inicio {fmtDate(k.startAt)}</span>}
+              {k.dueAt && <span className="tmeta" style={{ color: !k.done && k.dueAt < Date.now() ? 'var(--crit)' : undefined }}><Icon name="calendar" size={12} /> Fin {fmtDate(k.dueAt)}</span>}
+              {k.estimatedHours != null && <span className="tmeta">{k.estimatedHours} h</span>}
             </div>}
           </div>
           {canAct && <span className="taskmv"><button className="xbtn" disabled={i === 0} onClick={() => moveTask(t.id, k.id, -1)} aria-label="Subir">↑</button><button className="xbtn" disabled={i === tasks.length - 1} onClick={() => moveTask(t.id, k.id, 1)} aria-label="Bajar">↓</button></span>}
         </div>)}
         {canAct && <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <input value={task} onChange={(e) => setTask(e.target.value)} placeholder="Nueva tarea…" onKeyDown={(e) => { if (e.key === 'Enter') addNow(); }} />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
             <select value={taskType} onChange={(e) => setTaskType(e.target.value)}><option value="">Tipo…</option>{taskTypes.map((x) => <option key={x.name} value={x.name}>{x.name}</option>)}</select>
             <select value={taskAssignee} onChange={(e) => setTaskAssignee(e.target.value)}><option value="">Asignar a…</option>{techs.map((m) => <option key={m.uid} value={m.uid}>{m.name}</option>)}</select>
-            <input type="date" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} title="Vencimiento" />
+            <label style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Inicio <input type="date" value={taskStart} onChange={(e) => setTaskStart(e.target.value)} title="Fecha de inicio prevista" /></label>
+            <label style={{ fontSize: 11, color: 'var(--ink-faint)' }}>Fin <input type="date" value={taskDue} onChange={(e) => setTaskDue(e.target.value)} title="Fecha de fin prevista (vencimiento)" /></label>
+            <input type="number" min="0" step="0.5" value={taskHours} onChange={(e) => setTaskHours(e.target.value)} placeholder="Duración h" title="Duración estimada (horas)" style={{ width: 96 }} />
             <button className="primary" onClick={addNow} disabled={!task.trim()}>Añadir</button>
           </div>
         </div>}
@@ -3879,7 +3885,23 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
   const groups = tenant.groups ?? [];
   const corp = tenant.members[0]?.email.split('@')[1] ?? 'digloservicer.com';
   const gName = (id: string) => groups.find((g) => g.id === id)?.name ?? id;
-  const enabledCount = tenant.members.filter((m) => m.enabled).length;
+  // Deduplicar por PERSONA (email): en la convivencia SDP→Atenza una persona puede tener varias
+  // fichas (SDP + login + sintética). Se muestra UNA fila: la activa y, entre iguales, la de más
+  // grupos (la consolidada). Las inactivas duplicadas se conservan en datos (para resolver nombres
+  // en el histórico) pero no ensucian la lista.
+  const people = (() => {
+    const by = new Map<string, UiMember>();
+    for (const m of tenant.members) {
+      const key = (m.email || '').toLowerCase() || `_${m.uid}`;
+      const cur = by.get(key);
+      if (!cur) { by.set(key, m); continue; }
+      const act = (x: UiMember) => x.status === 'active';
+      const win = act(m) !== act(cur) ? (act(m) ? m : cur) : ((m.groupIds?.length ?? 0) >= (cur.groupIds?.length ?? 0) ? m : cur);
+      by.set(key, win);
+    }
+    return [...by.values()];
+  })();
+  const enabledCount = people.filter((m) => m.enabled).length;
 
   const ql = q.trim().toLowerCase();
   const sortVal = (m: UiMember): string | number =>
@@ -3887,7 +3909,7 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
       : sort.col === 'status' ? (STATUS_LABEL[m.status] ?? m.status)
         : sort.col === 'enabled' ? (m.enabled ? 1 : 0)
           : m.name.toLowerCase();
-  const list = tenant.members
+  const list = people
     .filter((m) =>
       (!ql || `${m.name} ${m.email}`.toLowerCase().includes(ql)) &&
       (!fGroup || (m.groupIds ?? []).includes(fGroup)) &&
@@ -3900,8 +3922,8 @@ function MembersAdmin({ tenant }: { tenant: TenantData }) {
 
   return <div className="card" style={{ padding: 16 }}>
     <div className="hd" style={{ marginBottom: 4 }}>
-      <h2 style={{ margin: 0 }}>Usuarios <span className="badge">{tenant.members.length}</span></h2>
-      <span className="sub">{enabledCount} en Atenza · {tenant.members.length - enabledCount} aún en SDP</span>
+      <h2 style={{ margin: 0 }}>Usuarios <span className="badge">{people.length}</span></h2>
+      <span className="sub">{enabledCount} en Atenza · {people.length - enabledCount} aún en SDP</span>
       <button className="primary" style={{ marginLeft: 'auto' }} onClick={() => setInvite(true)}>＋ Invitar usuario</button>
     </div>
     <div className="card fbar" style={{ marginTop: 10 }}>

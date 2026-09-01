@@ -172,7 +172,7 @@ export interface Attachment {
 export interface ReplyTemplate { id: string; title: string; body: string }
 
 export interface TicketComment { author: string; authorName: string; at: number; text: string; internal?: boolean }
-export interface TicketTask { id: string; text: string; done: boolean; assigneeUid?: string | null; dueAt?: number | null; type?: string; estimatedHours?: number }
+export interface TicketTask { id: string; text: string; done: boolean; assigneeUid?: string | null; startAt?: number | null; dueAt?: number | null; type?: string; estimatedHours?: number }
 /** Tarea predefinida de una plantilla: se instancia como TicketTask al crear el
  *  ticket (checklist estándar de la tipología, como en SDP). */
 export interface TaskTemplate { id: string; text: string; type?: string; estimatedHours?: number }
