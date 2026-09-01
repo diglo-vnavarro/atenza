@@ -82,6 +82,18 @@ describe('reports · tabular (listados)', () => {
     expect(tableCellRaw(t, 'udf:no_existe')).toBe('');
   });
 
+  it('tableCellRaw · doble fuente dual: nativo (cf) primero, SDP (udf) de respaldo', () => {
+    // Ticket nativo de Atenza: valor en udf[cf-*] → gana sobre el histórico de SDP.
+    const nativo = tk({ udf: { 'cf-dep': 'FIN - Financiero' }, sdpUdf: { udf_char673: 'Otro dpto SDP' } });
+    expect(tableCellRaw(nativo, 'dual:cf-dep:udf_char673')).toBe('FIN - Financiero');
+    expect(tableCellRaw(nativo, 'cf:cf-dep')).toBe('FIN - Financiero');
+    // Ticket sincronizado de SDP: sin campo nativo → cae al udf histórico.
+    const sdp = tk({ sdpUdf: { udf_char673: 'Third Party Business' } });
+    expect(tableCellRaw(sdp, 'dual:cf-dep:udf_char673')).toBe('Third Party Business');
+    // Sin ninguna de las dos fuentes → cadena vacía.
+    expect(tableCellRaw(tk({}), 'dual:cf-dep:udf_char673')).toBe('');
+  });
+
   it('runTableReport filtra por ámbito y proyecta columnas', () => {
     const def: ReportDef = { id: 't', name: 'BI', dimension: 'area', kind: 'table', filters: [{ field: 'area', value: 'ar-bi' }], columns: [{ key: 'subject', label: 'Asunto' }, { key: 'udf:udf_char128', label: 'Estado BI' }] };
     const tickets = [bi({ subject: 'a' }), bi({ subject: 'b', sdpUdf: { udf_char128: 'Abierta' } }), tk({ area: 'ar-reo', subject: 'c' })];

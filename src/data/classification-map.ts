@@ -22,11 +22,14 @@ const TEMPLATE_TO_V3: Record<string, { area: string; service: string }> = {
   'Plantilla Servicio Recovery': { area: 'ar-it', service: 'sv-recovery' },
   'Plantilla Incidencias REO': { area: 'ar-it', service: 'sv-reo' },
   'Solicitud REO': { area: 'ar-it', service: 'sv-reo' },
-  'Alta de usuarios externos': { area: 'ar-it', service: 'sv-usuarios' },
-  'Alta de usuarios internos': { area: 'ar-it', service: 'sv-usuarios' },
-  'Baja de usuario externo': { area: 'ar-it', service: 'sv-usuarios' },
-  'Baja de usuario interno': { area: 'ar-it', service: 'sv-usuarios' },
-  'Modificación de usuario': { area: 'ar-it', service: 'sv-usuarios' },
+  // Altas/Bajas → área real «Gestión Managers» del árbol de prod (no el marcador sv-usuarios).
+  // Así el histórico cae en los servicios reales y el informe puede scopear por área.
+  'Alta de usuarios externos': { area: 'n-gestion-managers', service: 'n-gestion-managers-alta-de-usuario-externo' },
+  'Alta de usuarios internos': { area: 'n-gestion-managers', service: 'n-gestion-managers-alta-de-usuario-interno' },
+  'Baja de usuario externo': { area: 'n-gestion-managers', service: 'n-gestion-managers-baja-de-usuario-externo' },
+  'Baja de usuario interno': { area: 'n-gestion-managers', service: 'n-gestion-managers-baja-de-usuario-interno' },
+  // «Modificación de usuario» no tiene servicio propio en el árbol → al de alta interno (misma área).
+  'Modificación de usuario': { area: 'n-gestion-managers', service: 'n-gestion-managers-alta-de-usuario-interno' },
   'Alta Buzón compartido': { area: 'ar-it', service: 'sv-usuarios' },
   'Modificación o baja de Buzones compartidos': { area: 'ar-it', service: 'sv-usuarios' },
   'Alta Unidad departamental': { area: 'ar-it', service: 'sv-pet' },

@@ -75,6 +75,15 @@ export function runReport(def: ReportDef, tickets: Ticket[], from: number, to: n
 /** Valor CRUDO de una columna para un ticket (ids sin resolver; el nombre lo pone `label`). */
 export function tableCellRaw(t: Ticket, key: string): string {
   if (key.startsWith('udf:')) return t.sdpUdf?.[key.slice(4)] ?? '';
+  // Campo del FORMULARIO NATIVO (Atenza), indexado por id de FieldDef (cf-*).
+  if (key.startsWith('cf:')) return t.udf?.[key.slice(3)] ?? '';
+  // DOBLE FUENTE `dual:<cf-id>:<udf_key>`: nativo primero (tickets creados en Atenza),
+  // histórico de SDP como respaldo (tickets sincronizados). Para informes que deben salir
+  // completos antes y después del corte (p. ej. Altas/Bajas de usuarios).
+  if (key.startsWith('dual:')) {
+    const [, cfId, sdpKey] = key.split(':');
+    return (t.udf?.[cfId ?? ''] ?? '') || (t.sdpUdf?.[sdpKey ?? ''] ?? '');
+  }
   switch (key) {
     case 'id': return (t as { id?: string }).id ?? '';
     case 'subject': return t.subject ?? '';
@@ -244,6 +253,17 @@ export const AVAILABLE_COLUMNS: ReportColumn[] = [
   { key: 'udf:udf_datestamp1', label: 'Fecha origen Incidencia' },
   { key: 'udf:udf_datestamp2', label: 'Fecha entrada en Diglo' },
   { key: 'udf:udf_date6', label: 'Fecha resolución Diglo' },
+  // Altas/Bajas de usuarios (Gestión de usuarios). Los campos han evolucionado en SDP:
+  // Cargo migró de udf_char19 (antiguo) a udf_char672; udf_char19 se reserva a «Rol/Perfil».
+  { key: 'udf:udf_char673', label: 'Departamento' },
+  { key: 'udf:udf_char672', label: 'Cargo' },
+  { key: 'udf:udf_char19', label: 'Rol / Perfil' },
+  { key: 'udf:udf_char667', label: 'Oficina' },
+  { key: 'udf:udf_char16', label: 'Proveedor' },
+  { key: 'udf:udf_ref1', label: 'Responsable' },
+  { key: 'udf:udf_ref10', label: 'Departamento Ext.' },
+  { key: 'udf:udf_date1', label: 'Fecha de incorporación' },
+  { key: 'udf:udf_date5', label: 'Fecha de baja' },
 ];
 /** Claves udf de SDP que importamos para informes (derivadas del catálogo → nunca divergen). */
 export const REPORT_UDF_KEYS: string[] = AVAILABLE_COLUMNS.filter((c) => c.key.startsWith('udf:')).map((c) => c.key.slice(4));

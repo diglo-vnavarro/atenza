@@ -17,6 +17,10 @@ const DRY = process.env.DRY_RUN === '1' || process.argv.includes('--dry-run');
 const LIMIT = process.env.LIMIT ? Number(process.env.LIMIT) : 0;
 const GROUPS = (process.env.GRP_IDS ?? process.env.GROUP_IDS ?? '').split(',').map((s) => s.trim()).filter(Boolean);
 const TEMPLATES = (process.env.TEMPLATES ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+// Opcional: fija service/area (clasificación determinista) para que el ámbito del informe
+// (p. ej. service='sv-usuarios') case también con el histórico sincronizado antes de v3.
+const SET_SERVICE = (process.env.SET_SERVICE ?? '').trim();
+const SET_AREA = (process.env.SET_AREA ?? '').trim();
 const CLOSED = ['cerrada', 'resuelta', 'cancelada', 'closed', 'resolved', 'cancelled', 'canceled'];
 const LIST_FIELDS = ['subject', 'status', 'priority', 'requester', 'technician', 'group', 'template', 'display_id', 'created_time', 'resolved_time', 'completed_time', 'is_service_request', 'udf_fields'];
 
@@ -66,6 +70,8 @@ async function main() {
       const patch: Record<string, unknown> = {};
       if (Object.keys(sdpUdf).length) patch.sdpUdf = sdpUdf;
       if (r.template?.name) patch.templateName = r.template.name;
+      if (SET_SERVICE && prev.service !== SET_SERVICE) patch.service = SET_SERVICE;
+      if (SET_AREA && prev.area !== SET_AREA) patch.area = SET_AREA;
       const rAt = ms(r.resolved_time) ?? ms(r.completed_time); if (rAt) patch.resolvedAt = rAt;
       const isClosed = CLOSED.includes((r.status?.name ?? '').toLowerCase());
       if (isClosed && !prev.closureComment) { try { const c = await closureOf(z, r.id); if (c) { patch.closureComment = c; closures++; } } catch { errors++; } }
