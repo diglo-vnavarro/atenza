@@ -43,17 +43,17 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Autenticación GCP (WIF)
-        uses: google-github-actions/auth@v2
+        uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           # SA con cloudbuild.builds.editor + artifactregistry.writer + run.developer
           # + iam.serviceAccountUser sobre atenza-sync@. Ver docs/deploy-sync.md.
           service_account: ${{ secrets.SYNC_DEPLOY_SA_EMAIL }}
 
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
 
       - name: Construir imagen (Cloud Build)
         run: gcloud builds submit --tag "$IMAGE" --project "$PROJECT" .
