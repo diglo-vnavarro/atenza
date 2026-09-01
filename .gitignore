@@ -24,3 +24,6 @@ importer/identity-map.json
 # Datos de import Leasys (PII: nombres/correos/asuntos)
 importer/leasys-raw.json
 importer/leasys-tenant.json
+
+# Secretos locales de las extensiones de Firebase (los lee el CLI al desplegar).
+*.secret.local
