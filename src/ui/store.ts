@@ -289,19 +289,28 @@ export const useStore = create<State>()(
         set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, notifications: [...notifs, ...(tt.notifications ?? [])] })) }));
         if (CLOUD) for (const n of notifs) void cloud.writeNotification(t.id, n).catch(errlog);
 
-        // Correo: si alguna regla del evento tiene canal `mail`, encola UN email.
-        // En fase de pruebas el destino es SIEMPRE TEST_EMAIL; los destinatarios
-        // reales solo se listan en el cuerpo (nunca se les envía).
+        // Correo: si alguna regla del evento tiene canal `mail`, encola UN email a los
+        // destinatarios reales (solicitante / técnico / grupo según reglas) MÁS los
+        // «Correos a notificar» del ticket (F10). En pruebas el destino es SIEMPRE
+        // TEST_EMAIL y los reales solo se listan en el cuerpo; tras el corte
+        // (MAIL_TEST_MODE=false) se envía a la lista real.
         if (CLOUD) {
-          const mailWho: string[] = [];
-          if (rule.requester.mail) mailWho.push('Solicitante');
-          if (rule.technician.mail) mailWho.push('Técnico asignado');
-          if (rule.group.mail) mailWho.push('Grupo de soporte');
-          if (mailWho.length && MAIL_TEST_MODE) {
-            const subject = `[${NOMBRE_PRODUCTO} · PRUEBA] ${NOTIF_LABEL[event]} · ${ticket.id}`;
+          const emailOf = (uid?: string | null) => (uid ? (t.members.find((m) => m.uid === uid)?.email ?? '') : '');
+          const to = new Set<string>();
+          const who: string[] = [];
+          const anyMail = rule.requester.mail || rule.technician.mail || rule.group.mail;
+          if (rule.requester.mail) { who.push('Solicitante'); const e = emailOf(ticket.requesterId); if (e) to.add(e); }
+          if (rule.technician.mail) { who.push('Técnico asignado'); const e = emailOf(ticket.technicianId); if (e) to.add(e); }
+          if (rule.group.mail && ticket.groupId) { who.push('Grupo de soporte'); for (const m of t.members) if ((m.groupIds ?? []).includes(ticket.groupId) && m.email) to.add(m.email); }
+          // «Correos a notificar»: se suman cuando el evento envía correo (además del solicitante/técnico).
+          const extra = (ticket.notifyEmails ?? '').split(/[;,\s]+/).map((s) => s.trim()).filter((s) => /.@./.test(s));
+          if (anyMail) for (const e of extra) to.add(e);
+          if (anyMail && extra.length) who.push(`Correos a notificar (${extra.join(', ')})`);
+          if (anyMail && to.size) {
+            const subject = `[${NOMBRE_PRODUCTO}${MAIL_TEST_MODE ? ' · PRUEBA' : ''}] ${NOTIF_LABEL[event]} · ${ticket.id}`;
             const html = `<p><b>${NOTIF_LABEL[event]}</b> — ${ticket.id}: ${ticket.subject}</p>`
-              + `<p style="color:#888;font-size:13px">Aviso de prueba. Destinatarios reales (no notificados en pruebas): ${mailWho.join(', ')}.</p>`;
-            void cloud.enqueueMail(TEST_EMAIL, subject, html).catch(errlog);
+              + (MAIL_TEST_MODE ? `<p style="color:#888;font-size:13px">Aviso de prueba. Destinatarios reales (no notificados en pruebas): ${who.join(' · ')}.</p>` : '');
+            void cloud.enqueueMail(MAIL_TEST_MODE ? TEST_EMAIL : [...to], subject, html).catch(errlog);
           }
         }
       };

@@ -2191,7 +2191,7 @@ function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant
             <div className="nf-cols">
               <div className="nf-col">
                 <label>{fcap('Prioridad', true)}<select value={priority} onChange={(e) => setPriority(e.target.value)}>{(pls?.priority ?? [{ name: 'Media' }]).map((p) => <option key={p.name} value={p.name}>{p.name}</option>)}</select></label>
-                {tipo === 'service_request' && <label>{fcap('Clasificación')}<select value={requestClass} onChange={(e) => setRequestClass(e.target.value)}><option value="">— Selecciona —</option>{(pls?.requestClass ?? DEFAULT_REQUEST_CLASS).map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}</select></label>}
+                {tipo === 'service_request' && <label>{fcap('Clasificación')}<select value={requestClass} onChange={(e) => setRequestClass(e.target.value)}><option value="">— Selecciona —</option>{(pls?.requestClass?.length ? pls.requestClass : DEFAULT_REQUEST_CLASS).map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}</select></label>}
                 {!v3 && <label>{fcap('Categoría', true)}<select value={category} onChange={(e) => { setCategory(e.target.value); setSubcategory(''); setItem(''); }}>{(tree.length ? tree.map((c) => c.name) : tenant.categories).map((c) => <option key={c} value={c}>{c}</option>)}</select></label>}
                 {!v3 && subNode && subNode.items.length > 0 && <label>{fcap('Tipología', true)}<select value={item} onChange={(e) => setItem(e.target.value)}><option value="">— Seleccionar —</option>{subNode.items.map((it) => <option key={it} value={it}>{it}</option>)}</select></label>}
               </div>
