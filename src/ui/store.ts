@@ -678,7 +678,7 @@ export const useStore = create<State>()(
           const body = text.trim(); if (!body) return;
           const s = get(); const t = activeT(s); const tk = t?.tickets.find((x) => x.id === ticketId); if (!t || !tk) return;
           // nuevas tareas al principio (orden descendente: última creada, la primera).
-          const tasks = [{ id: 'tk-' + Date.now(), text: body, done: false, assigneeUid: opts?.assigneeUid ?? null, startAt: opts?.startAt ?? null, dueAt: opts?.dueAt ?? null, type: opts?.type, ...(opts?.estimatedHours != null ? { estimatedHours: opts.estimatedHours } : {}) }, ...(tk.tasks ?? [])];
+          const tasks = [{ id: 'tk-' + Date.now(), text: body, done: false, assigneeUid: opts?.assigneeUid ?? null, startAt: opts?.startAt ?? null, dueAt: opts?.dueAt ?? null, ...(opts?.type ? { type: opts.type } : {}), ...(opts?.estimatedHours != null ? { estimatedHours: opts.estimatedHours } : {}) }, ...(tk.tasks ?? [])];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, tasks } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { tasks }).catch(errlog);
         },
