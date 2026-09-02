@@ -21,7 +21,7 @@ const DEFAULT_HOURS = Number(process.env.DEFAULT_TASK_HOURS ?? 1);
 const DRY = process.env.DRY_RUN === '1' || process.argv.includes('--dry-run');
 
 interface AtTask { id: string; text: string; done: boolean; assigneeUid?: string | null; startAt?: number | null; dueAt?: number | null; estimatedHours?: number }
-interface AtTicket { id: string; groupId?: string | null; status?: string; priority?: string; subject?: string; tasks?: AtTask[]; statusHistory?: { from?: number }[] }
+interface AtTicket { id: string; groupId?: string | null; technicianId?: string | null; status?: string; priority?: string; subject?: string; tasks?: AtTask[]; statusHistory?: { from?: number }[] }
 interface OrgTask { id: string; title: string; projectId: string | null; startDate: string; endDate: string; estimatedHours: number; priority: string; status: string; assigneeId?: string | null; sourceticketINTaskId?: string; sourceticketINTicketId?: string }
 
 const iso = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -39,10 +39,10 @@ async function main() {
   console.log(`${DRY ? '=== DRY-RUN === ' : ''}Sync ticketIN(${ATENZA_PROJECT}/${TENANT}) → OrganiZate(${ORG_PROJECT}/orgs/${ORG_ID}).`);
   const { adb, odb } = initDbs();
 
-  // 1) ticketIN: config de grupos integrados + miembros (uid→email) + tickets
-  const tSnap = await adb.doc(`tenants/${TENANT}`).get();
-  const envGroups = process.env.SYNC_GROUPS ? process.env.SYNC_GROUPS.split(',').map((x) => x.trim()).filter(Boolean) : null;
-  const syncGroups: string[] = envGroups ?? ((tSnap.data()?.organizateGroupIds as string[] | undefined) ?? []);
+  // 1) ticketIN: miembros (uid→email) + tickets. El grupo del ticket NO bloquea: se
+  // procesan TODOS los tickets. El único gate es que el asignado (o el técnico del ticket)
+  // exista en OrganiZate. `SYNC_GROUPS` sigue como filtro OPCIONAL para pruebas.
+  const syncGroups: string[] = process.env.SYNC_GROUPS ? process.env.SYNC_GROUPS.split(',').map((x) => x.trim()).filter(Boolean) : [];
   const memSnap = await adb.collection(`tenants/${TENANT}/members`).get();
   const emailByUid = new Map<string, string>();
   const techEmails = new Set<string>();
@@ -83,25 +83,22 @@ async function main() {
   console.log(`Correspondencia de identidad: ${matched.length}/${techEmails.size} técnicos de ticketIN casan con un miembro de OrganiZate (por email).`);
   if (matched.length < techEmails.size) { const miss = [...techEmails].filter((e) => !orgIdByEmail.has(e)); console.log(`  Sin casar (${miss.length}): ${miss.slice(0, 8).join(', ')}${miss.length > 8 ? '…' : ''}`); }
 
-  if (!syncGroups.length) {
-    console.log('\nNingún grupo activado (tenant.organizateGroupIds vacío). Grupos disponibles y su carga potencial:');
-    const byGroup = new Map<string, { tickets: number; tasks: number }>();
-    for (const t of tickets) { if (!t.groupId) continue; const g = byGroup.get(t.groupId) ?? { tickets: 0, tasks: 0 }; g.tickets++; g.tasks += (t.tasks?.length ?? 0); byGroup.set(t.groupId, g); }
-    for (const [gid, c] of [...byGroup.entries()].sort((a, b) => b[1].tasks - a[1].tasks).slice(0, 15)) console.log(`  ${groupName.get(gid) ?? gid} (${gid}): ${c.tickets} tickets · ${c.tasks} tareas`);
-    console.log('\nActiva grupos en ticketIN → Administración → Integración OrganiZate (o SYNC_GROUPS=id1,id2 para probar). Nada que sincronizar.');
-    return;
-  }
-  console.log(`Grupos activados: ${syncGroups.map((g) => groupName.get(g) ?? g).join(', ')}`);
+  console.log(syncGroups.length
+    ? `Filtro de grupos (SYNC_GROUPS): ${syncGroups.map((g) => groupName.get(g) ?? g).join(', ')}`
+    : 'Sin filtro de grupo: se procesan TODOS los tickets (gate = el asignado/técnico existe en OrganiZate).');
 
   // 3) Tareas deseadas en OrganiZate (a partir de las tareas de ticketIN en grupos activados)
   const desired: OrgTask[] = [];
   let skippedNoAssignee = 0, skippedNoMap = 0;
   for (const t of tickets) {
-    if (!t.groupId || !syncGroups.includes(t.groupId)) continue;
+    if (syncGroups.length && !(t.groupId && syncGroups.includes(t.groupId))) continue; // filtro OPCIONAL
     const closed = CLOSED_RE.test(t.status ?? '');
     for (const task of t.tasks ?? []) {
-      if (!task.assigneeUid) { skippedNoAssignee++; continue; }
-      const assigneeId = orgUidOf(task.assigneeUid);
+      // El «usuario» de la tarea = su asignado; si no lo tiene, el técnico del ticket
+      // («una tarea en mi ticket es mi carga»). Solo pasa a OrganiZate si ese usuario existe allí.
+      const assigneeUid = task.assigneeUid ?? t.technicianId ?? null;
+      if (!assigneeUid) { skippedNoAssignee++; continue; }
+      const assigneeId = orgUidOf(assigneeUid);
       if (!assigneeId) { skippedNoMap++; continue; }
       // Fechas previstas de la tarea (las que fija el técnico en ticketIN); si faltan, se derivan:
       // inicio = hoy, fin = vencimiento (o inicio/hoy). Se garantiza inicio ≤ fin.
