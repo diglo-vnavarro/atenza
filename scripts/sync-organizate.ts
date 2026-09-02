@@ -124,8 +124,11 @@ async function main() {
 
   // 4) Reconciliar: conservar tareas propias de OrganiZate; sustituir el conjunto
   //    de tareas-puente por `desired`.
-  const own = orgTasks.filter((x) => !x.sourceticketINTaskId);
-  const prevBridge = orgTasks.filter((x) => x.sourceticketINTaskId);
+  // Marcador de tarea-puente: el actual `sourceticketINTaskId` o el antiguo
+  // `sourceAtenzaTaskId` (previo al renombrado) — así se limpian los huérfanos viejos.
+  const isBridge = (x: OrgTask & { sourceAtenzaTaskId?: string }) => !!(x.sourceticketINTaskId || x.sourceAtenzaTaskId);
+  const own = orgTasks.filter((x) => !isBridge(x));
+  const prevBridge = orgTasks.filter((x) => isBridge(x));
   const prevById = new Map(prevBridge.map((x) => [x.id, x]));
   const desiredIds = new Set(desired.map((x) => x.id));
   let added = 0, updated = 0, unchanged = 0;
