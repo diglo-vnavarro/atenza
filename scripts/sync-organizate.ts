@@ -149,7 +149,9 @@ async function main() {
 
   // Si no hay ningún cambio en las tareas-puente, NO escribir: evita subir `rev` y
   // contender con la app en vivo cada pasada (el doc de OrganiZate se reescribe entero).
-  if (added === 0 && updated === 0 && removed === 0) {
+  // `prevBridge.length !== desired.length` detecta DUPLICADOS por id (misma tarea escrita
+  // con marcador viejo y nuevo): la comparación por id no los ve, pero reescribir dedup­lica.
+  if (added === 0 && updated === 0 && removed === 0 && prevBridge.length === desired.length) {
     console.log('Sin cambios en las tareas-puente → no se escribe (se evita contención).');
     return;
   }
