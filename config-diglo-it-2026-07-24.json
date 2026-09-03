@@ -1,0 +1,7542 @@
+{
+ "_meta": {
+  "tenant": "diglo-it",
+  "stamp": "2026-07-24",
+  "note": "config-only, sin tickets"
+ },
+ "root": {
+  "name": "Diglo ITSM",
+  "key": "itdesk",
+  "active": true,
+  "categories": [
+   "Acceso o autenticación en la plataforma",
+   "Aplicaciones",
+   "Arquitectura",
+   "Comunicaciones",
+   "Consulta de Documentación",
+   "Correo Electrónico",
+   "Datos",
+   "Dispositivos",
+   "Errores en Consultas",
+   "General",
+   "Gestión Managers",
+   "Internet",
+   "Microsoft Office",
+   "Móviles",
+   "Operaciones",
+   "Otros",
+   "Otros problemas de funcionalidad",
+   "Problemas de Datos",
+   "Reclamaciones  de Clientes",
+   "Unidades departamentales / Filer Server",
+   "VDI",
+   "Visualización de Informes"
+  ],
+  "categoryTree": [
+   {
+    "name": "Acceso o autenticación en la plataforma",
+    "subs": [
+     {
+      "name": "Contraseñas olvidadas o Bloqueos de cuentas",
+      "items": []
+     },
+     {
+      "name": "Inicio de sesión",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Aplicaciones",
+    "subs": [
+     {
+      "name": "Google Workspace",
+      "items": [
+       "Calendar",
+       "Docs",
+       "Drive",
+       "Gmail",
+       "Keep",
+       "Meet",
+       "Sheets",
+       "Slices"
+      ]
+     },
+     {
+      "name": "Herramientas Banco",
+      "items": [
+       "Ares",
+       "Citrix",
+       "Informa",
+       "OneHR",
+       "SAP",
+       "Tallyman",
+       "Tasaweb",
+       "TPNET",
+       "TPV",
+       "TPX"
+      ]
+     },
+     {
+      "name": "Herramientas de Google",
+      "items": [
+       "Gemini"
+      ]
+     },
+     {
+      "name": "Herramientas de negocio",
+      "items": [
+       "CRM",
+       "Edición de Contenidos",
+       "Gestor Documental (Share Point)",
+       "Logalty",
+       "Looker",
+       "Portal del Deudor",
+       "Prinex",
+       "Recovery",
+       "TAAF",
+       "TPV Virtual",
+       "Web"
+      ]
+     },
+     {
+      "name": "ITSM",
+      "items": []
+     },
+     {
+      "name": "Microsoft Office",
+      "items": [
+       "Access",
+       "OneDrive",
+       "OneNote",
+       "Outlook / Correo electrónico",
+       "Power BI",
+       "Power Point",
+       "SharePoint Diglo",
+       "Sharepoint Santander",
+       "Teams",
+       "Visio"
+      ]
+     },
+     {
+      "name": "Otras Herramientas",
+      "items": [
+       "Install"
+      ]
+     },
+     {
+      "name": "ServiceDesk Plus",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Arquitectura",
+    "subs": [
+     {
+      "name": "Automatización",
+      "items": []
+     },
+     {
+      "name": "Azure",
+      "items": []
+     },
+     {
+      "name": "Backup/Restauración de ficheros",
+      "items": []
+     },
+     {
+      "name": "Excepciones",
+      "items": []
+     },
+     {
+      "name": "Google",
+      "items": []
+     },
+     {
+      "name": "SFTP",
+      "items": []
+     },
+     {
+      "name": "Unidades departamentales",
+      "items": [
+       "Red - Nueva Carpeta",
+       "Red - Nueva Unidad",
+       "Red - Petición Acceso carpeta de Red",
+       "Red - Petición Acceso Unidad de Red",
+       "SharePoint - Nueva Biblioteca",
+       "SharePoint - Petición acceso Biblioteca"
+      ]
+     },
+     {
+      "name": "VDI",
+      "items": [
+       "Notificar Problema",
+       "Nueva VDI",
+       "Problema con periferico"
+      ]
+     },
+     {
+      "name": "VPN",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Comunicaciones",
+    "subs": [
+     {
+      "name": "Masiva",
+      "items": []
+     },
+     {
+      "name": "Otros",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Consulta de Documentación",
+    "subs": []
+   },
+   {
+    "name": "Correo Electrónico",
+    "subs": [
+     {
+      "name": "Buzón compartido",
+      "items": [
+       "Me falta algún buzón compartido",
+       "No puedo enviar correos desde el buzón compartido",
+       "No reciben los correos que mando o da algún error al enviar",
+       "Otros errores relacionados con el buzón compartido"
+      ]
+     },
+     {
+      "name": "Buzon Personal",
+      "items": [
+       "No puedo enviar correos desde el buzón personal",
+       "No reciben los correos que mando o da algún error al enviar",
+       "Otros errores relacionados con el buzón personal"
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Datos",
+    "subs": [
+     {
+      "name": "Carterizacion",
+      "items": []
+     },
+     {
+      "name": "Consulta",
+      "items": [
+       "Financiero",
+       "NPL",
+       "Operaciones",
+       "Proyectos",
+       "REO"
+      ]
+     },
+     {
+      "name": "Extracción",
+      "items": []
+     },
+     {
+      "name": "Robots",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Dispositivos",
+    "subs": [
+     {
+      "name": "Impresora",
+      "items": []
+     },
+     {
+      "name": "Monitor",
+      "items": []
+     },
+     {
+      "name": "Otros",
+      "items": []
+     },
+     {
+      "name": "Portatil",
+      "items": []
+     },
+     {
+      "name": "Teléfono movil",
+      "items": [
+       "Aumento Datos",
+       "Reparación"
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Errores en Consultas",
+    "subs": [
+     {
+      "name": "Errores lógicos que impidan la ejecución correcta de las consultas",
+      "items": []
+     },
+     {
+      "name": "Errores sintácticos",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "General",
+    "subs": []
+   },
+   {
+    "name": "Gestión Managers",
+    "subs": [
+     {
+      "name": "Gestión Buzón Compartido",
+      "items": [
+       "Alta, Baja o Modificación"
+      ]
+     },
+     {
+      "name": "Gestión Usuarios",
+      "items": [
+       "Alta, Baja o Modificación"
+      ]
+     }
+    ]
+   },
+   {
+    "name": "Internet",
+    "subs": []
+   },
+   {
+    "name": "Microsoft Office",
+    "subs": [
+     {
+      "name": "Microsoft access",
+      "items": []
+     },
+     {
+      "name": "Microsoft Excel",
+      "items": []
+     },
+     {
+      "name": "Microsoft OneDrive",
+      "items": []
+     },
+     {
+      "name": "Microsoft OneNote",
+      "items": []
+     },
+     {
+      "name": "Microsoft Outlook",
+      "items": []
+     },
+     {
+      "name": "Microsoft PowerPoint",
+      "items": []
+     },
+     {
+      "name": "Microsoft Teams",
+      "items": []
+     },
+     {
+      "name": "Microsoft Word",
+      "items": []
+     },
+     {
+      "name": "Otros Office",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Móviles",
+    "subs": [
+     {
+      "name": "Ampliación datos móvil",
+      "items": []
+     },
+     {
+      "name": "Avería móvil",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Operaciones",
+    "subs": [
+     {
+      "name": "Liquidaciones Informativas de Deuda",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Otros",
+    "subs": [
+     {
+      "name": "Otros",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Otros problemas de funcionalidad",
+    "subs": [
+     {
+      "name": "Funcionalidades no disponibles",
+      "items": []
+     },
+     {
+      "name": "Opciones",
+      "items": []
+     },
+     {
+      "name": "Otros",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Problemas de Datos",
+    "subs": [
+     {
+      "name": "Discrepancias o inconsistencias en los datos",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Reclamaciones  de Clientes",
+    "subs": []
+   },
+   {
+    "name": "Unidades departamentales / Filer Server",
+    "subs": [
+     {
+      "name": "Errores de acceso",
+      "items": []
+     },
+     {
+      "name": "Perdida de ficheros",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "VDI",
+    "subs": [
+     {
+      "name": "Errores acceso VDI",
+      "items": []
+     },
+     {
+      "name": "Otros",
+      "items": []
+     }
+    ]
+   },
+   {
+    "name": "Visualización de Informes",
+    "subs": []
+   }
+  ],
+  "statuses": [
+   {
+    "name": "Abierta",
+    "timer": "in_progress",
+    "color": "#4bb11d",
+    "description": "Solicitud abierta"
+   },
+   {
+    "name": "Asignado",
+    "timer": "in_progress",
+    "color": "#4bb11d",
+    "description": "Asignada a un técnico"
+   },
+   {
+    "name": "Trabajando",
+    "timer": "in_progress",
+    "color": "#f40080"
+   },
+   {
+    "name": "En Proceso IT",
+    "timer": "in_progress",
+    "color": "#5f149f"
+   },
+   {
+    "name": "En espera",
+    "timer": "stop_timer",
+    "color": "#4047ff",
+    "description": "Solicitud en espera"
+   },
+   {
+    "name": "Pendiente Aprobación",
+    "timer": "stop_timer",
+    "color": "#ff80bf"
+   },
+   {
+    "name": "Pendiente Banco",
+    "timer": "stop_timer",
+    "color": "#f78718"
+   },
+   {
+    "name": "Pendiente de terceros",
+    "timer": "stop_timer",
+    "color": "#697cf8"
+   },
+   {
+    "name": "Pendiente PFS",
+    "timer": "stop_timer",
+    "color": "#cb6500"
+   },
+   {
+    "name": "Pendiente Usuario",
+    "timer": "stop_timer",
+    "color": "#3bb4ff"
+   },
+   {
+    "name": "Planificado",
+    "timer": "stop_timer",
+    "color": "#e036d5"
+   },
+   {
+    "name": "Recurrente",
+    "timer": "stop_timer",
+    "color": "#4a0564"
+   },
+   {
+    "name": "Resuelta",
+    "timer": "completed",
+    "color": "#00b050"
+   },
+   {
+    "name": "Cerrada",
+    "timer": "completed",
+    "color": "#83cb10"
+   },
+   {
+    "name": "Cancelada",
+    "timer": "completed",
+    "color": "#f02a2a"
+   }
+  ],
+  "notifRules": [
+   {
+    "event": "created",
+    "requester": {
+     "screen": true,
+     "mail": true
+    },
+    "technician": {
+     "screen": true
+    },
+    "group": {
+     "screen": true
+    }
+   },
+   {
+    "event": "assigned",
+    "requester": {},
+    "technician": {
+     "screen": true,
+     "mail": true
+    },
+    "group": {}
+   },
+   {
+    "event": "status",
+    "requester": {
+     "screen": true
+    },
+    "technician": {
+     "screen": true
+    },
+    "group": {}
+   },
+   {
+    "event": "resolved",
+    "requester": {
+     "screen": true,
+     "mail": true
+    },
+    "technician": {},
+    "group": {}
+   },
+   {
+    "event": "comment",
+    "requester": {
+     "screen": true,
+     "mail": true
+    },
+    "technician": {
+     "screen": true
+    },
+    "group": {}
+   },
+   {
+    "event": "internal_note",
+    "requester": {},
+    "technician": {
+     "screen": true
+    },
+    "group": {
+     "screen": true
+    }
+   },
+   {
+    "event": "sla_breach",
+    "requester": {},
+    "technician": {
+     "screen": true,
+     "mail": true
+    },
+    "group": {
+     "screen": true,
+     "mail": true
+    }
+   }
+  ],
+  "picklists": {
+   "mode": [
+    {
+     "name": "E-Mail"
+    },
+    {
+     "name": "Formulario Web"
+    },
+    {
+     "name": "Llamada telefonica"
+    },
+    {
+     "name": "Mobile Application"
+    }
+   ],
+   "taskType": [
+    {
+     "name": "BI",
+     "color": "#955d0f"
+    },
+    {
+     "name": "Implementation",
+     "color": "#999900"
+    },
+    {
+     "name": "Install/UnInstall",
+     "color": "#666666"
+    },
+    {
+     "name": "Interno",
+     "color": "#f02a2a"
+    },
+    {
+     "name": "Maintenance",
+     "color": "#ff6600"
+    },
+    {
+     "name": "NPL",
+     "color": "#697cf8"
+    },
+    {
+     "name": "PD / Operaciones",
+     "color": "#4047ff"
+    },
+    {
+     "name": "Planning",
+     "color": "#ff66cc"
+    },
+    {
+     "name": "Release",
+     "color": "#00ff00"
+    },
+    {
+     "name": "REO",
+     "color": "#f78718"
+    },
+    {
+     "name": "Replacement/Repair",
+     "color": "#ffff00"
+    },
+    {
+     "name": "Testing",
+     "color": "#990000"
+    },
+    {
+     "name": "Troubleshooting",
+     "color": "#00ffcc"
+    }
+   ],
+   "requestType": [
+    {
+     "name": "Incidencia"
+    },
+    {
+     "name": "Peticion de servicio"
+    },
+    {
+     "name": "Solicitud de información"
+    }
+   ],
+   "level": [
+    {
+     "name": "Nivel 1"
+    },
+    {
+     "name": "Nivel 2"
+    },
+    {
+     "name": "Nivel 3"
+    },
+    {
+     "name": "Nivel 4"
+    }
+   ],
+   "urgency": [
+    {
+     "name": "Bajo"
+    },
+    {
+     "name": "Normal"
+    },
+    {
+     "name": "Alta"
+    },
+    {
+     "name": "Urgente"
+    }
+   ],
+   "impact": [
+    {
+     "name": "Afecta a usuario"
+    },
+    {
+     "name": "Afecta a un grupo"
+    },
+    {
+     "name": "Afecta a departamento"
+    },
+    {
+     "name": "Afecta a negocio"
+    }
+   ],
+   "priority": [
+    {
+     "name": "Critica",
+     "color": "#0d9696"
+    },
+    {
+     "name": "Alta",
+     "color": "#ff0000"
+    },
+    {
+     "name": "Importante",
+     "color": "#8f23eb"
+    },
+    {
+     "name": "Media",
+     "color": "#0c8e48"
+    },
+    {
+     "name": "Baja",
+     "color": "#666666"
+    }
+   ]
+  },
+  "priorityMatrix": {
+   "Afecta a usuario": {
+    "Urgente": "Importante",
+    "Alta": "Media",
+    "Bajo": "Baja",
+    "Normal": "Baja"
+   },
+   "Afecta a departamento": {
+    "Urgente": "Critica",
+    "Alta": "Alta",
+    "Bajo": "Media",
+    "Normal": "Importante"
+   },
+   "Afecta a negocio": {
+    "Urgente": "Critica",
+    "Alta": "Critica",
+    "Bajo": "Importante",
+    "Normal": "Alta"
+   },
+   "Afecta a un grupo": {
+    "Urgente": "Alta",
+    "Alta": "Importante",
+    "Bajo": "Baja",
+    "Normal": "Media"
+   }
+  },
+  "sites": [
+   "Barcelona",
+   "Base Site",
+   "CENTRAL",
+   "CENTRAL_EXTERNO",
+   "DT ANDALUCIA OCCIDENTAL",
+   "DT ANDALUCIA ORIENTAL",
+   "DT ANDALUCIA_EXTERNO",
+   "DT CATALUÑA Y BALEARES",
+   "DT CATALUÑA Y BALEARES_EXTERNO",
+   "DT CENTRO",
+   "DT CENTRO_EXTERNO",
+   "DT LEVANTE",
+   "DT NORTE",
+   "DT NORTE_EXTERNO",
+   "Edificio Merrimack Planta 5",
+   "Edificio Merrimack Planta 5 (Entrada)",
+   "Edificio Merrimack Planta 6",
+   "Edificio Merrimack Planta 6 - Sala 602",
+   "EXTERNO",
+   "Madrid",
+   "Merrimack Planta 6",
+   "No asignado",
+   "NPL - AGENCIAS EXTERNAS",
+   "PROVEEDOR",
+   "SIN OFICINA"
+  ],
+  "departments": [
+   "/uo-ad-external-user/uo-ext-NPL/uo-ext-NPL_SGM_Externos",
+   "B084770924",
+   "B37546280",
+   "B45670296",
+   "B63893614",
+   "B67915298",
+   "B91668996",
+   "B92904200",
+   "B96988613",
+   "Business Development Area",
+   "CORPORATIVO",
+   "Corporativo - Facilities",
+   "CORPORATIVO - FACILITIES_EXTERNO",
+   "DESARROLLO DE NEGOCIO",
+   "DG - Dirección",
+   "Diglo GD",
+   "DIRECCION - DIRECCION GENERAL",
+   "DIRECCION GENERAL",
+   "DN - Dirección",
+   "DT NORTE",
+   "DT SINGULARES",
+   "DT Singulares",
+   "FIN - Financiero",
+   "Finance",
+   "FINANCIERO - FINANCIERO",
+   "FINANCIERO - FINANCIERO_EXTERNO",
+   "General",
+   "HR Area",
+   "Ignacio Alcor",
+   "InfoserNT 2022",
+   "IT",
+   "ITO - Bussines Intelligence",
+   "ITO - Data Office",
+   "ITO - Dirección",
+   "ITO - IT",
+   "ITO - IT : Vicente Javier",
+   "ITO - IT_EXT",
+   "ITO - IT_EXTERNO",
+   "ITO - OPERACIONES",
+   "ITO - OPERACIONES - PREPARACIÓN DOCUMENTAL",
+   "ITO - OPERACIONES Y TECNOLOGIA",
+   "ITO - OPERACIONES_EXTERNO",
+   "ITO - OPERACIONES_EXTERNO - PREPARACIÓN DOCUMENTAL",
+   "ITO - Operations",
+   "ITO - Tecnología",
+   "ITO - Transformación",
+   "ITO - Transformation & Projects",
+   "ITO Area",
+   "ITO – Data Office",
+   "ITO_IT_Externo",
+   "Legal Area",
+   "MERRIMACK PLANTA 5",
+   "MERRIMACK PLANTA 6",
+   "No asignado",
+   "NPL - AGENCIAS EXTERNAS",
+   "NPL - AGENCIAS EXTERNAS EXT",
+   "NPL - AGENCIAS EXTERNAS_EXTERNO",
+   "NPL - Analysis & Control",
+   "NPL - Andalucía TD",
+   "NPL - Cataluña&Levante TD",
+   "NPL - Centralizado TD",
+   "NPL - Centro TD",
+   "NPL - CLOSING",
+   "NPL - CONTROL DE GESTION",
+   "NPL - CONTROL DE GESTIÓN",
+   "NPL - CONTROL DE GESTIÓN EXTERNO",
+   "NPL - Control de Gestión_Externo",
+   "NPL - Dirección",
+   "NPL - Director Red",
+   "NPL - DT Andalucía Occidental",
+   "NPL - DT Andalucía Oriental",
+   "NPL - DT Cataluña",
+   "NPL - DT Centralizado",
+   "NPL - DT Centro",
+   "NPL - DT Levante",
+   "NPL - DT Norte",
+   "NPL - Masivo",
+   "NPL - Norte TD",
+   "NPL - NPL",
+   "NPL - RED",
+   "NPL - RED - TERRITORIAL ANDALUCIA OCCIDENTAL",
+   "NPL - RED - TERRITORIAL ANDALUCIA ORIENTAL",
+   "NPL - RED - TERRITORIAL CATALUÑA",
+   "NPL - RED - TERRITORIAL CENTRO",
+   "NPL - RED - TERRITORIAL LEVANTE",
+   "NPL - RED - TERRITORIAL NORTE",
+   "NPL - RED_EXTERNO",
+   "NPL - RED_Externo",
+   "NPL - SGM",
+   "NPL - Singular Assets",
+   "NPL - SSJJ",
+   "NPL - SSJJ_EXTERNO",
+   "NPL - Territorial Direction",
+   "NPL - VENTA INSTITUCIONAL",
+   "NPL - VI",
+   "NPL Area",
+   "OPERACIONES",
+   "PBC",
+   "PBC - EXTERNO",
+   "PROYECTO & BI - BI_EXTERNO",
+   "PROYECTOS & BI - BI",
+   "PROYECTOS & BI - BI_EXTERNO",
+   "PROYECTOS & BI - PROYECTOS",
+   "PROYECTOS & BI - PROYECTOS & BI",
+   "PROYECTOS & BI - PROYECTOS_EXTERNO",
+   "REO",
+   "REO - ADECUACIÓN TECNICA",
+   "REO - ADECUACION TECNICA",
+   "REO - ADECUACION TECNICA_Externo",
+   "REO - ADECUACI�N T�CNICA",
+   "REO - Alquileres",
+   "REO - Andalucía Occ. TD",
+   "REO - Andalucía Orient. TD",
+   "REO - Cataluña TD",
+   "REO - Centro TD",
+   "REO - Closing",
+   "REO - COMERCIAL",
+   "REO - Control y Operaciones",
+   "REO - Control&Operations",
+   "REO - Dirección",
+   "REO - Dirección Comercial",
+   "REO - DT Andalucía Occidental",
+   "REO - DT Andalucía Oriental",
+   "REO - DT Cataluña",
+   "REO - DT Centro",
+   "REO - DT Levante",
+   "REO - DT Norte",
+   "REO - FORMALIZACION",
+   "REO - FORMALIZACION_EXTERNO",
+   "REO - GESTION COMERCIAL / ALQUILERES",
+   "REO - Levante TD",
+   "REO - MARKETING",
+   "REO - Marketing",
+   "REO - MARKETING_EXTERNO",
+   "REO - Noroeste TD",
+   "REO - Norte TD",
+   "REO - Pricing",
+   "REO - PROMOCION DELEGADA",
+   "REO - PROMOCION DELEGADA EXTERNO",
+   "REO - PROMOCION DELEGADA_EXT",
+   "REO - PROMOCION DELEGADA_EXTERNO",
+   "REO - Promoción Delegada_EXTERNO",
+   "REO - Promotions",
+   "REO - Rentals",
+   "REO - REO",
+   "REO - Singular Asset",
+   "REO - SUELOS",
+   "REO - Suelos",
+   "REO - SUELOS_EXTERNO",
+   "REO - Technical",
+   "REO - Urban",
+   "REO - VALORACION Y PRICING",
+   "REO - VALORACION Y PRICING_EXTERNO",
+   "REO - Valoraciones",
+   "REO Area",
+   "REO – Norte TD",
+   "RRHH - Dirección",
+   "RRHH - RRHH",
+   "SS.JJ. - AML",
+   "SS.JJ. - NPLs Litigation",
+   "SS.JJ. - NPLs Litigation & REOs Adequacy",
+   "SS.JJ. - Onboarding & Transactions",
+   "SS.JJ. - REOs Adequacy",
+   "SS.JJ. - Restructuring&Bankruptcy",
+   "SS.JJ.- Third Party Portfolios",
+   "SSJJ - ADECUACION JURIDICA",
+   "SSJJ - ADECUACIÓN JURÍDICA",
+   "SSJJ - ADECUACIÓN JURÍDICA EXTERNO",
+   "SSJJ - ADECUACION JURIDICA_EXTERNO",
+   "SSJJ - ADECUACI�N JUR�DICA",
+   "SSJJ - ADECUACI�N JUR�DICA_EXTERNO",
+   "SSJJ - Admisión",
+   "SSJJ - ADMISION AAJ",
+   "SSJJ - ADMISIÓN AAJ",
+   "SSJJ - ADMISIÓN AAJ EXTERNO",
+   "SSJJ - ADMISIÓN AAJ Y SSJJ REO",
+   "SSJJ - ADMISIÓN AAJ Y SSJJ REO EXTERNO",
+   "SSJJ - ADMISION AAJ_EXTERNO",
+   "SSJJ - Dirección",
+   "SSJJ - Front Jurídico",
+   "SSJJ - PBC",
+   "SSJJ - PBC_EXTERNO",
+   "SSJJ - SSJJ",
+   "SSJJ - SSJJ EXTERNO",
+   "SSJJ - SSJJ REO",
+   "SSJJ - SSJJ REO_EXTERNO",
+   "SSJJ - SSJJ_EXTERNO",
+   "SSJJ -Third_Party_Portfolios EXTERNO",
+   "SSJJ-PBC",
+   "SSJJ_EXTERNO",
+   "Third Party Business",
+   "Third Party Business - Dirección",
+   "THP"
+  ],
+  "roles": [
+   {
+    "name": "AnnouncementConfig",
+    "base": "technician"
+   },
+   {
+    "name": "AssetConfig",
+    "base": "technician"
+   },
+   {
+    "name": "ContractConfig",
+    "base": "technician"
+   },
+   {
+    "name": "HelpdeskConfig",
+    "base": "tenant_admin"
+   },
+   {
+    "name": "PurchaseConfig",
+    "base": "technician"
+   },
+   {
+    "name": "RolTecnicosReclamaciones",
+    "base": "technician"
+   },
+   {
+    "name": "SDAdmin",
+    "base": "tenant_admin"
+   },
+   {
+    "name": "SDAssetAuditAdmin",
+    "base": "technician"
+   },
+   {
+    "name": "SDAssetAuditor",
+    "base": "technician"
+   },
+   {
+    "name": "SDAssetManager",
+    "base": "technician"
+   },
+   {
+    "name": "SDCo-ordinator",
+    "base": "technician"
+   },
+   {
+    "name": "SDGuest",
+    "base": "requester"
+   },
+   {
+    "name": "SDMaintenanceManager",
+    "base": "technician"
+   },
+   {
+    "name": "SDRemoteControl",
+    "base": "technician"
+   },
+   {
+    "name": "SDReport",
+    "base": "technician"
+   },
+   {
+    "name": "SDSiteAdmin",
+    "base": "tenant_admin"
+   },
+   {
+    "name": "Técnicos externos",
+    "base": "technician"
+   }
+  ],
+  "userGroups": [
+   "CAU",
+   "Infoser",
+   "IT",
+   "Managers de departamentos",
+   "Todos los usuarios Diglo",
+   "UserAdmin",
+   "Usuarios  BI",
+   "Usuarios alta/baja",
+   "Usuarios NPL",
+   "Usuarios Operaciones",
+   "Usuarios PD",
+   "Usuarios Recovery",
+   "Usuarios REO",
+   "Usuarios Responsable",
+   "Usuarios RRHH",
+   "UsuariosReclamaciones",
+   "Vips"
+  ],
+  "closureRules": {
+   "requireResolution": true
+  },
+  "replyTemplates": [
+   {
+    "id": "rt-recibida",
+    "title": "Solicitud recibida",
+    "body": "Hemos recibido tu solicitud y la estamos revisando. Te mantendremos informado."
+   },
+   {
+    "id": "rt-info",
+    "title": "Solicitar más información",
+    "body": "Para poder avanzar necesitamos algún dato más. ¿Podrías indicarnos los pasos para reproducir el problema?"
+   },
+   {
+    "id": "rt-resuelta",
+    "title": "Solicitud resuelta",
+    "body": "Hemos resuelto tu solicitud. Si el problema persiste, responde a este mensaje y la reabriremos."
+   }
+  ],
+  "customFields": [
+   {
+    "id": "cf-9207000000020400",
+    "label": "Apellidos",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209568",
+    "label": "Aplicación REO",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209576",
+    "label": "Área Peticionaria",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020428",
+    "label": "Area/DPTO",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209550",
+    "label": "BBDD a las que quieres acceso:",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020438",
+    "label": "BBDD Diglo",
+    "type": "select",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020434",
+    "label": "BBDD Yera",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020436",
+    "label": "BBDD Yera 2",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209494",
+    "label": "Buzón Corporativo 1",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209496",
+    "label": "Buzón Corporativo 2",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209498",
+    "label": "Buzón Corporativo 3",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209500",
+    "label": "Buzón Corporativo 4",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209638",
+    "label": "Buzón de envío",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209640",
+    "label": "Canal NPL",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020430",
+    "label": "Cargo",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209630",
+    "label": "Categoría",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209624",
+    "label": "Categoría GCP",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209650",
+    "label": "Categoría Reclamación",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209642",
+    "label": "CCAA",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209598",
+    "label": "Centro coste",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209656",
+    "label": "Código Prinex",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209566",
+    "label": "Comentario Cierre",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209572",
+    "label": "Comentario REO",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209622",
+    "label": "Comunidad Looker",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209654",
+    "label": "Contacto anterior",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209648",
+    "label": "Decisión a Favor",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020426",
+    "label": "Delegación",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209616",
+    "label": "Departamento",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000404085",
+    "label": "Departamento Ext.",
+    "type": "reference",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209646",
+    "label": "Departamento Propietario de la Resolución",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209672",
+    "label": "Días para vencimiento",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209676",
+    "label": "Dirección / Presidencia",
+    "type": "select",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209664",
+    "label": "Dirección postal del inmueble",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209522",
+    "label": "Documentacion Compartida",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209548",
+    "label": "El intercambio será de:",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020414",
+    "label": "Elegir tipo de usuario",
+    "type": "select",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020406",
+    "label": "Email",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209602",
+    "label": "Email de Diglo",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020394",
+    "label": "Email id",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020440",
+    "label": "Entorno",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209610",
+    "label": "Equipamiento a devolver",
+    "type": "select",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209472",
+    "label": "Esquema",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209526",
+    "label": "Estado BI",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209586",
+    "label": "Estado Operaciones",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209558",
+    "label": "Estado PD",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209562",
+    "label": "Estado REO",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209574",
+    "label": "Estimación Esfuerzo",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020462",
+    "label": "Fecha cálculo liquida.",
+    "type": "date",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020460",
+    "label": "Fecha cálculo liquidación",
+    "type": "date",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020466",
+    "label": "Fecha de baja",
+    "type": "date",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020402",
+    "label": "Fecha de nacimiento",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000006938441",
+    "label": "Fecha entrada en Diglo",
+    "type": "date",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020458",
+    "label": "Fecha Incorporación",
+    "type": "date",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000006938439",
+    "label": "Fecha origen de la Incidencia",
+    "type": "date",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020468",
+    "label": "Fecha resolución Diglo",
+    "type": "date",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020464",
+    "label": "Firma de contrato",
+    "type": "date",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209570",
+    "label": "Funcionalidad REO",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020416",
+    "label": "Gestion",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209514",
+    "label": "Gestion Datos Peticion",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209556",
+    "label": "Horario",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020418",
+    "label": "Impacto en BI",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209560",
+    "label": "Impacto en PD",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209658",
+    "label": "Importe Reclamado",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209682",
+    "label": "Inconveniente causado",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209666",
+    "label": "Inconveniente causado 1",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209486",
+    "label": "Indicar Ruta",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209490",
+    "label": "Indicar Ruta carpeta de red 2",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209536",
+    "label": "Indicar si es modificación o baja",
+    "type": "select",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209524",
+    "label": "Indicar tipo de modificación, (Si es baja de buzón indicar No Aplica)",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209540",
+    "label": "Indicar tipo de modificación, (Si es baja de unidad departamental indicar No Aplica)",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209620",
+    "label": "Informe",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209518",
+    "label": "Informe BI Afectado",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209510",
+    "label": "IT",
+    "type": "select",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209582",
+    "label": "IUC (Nº de contrato)",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020408",
+    "label": "Manager",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209474",
+    "label": "Motivo",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209564",
+    "label": "Motivo Cierre",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209552",
+    "label": "Motivo:",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209636",
+    "label": "NIF",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020396",
+    "label": "NIF/CIF",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020398",
+    "label": "Nombre",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209530",
+    "label": "Nombre de la unidad departamental a crear",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000020404",
+    "label": "Nombre de usuario",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209512",
+    "label": "Nombre del buzón compartido nuevo",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209520",
+    "label": "Nombre del buzón o buzones a modificar o eliminar",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209584",
+    "label": "Nombre del deudor",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209478",
+    "label": "Nombre FTP 1",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209480",
+    "label": "Nombre FTP 2",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209482",
+    "label": "Nombre FTP 3",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209484",
+    "label": "Nombre FTP 4",
+    "type": "text",
+    "requesterVisible": true
+   },
+   {
+    "id": "cf-9207000000209502",
+    "label": "NPL",
+    "type": "select",
+    "requesterVisible": true
+   }
+  ],
+  "organizateGroupIds": [
+   "9207000000292091"
+  ],
+  "serviceCategoryIcons": {
+   "Incidencias": "",
+   "AI - Gemini": ""
+  },
+  "capacity": {
+   "u-elena": {
+    "used": 34,
+    "cap": 40
+   },
+   "u-oscar": {
+    "used": 41,
+    "cap": 40
+   },
+   "u-sergio": {
+    "used": 19,
+    "cap": 40
+   },
+   "u-bea": {
+    "used": 0,
+    "cap": 40,
+    "off": "Vacaciones"
+   },
+   "QzdANMSSOuTQJWF9h18gaV0TRwo2": {
+    "used": 30,
+    "cap": 40
+   },
+   "U9eCOKzXwRUHpvZ8aoRVtYQzlC42": {
+    "cap": 40,
+    "used": 19
+   },
+   "UiNbYZCSWyd87fYiOwPDkqaYg2H2": {
+    "cap": 40,
+    "used": 41
+   }
+  },
+  "operationMode": "simplified",
+  "businessHours": {
+   "start": "09:00",
+   "days": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "end": "18:30"
+  },
+  "holidays": [
+   "2026-01-01",
+   "2026-01-06",
+   "2026-04-02",
+   "2026-04-03",
+   "2026-05-01",
+   "2026-05-02",
+   "2026-05-15",
+   "2026-08-15",
+   "2026-10-12",
+   "2026-11-01",
+   "2026-11-09",
+   "2026-12-06",
+   "2026-12-08",
+   "2026-12-25"
+  ],
+  "serviceCategories": [
+   {
+    "id": "sc-1",
+    "fields": [
+     {
+      "section": "Campos de la categoría",
+      "label": "Nombre de usuario",
+      "type": "text",
+      "id": "cf-9207000000020404",
+      "requesterVisible": true,
+      "col": 1
+     }
+    ],
+    "name": "Incidencias generales",
+    "incident": {
+     "lifecycleId": "9207000000949173"
+    },
+    "icon": "🛠️"
+   },
+   {
+    "name": "Reclamaciones de clientes",
+    "incident": {
+     "lifecycleId": "9207000000949173"
+    },
+    "userGroups": [
+     "UsuariosReclamaciones"
+    ],
+    "icon": "📣",
+    "id": "sc-2",
+    "fields": [
+     {
+      "col": 1,
+      "type": "select",
+      "requesterVisible": true,
+      "id": "cf-9207000000209676",
+      "label": "Dirección / Presidencia",
+      "section": "Campos de la categoría"
+     },
+     {
+      "label": "NIF/CIF",
+      "section": "Campos de la categoría",
+      "col": 2,
+      "id": "cf-9207000000020396",
+      "requesterVisible": true,
+      "type": "text"
+     },
+     {
+      "requesterVisible": true,
+      "id": "cf-9207000000020406",
+      "type": "text",
+      "col": 1,
+      "section": "Campos de la categoría",
+      "label": "Email"
+     },
+     {
+      "label": "Nombre",
+      "section": "Campos de la categoría",
+      "col": 2,
+      "requesterVisible": true,
+      "id": "cf-9207000000020398",
+      "type": "text"
+     },
+     {
+      "label": "Apellidos",
+      "section": "Campos de la categoría",
+      "col": 1,
+      "requesterVisible": true,
+      "id": "cf-9207000000020400",
+      "type": "text"
+     },
+     {
+      "col": 2,
+      "id": "cf-9207000006938439",
+      "requesterVisible": true,
+      "type": "date",
+      "label": "Fecha origen de la Incidencia",
+      "mandatory": true,
+      "section": "Campos de la categoría"
+     },
+     {
+      "mandatory": true,
+      "section": "Campos de la categoría",
+      "label": "Fecha entrada en Diglo",
+      "type": "date",
+      "requesterVisible": true,
+      "id": "cf-9207000006938441",
+      "col": 1
+     },
+     {
+      "label": "Fecha resolución Diglo",
+      "section": "Campos de la categoría",
+      "col": 2,
+      "requesterVisible": true,
+      "id": "cf-9207000000020468",
+      "type": "date"
+     },
+     {
+      "col": 1,
+      "type": "text",
+      "id": "cf-9207000000209642",
+      "requesterVisible": true,
+      "label": "CCAA",
+      "section": "Campos de la categoría"
+     },
+     {
+      "section": "Campos de la categoría",
+      "label": "Buzón de envío",
+      "requesterVisible": true,
+      "id": "cf-9207000000209638",
+      "type": "text",
+      "col": 2
+     },
+     {
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209640",
+      "col": 1,
+      "section": "Campos de la categoría",
+      "label": "Canal NPL"
+     },
+     {
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "label": "Departamento Propietario de la Resolución",
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209646",
+      "col": 2
+     },
+     {
+      "id": "cf-9207000000209648",
+      "requesterVisible": true,
+      "type": "text",
+      "col": 1,
+      "section": "Campos de la categoría",
+      "label": "Decisión a Favor"
+     },
+     {
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209650",
+      "col": 2,
+      "section": "Campos de la categoría",
+      "label": "Categoría Reclamación"
+     },
+     {
+      "col": 1,
+      "type": "text",
+      "id": "cf-9207000000209654",
+      "requesterVisible": true,
+      "label": "Contacto anterior",
+      "section": "Campos de la categoría"
+     },
+     {
+      "label": "Código Prinex",
+      "section": "Campos de la categoría",
+      "col": 2,
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209656"
+     },
+     {
+      "label": "Dirección postal del inmueble",
+      "section": "Campos de la categoría",
+      "col": 1,
+      "type": "text",
+      "id": "cf-9207000000209664",
+      "requesterVisible": true
+     },
+     {
+      "col": 2,
+      "id": "cf-9207000000209658",
+      "requesterVisible": true,
+      "type": "text",
+      "label": "Importe Reclamado",
+      "section": "Campos de la categoría"
+     },
+     {
+      "label": "Inconveniente causado",
+      "section": "Campos de la categoría",
+      "col": 1,
+      "requesterVisible": true,
+      "id": "cf-9207000000209682",
+      "type": "text"
+     }
+    ]
+   },
+   {
+    "service_request": {
+     "lifecycleId": null
+    },
+    "id": "sc-3",
+    "icon": "🔧",
+    "name": "Recovery",
+    "incident": {
+     "lifecycleId": "9207000000949173"
+    }
+   },
+   {
+    "fields": [
+     {
+      "section": "Campos de la categoría",
+      "label": "Impacto en BI",
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000020418",
+      "col": 1
+     },
+     {
+      "col": 2,
+      "type": "text",
+      "id": "cf-9207000000209514",
+      "requesterVisible": true,
+      "label": "Gestion Datos Peticion",
+      "mandatory": true,
+      "section": "Campos de la categoría"
+     },
+     {
+      "label": "Estado BI",
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "col": 1,
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209526"
+     },
+     {
+      "label": "Informe BI Afectado",
+      "section": "Campos de la categoría",
+      "col": 2,
+      "type": "text",
+      "id": "cf-9207000000209518",
+      "requesterVisible": true
+     },
+     {
+      "requesterVisible": true,
+      "id": "cf-9207000000209522",
+      "type": "text",
+      "col": 1,
+      "section": "Campos de la categoría",
+      "label": "Documentacion Compartida"
+     }
+    ],
+    "id": "sc-4",
+    "icon": "📊",
+    "userGroups": [
+     "Usuarios  BI"
+    ],
+    "incident": {
+     "lifecycleId": "9207000000949173"
+    },
+    "name": "BI / Datos",
+    "service_request": {
+     "lifecycleId": null
+    }
+   },
+   {
+    "service_request": {
+     "lifecycleId": null
+    },
+    "userGroups": [
+     "Usuarios PD"
+    ],
+    "icon": "🗂️",
+    "name": "PD",
+    "incident": {
+     "lifecycleId": "9207000000949173"
+    },
+    "fields": [
+     {
+      "id": "cf-9207000000209560",
+      "requesterVisible": true,
+      "type": "text",
+      "col": 1,
+      "section": "Campos de la categoría",
+      "label": "Impacto en PD"
+     },
+     {
+      "id": "cf-9207000000209522",
+      "requesterVisible": true,
+      "type": "text",
+      "col": 2,
+      "section": "Campos de la categoría",
+      "label": "Documentacion Compartida"
+     },
+     {
+      "mandatory": true,
+      "section": "Campos de la categoría",
+      "label": "Estado PD",
+      "requesterVisible": true,
+      "id": "cf-9207000000209558",
+      "type": "text",
+      "col": 1
+     }
+    ],
+    "id": "sc-5"
+   },
+   {
+    "incident": {
+     "lifecycleId": "9207000000949173"
+    },
+    "name": "AI · Gemini",
+    "icon": "✨",
+    "id": "sc-6",
+    "iconImage": "<svg height=\"1em\" style=\"flex:none;line-height:1\" viewBox=\"0 0 24 24\" width=\"1em\" xmlns=\"http://www.w3.org/2000/svg\"><title>Gemini</title><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"#3186FF\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-0-_R_0_)\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-1-_R_0_)\"></path><path d=\"M20.616 10.835a14.147 14.147 0 01-4.45-3.001 14.111 14.111 0 01-3.678-6.452.503.503 0 00-.975 0 14.134 14.134 0 01-3.679 6.452 14.155 14.155 0 01-4.45 3.001c-.65.28-1.318.505-2.002.678a.502.502 0 000 .975c.684.172 1.35.397 2.002.677a14.147 14.147 0 014.45 3.001 14.112 14.112 0 013.679 6.453.502.502 0 00.975 0c.172-.685.397-1.351.677-2.003a14.145 14.145 0 013.001-4.45 14.113 14.113 0 016.453-3.678.503.503 0 000-.975 13.245 13.245 0 01-2.003-.678z\" fill=\"url(#lobe-icons-gemini-2-_R_0_)\"></path><defs><linearGradient gradientUnits=\"userSpaceOnUse\" id=\"lobe-icons-gemini-0-_R_0_\" x1=\"7\" x2=\"11\" y1=\"15.5\" y2=\"12\"><stop stop-color=\"#08B962\"></stop><stop offset=\"1\" stop-color=\"#08B962\" stop-opacity=\"0\"></stop></linearGradient><linearGradient gradientUnits=\"userSpaceOnUse\" id=\"lobe-icons-gemini-1-_R_0_\" x1=\"8\" x2=\"11.5\" y1=\"5.5\" y2=\"11\"><stop stop-color=\"#F94543\"></stop><stop offset=\"1\" stop-color=\"#F94543\" stop-opacity=\"0\"></stop></linearGradient><linearGradient gradientUnits=\"userSpaceOnUse\" id=\"lobe-icons-gemini-2-_R_0_\" x1=\"3.5\" x2=\"17.5\" y1=\"13.5\" y2=\"12\"><stop stop-color=\"#FABC12\"></stop><stop offset=\".46\" stop-color=\"#FABC12\" stop-opacity=\"0\"></stop></linearGradient></defs></svg>",
+    "service_request": {
+     "lifecycleId": null
+    }
+   },
+   {
+    "name": "Informes (Looker/Google)",
+    "icon": "📈",
+    "id": "sc-7",
+    "fields": [
+     {
+      "section": "Campos de la categoría",
+      "label": "Comunidad Looker",
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209622",
+      "col": 1
+     },
+     {
+      "col": 2,
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209620",
+      "label": "Informe",
+      "section": "Campos de la categoría",
+      "mandatory": true
+     }
+    ],
+    "service_request": {
+     "lifecycleId": null
+    }
+   },
+   {
+    "service_request": {
+     "lifecycleId": null
+    },
+    "fields": [
+     {
+      "id": "cf-9207000000209576",
+      "requesterVisible": true,
+      "type": "text",
+      "col": 1,
+      "section": "Campos de la categoría",
+      "label": "Área Peticionaria"
+     }
+    ],
+    "id": "sc-8",
+    "icon": "📶",
+    "name": "ITSM BI"
+   },
+   {
+    "service_request": {
+     "lifecycleId": "9207000003075231"
+    },
+    "fields": [
+     {
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209602",
+      "col": 1,
+      "section": "Campos de la categoría",
+      "label": "Email de Diglo"
+     },
+     {
+      "label": "Nombre",
+      "mandatory": true,
+      "section": "Campos de la categoría",
+      "col": 2,
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000020398"
+     },
+     {
+      "label": "Apellidos",
+      "mandatory": true,
+      "section": "Campos de la categoría",
+      "col": 1,
+      "type": "text",
+      "id": "cf-9207000000020400",
+      "requesterVisible": true
+     },
+     {
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "label": "NIF/CIF",
+      "requesterVisible": true,
+      "id": "cf-9207000000020396",
+      "type": "text",
+      "col": 2
+     },
+     {
+      "col": 1,
+      "id": "cf-9207000000209616",
+      "requesterVisible": true,
+      "type": "text",
+      "label": "Departamento",
+      "section": "Campos de la categoría",
+      "mandatory": true
+     },
+     {
+      "id": "cf-9207000000209598",
+      "requesterVisible": true,
+      "type": "text",
+      "col": 2,
+      "section": "Campos de la categoría",
+      "label": "Centro coste"
+     },
+     {
+      "col": 1,
+      "requesterVisible": true,
+      "id": "cf-9207000000020458",
+      "type": "date",
+      "label": "Fecha Incorporación",
+      "section": "Campos de la categoría",
+      "mandatory": true
+     },
+     {
+      "section": "Campos de la categoría",
+      "label": "Cargo",
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000020430",
+      "col": 2
+     }
+    ],
+    "id": "sc-9",
+    "userGroups": [
+     "CAU",
+     "IT",
+     "Usuarios RRHH"
+    ],
+    "icon": "👤",
+    "name": "Alta de usuario"
+   },
+   {
+    "userGroups": [
+     "CAU",
+     "IT",
+     "Usuarios RRHH"
+    ],
+    "icon": "🚪",
+    "name": "Baja de usuario",
+    "fields": [
+     {
+      "label": "Equipamiento a devolver",
+      "section": "Campos de la categoría",
+      "col": 1,
+      "type": "select",
+      "requesterVisible": true,
+      "id": "cf-9207000000209610"
+     },
+     {
+      "label": "Fecha de baja",
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "col": 2,
+      "type": "date",
+      "requesterVisible": true,
+      "id": "cf-9207000000020466"
+     }
+    ],
+    "id": "sc-10",
+    "service_request": {
+     "lifecycleId": "9207000003083634"
+    }
+   },
+   {
+    "name": "Modificación / alta externos",
+    "userGroups": [
+     "IT",
+     "Usuarios alta/baja",
+     "Usuarios Responsable"
+    ],
+    "icon": "👥",
+    "id": "sc-11",
+    "fields": [
+     {
+      "label": "Nombre",
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "col": 1,
+      "type": "text",
+      "id": "cf-9207000000020398",
+      "requesterVisible": true
+     },
+     {
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "label": "Fecha Incorporación",
+      "requesterVisible": true,
+      "id": "cf-9207000000020458",
+      "type": "date",
+      "col": 2
+     },
+     {
+      "col": 1,
+      "requesterVisible": true,
+      "id": "cf-9207000000020400",
+      "type": "text",
+      "label": "Apellidos",
+      "section": "Campos de la categoría",
+      "mandatory": true
+     },
+     {
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "label": "NIF/CIF",
+      "requesterVisible": true,
+      "id": "cf-9207000000020396",
+      "type": "text",
+      "col": 2
+     },
+     {
+      "col": 1,
+      "id": "cf-9207000000404085",
+      "requesterVisible": true,
+      "type": "reference",
+      "label": "Departamento Ext.",
+      "section": "Campos de la categoría",
+      "mandatory": true
+     },
+     {
+      "label": "Email de Diglo",
+      "section": "Campos de la categoría",
+      "col": 2,
+      "requesterVisible": true,
+      "id": "cf-9207000000209602",
+      "type": "text"
+     },
+     {
+      "label": "Cargo",
+      "mandatory": true,
+      "section": "Campos de la categoría",
+      "col": 1,
+      "id": "cf-9207000000020430",
+      "requesterVisible": true,
+      "type": "text"
+     }
+    ],
+    "service_request": {
+     "lifecycleId": "9207000003075231"
+    }
+   },
+   {
+    "service_request": {
+     "lifecycleId": null
+    },
+    "id": "sc-12",
+    "fields": [
+     {
+      "label": "Nombre de usuario",
+      "section": "Campos de la categoría",
+      "col": 1,
+      "type": "text",
+      "id": "cf-9207000000020404",
+      "requesterVisible": true
+     }
+    ],
+    "name": "Peticiones generales",
+    "icon": "📥"
+   },
+   {
+    "id": "sc-13",
+    "service_request": {
+     "lifecycleId": "9207000008125300"
+    },
+    "icon": "📝",
+    "name": "Waiver"
+   },
+   {
+    "userGroups": [
+     "IT",
+     "Usuarios NPL",
+     "Usuarios Operaciones"
+    ],
+    "icon": "💶",
+    "name": "Operaciones · Liquidaciones deuda",
+    "fields": [
+     {
+      "col": 1,
+      "requesterVisible": true,
+      "id": "cf-9207000000209586",
+      "type": "text",
+      "label": "Estado Operaciones",
+      "section": "Campos de la categoría"
+     },
+     {
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209582",
+      "col": 2,
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "label": "IUC (Nº de contrato)"
+     },
+     {
+      "type": "date",
+      "requesterVisible": true,
+      "id": "cf-9207000000020462",
+      "col": 1,
+      "mandatory": true,
+      "section": "Campos de la categoría",
+      "label": "Fecha cálculo liquida."
+     },
+     {
+      "col": 2,
+      "id": "cf-9207000000209584",
+      "requesterVisible": true,
+      "type": "text",
+      "label": "Nombre del deudor",
+      "mandatory": true,
+      "section": "Campos de la categoría"
+     }
+    ],
+    "id": "sc-14",
+    "service_request": {
+     "lifecycleId": "9207000002883136"
+    }
+   },
+   {
+    "service_request": {
+     "lifecycleId": null
+    },
+    "icon": "🏠",
+    "name": "Tareas REO",
+    "incident": {
+     "lifecycleId": "9207000000949173"
+    },
+    "fields": [
+     {
+      "label": "Aplicación REO",
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "col": 1,
+      "requesterVisible": true,
+      "id": "cf-9207000000209568",
+      "type": "text"
+     },
+     {
+      "label": "Funcionalidad REO",
+      "mandatory": true,
+      "section": "Campos de la categoría",
+      "col": 2,
+      "type": "text",
+      "id": "cf-9207000000209570",
+      "requesterVisible": true
+     },
+     {
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209562",
+      "col": 1,
+      "section": "Campos de la categoría",
+      "mandatory": true,
+      "label": "Estado REO"
+     },
+     {
+      "label": "Comentario REO",
+      "section": "Campos de la categoría",
+      "col": 2,
+      "type": "text",
+      "id": "cf-9207000000209572",
+      "requesterVisible": true
+     },
+     {
+      "section": "Campos de la categoría",
+      "label": "Estimación Esfuerzo",
+      "requesterVisible": true,
+      "id": "cf-9207000000209574",
+      "type": "text",
+      "col": 1
+     },
+     {
+      "label": "Motivo Cierre",
+      "section": "Campos de la categoría",
+      "col": 2,
+      "requesterVisible": true,
+      "id": "cf-9207000000209564",
+      "type": "text"
+     },
+     {
+      "section": "Campos de la categoría",
+      "label": "Comentario Cierre",
+      "type": "text",
+      "requesterVisible": true,
+      "id": "cf-9207000000209566",
+      "col": 1
+     }
+    ],
+    "id": "sc-15"
+   },
+   {
+    "service_request": {
+     "lifecycleId": null
+    },
+    "name": "Seguimiento Infoser/Diglo",
+    "userGroups": [
+     "Infoser",
+     "IT"
+    ],
+    "icon": "🔎",
+    "id": "sc-16"
+   }
+  ],
+  "summary": {
+   "ticketsArchived": 22976,
+   "members": 347,
+   "lastSyncStatus": "ok",
+   "ticketsActive": 588,
+   "lastSyncAt": 1785232847283
+  }
+ },
+ "templates": [],
+ "lifecycles": [
+  {
+   "_id": "9207000000949173",
+   "id": "9207000000949173",
+   "name": "RLC - Incidencias v1.0",
+   "version": "1",
+   "published": true,
+   "type": "incident",
+   "states": [
+    {
+     "key": "9207000000949179",
+     "label": "Abierta",
+     "stage": "open",
+     "category": "in_progress",
+     "isInitial": true
+    },
+    {
+     "key": "9207000000949207",
+     "label": "Cancelada",
+     "stage": "closed",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000000949211",
+     "label": "Cerrada",
+     "stage": "closed",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000000949223",
+     "label": "En espera",
+     "stage": "pending",
+     "category": "stop_timer"
+    },
+    {
+     "key": "9207000000949191",
+     "label": "Pendiente Banco",
+     "stage": "closed",
+     "category": "stop_timer"
+    },
+    {
+     "key": "9207000000949195",
+     "label": "Pendiente de terceros",
+     "stage": "closed",
+     "category": "stop_timer"
+    },
+    {
+     "key": "9207000000949199",
+     "label": "Pendiente Usuario",
+     "stage": "closed",
+     "category": "stop_timer"
+    },
+    {
+     "key": "9207000000949219",
+     "label": "Recurrente",
+     "stage": "open",
+     "category": "in_progress"
+    },
+    {
+     "key": "9207000000949215",
+     "label": "Resuelta",
+     "stage": "resolved",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000000949203",
+     "label": "Trabajando",
+     "stage": "open",
+     "category": "in_progress"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "9207000000949377",
+     "name": "Abierta -TO- En Espera",
+     "from": "9207000000949179",
+     "to": "9207000000949223"
+    },
+    {
+     "id": "9207000000949239",
+     "name": "Abierta -TO- P.3os",
+     "from": "9207000000949179",
+     "to": "9207000000949195"
+    },
+    {
+     "id": "9207000000949233",
+     "name": "Abierta -TO- P.Banco",
+     "from": "9207000000949179",
+     "to": "9207000000949191"
+    },
+    {
+     "id": "9207000000949245",
+     "name": "Abierta -TO- P.Usuario",
+     "from": "9207000000949179",
+     "to": "9207000000949199"
+    },
+    {
+     "id": "9207000000949365",
+     "name": "Abierta -TO- Recurrente",
+     "from": "9207000000949179",
+     "to": "9207000000949219"
+    },
+    {
+     "id": "9207000000949251",
+     "name": "Abierta -TO- Trabajando",
+     "from": "9207000000949179",
+     "to": "9207000000949203"
+    },
+    {
+     "id": "9207000002184409",
+     "name": "Cerrada-TO-En Espera",
+     "from": "9207000000949211",
+     "to": "9207000000949223"
+    },
+    {
+     "id": "9207000000949383",
+     "name": "En Espera -TO- Abierta",
+     "from": "9207000000949223",
+     "to": "9207000000949179"
+    },
+    {
+     "id": "9207000000949275",
+     "name": "P.3os -TO- P.Banco",
+     "from": "9207000000949195",
+     "to": "9207000000949191"
+    },
+    {
+     "id": "9207000000949281",
+     "name": "P.3os -TO- P.Usuario",
+     "from": "9207000000949195",
+     "to": "9207000000949199"
+    },
+    {
+     "id": "9207000000949287",
+     "name": "P.3os -TO- Trabajando",
+     "from": "9207000000949195",
+     "to": "9207000000949203"
+    },
+    {
+     "id": "9207000000949257",
+     "name": "P.Banco -TO- P.3os",
+     "from": "9207000000949191",
+     "to": "9207000000949195"
+    },
+    {
+     "id": "9207000000949263",
+     "name": "P.Banco -TO- P.Usuario",
+     "from": "9207000000949191",
+     "to": "9207000000949199"
+    },
+    {
+     "id": "9207000000949269",
+     "name": "P.Banco -TO- Trabajando",
+     "from": "9207000000949191",
+     "to": "9207000000949203"
+    },
+    {
+     "id": "9207000000954183",
+     "name": "P.Usuario -TO- Cancelada",
+     "from": "9207000000949199",
+     "to": "9207000000949207"
+    },
+    {
+     "id": "9207000000949299",
+     "name": "P.Usuario -TO- P.3os",
+     "from": "9207000000949199",
+     "to": "9207000000949195"
+    },
+    {
+     "id": "9207000000949293",
+     "name": "P.Usuario -TO- P.Banco",
+     "from": "9207000000949199",
+     "to": "9207000000949191"
+    },
+    {
+     "id": "9207000000949305",
+     "name": "P.Usuario -TO- Trabajando",
+     "from": "9207000000949199",
+     "to": "9207000000949203"
+    },
+    {
+     "id": "9207000000949371",
+     "name": "Recurrente -TO- Cerrada",
+     "from": "9207000000949219",
+     "to": "9207000000949211"
+    },
+    {
+     "id": "9207000000949329",
+     "name": "Trabajando -TO- Cancelada",
+     "from": "9207000000949203",
+     "to": "9207000000949207"
+    },
+    {
+     "id": "9207000000949335",
+     "name": "Trabajando -TO- Cerrada",
+     "from": "9207000000949203",
+     "to": "9207000000949211"
+    },
+    {
+     "id": "9207000000949317",
+     "name": "Trabajando -TO- P.3os",
+     "from": "9207000000949203",
+     "to": "9207000000949195"
+    },
+    {
+     "id": "9207000000949311",
+     "name": "Trabajando -TO- P.Banco",
+     "from": "9207000000949203",
+     "to": "9207000000949191"
+    },
+    {
+     "id": "9207000000949323",
+     "name": "Trabajando -TO- P.Usuario",
+     "from": "9207000000949203",
+     "to": "9207000000949199"
+    },
+    {
+     "id": "9207000000949341",
+     "name": "Trabajando -TO- Resuelta",
+     "from": "9207000000949203",
+     "to": "9207000000949215"
+    }
+   ]
+  },
+  {
+   "_id": "9207000002883136",
+   "id": "9207000002883136",
+   "name": "Operaciones - Liquidaciones Informativas Deuda",
+   "version": "1",
+   "published": true,
+   "type": "service_request",
+   "states": [
+    {
+     "key": "9207000002942198",
+     "label": "Abierta",
+     "stage": "open",
+     "category": "in_progress",
+     "isInitial": true
+    },
+    {
+     "key": "9207000002942210",
+     "label": "Cancelada",
+     "stage": "closed",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000002942226",
+     "label": "Pendiente de terceros",
+     "stage": "closed",
+     "category": "stop_timer"
+    },
+    {
+     "key": "9207000002974083",
+     "label": "Pendiente Usuario",
+     "stage": "closed",
+     "category": "stop_timer"
+    },
+    {
+     "key": "9207000002942238",
+     "label": "Resuelta",
+     "stage": "resolved",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000002974615",
+     "label": "Trabajando",
+     "stage": "open",
+     "category": "in_progress"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "9207000002942336",
+     "name": "Abierta - Cancelada",
+     "from": "9207000002942198",
+     "to": "9207000002942210"
+    },
+    {
+     "id": "9207000002942358",
+     "name": "Abierta - Pendiente Terceros",
+     "from": "9207000002942198",
+     "to": "9207000002942226"
+    },
+    {
+     "id": "9207000002974131",
+     "name": "Abierta - Pendiente Usuario",
+     "from": "9207000002942198",
+     "to": "9207000002974083"
+    },
+    {
+     "id": "9207000002942380",
+     "name": "Abierta - Resuelta",
+     "from": "9207000002942198",
+     "to": "9207000002942238"
+    },
+    {
+     "id": "9207000002974627",
+     "name": "Abierta - Trabajando",
+     "from": "9207000002942198",
+     "to": "9207000002974615"
+    },
+    {
+     "id": "9207000002942434",
+     "name": "P.Terceros - Cancelada",
+     "from": "9207000002942226",
+     "to": "9207000002942210"
+    },
+    {
+     "id": "9207000002942456",
+     "name": "P.Terceros - Resuelta",
+     "from": "9207000002942226",
+     "to": "9207000002942238"
+    },
+    {
+     "id": "9207000002946292",
+     "name": "Pendiente 3º - Trabajando",
+     "from": "9207000002942226",
+     "to": "9207000002974615"
+    },
+    {
+     "id": "9207000002974095",
+     "name": "Pendiente Terceros - Pendiente Usuario",
+     "from": "9207000002942226",
+     "to": "9207000002974083"
+    },
+    {
+     "id": "9207000002974185",
+     "name": "Pendiente Usuario - Cancelada",
+     "from": "9207000002974083",
+     "to": "9207000002942210"
+    },
+    {
+     "id": "9207000002974113",
+     "name": "Pendiente Usuario - Pendiente Terceros",
+     "from": "9207000002974083",
+     "to": "9207000002942226"
+    },
+    {
+     "id": "9207000002974167",
+     "name": "Pendiente Usuario - Resuelta",
+     "from": "9207000002974083",
+     "to": "9207000002942238"
+    },
+    {
+     "id": "9207000002974149",
+     "name": "Pendiente Usuario - Trabajando",
+     "from": "9207000002974083",
+     "to": "9207000002974615"
+    },
+    {
+     "id": "9207000002974413",
+     "name": "Resuelta - Abierta",
+     "from": "9207000002942238",
+     "to": "9207000002942198"
+    },
+    {
+     "id": "9207000003109001",
+     "name": "Trabajando - Cancelada",
+     "from": "9207000002974615",
+     "to": "9207000002942210"
+    },
+    {
+     "id": "9207000002974667",
+     "name": "Trabajando - Pendiente de terceros",
+     "from": "9207000002974615",
+     "to": "9207000002942226"
+    },
+    {
+     "id": "9207000002974685",
+     "name": "Trabajando - Pendiente de usuario",
+     "from": "9207000002974615",
+     "to": "9207000002974083"
+    },
+    {
+     "id": "9207000002974645",
+     "name": "Trabajando - Resuelta",
+     "from": "9207000002974615",
+     "to": "9207000002942238"
+    }
+   ]
+  },
+  {
+   "_id": "9207000003075231",
+   "id": "9207000003075231",
+   "name": "Alta de usuarios internos",
+   "version": "1",
+   "published": true,
+   "type": "service_request",
+   "states": [
+    {
+     "key": "9207000003082829",
+     "label": "Abierta",
+     "stage": "open",
+     "category": "in_progress",
+     "isInitial": true
+    },
+    {
+     "key": "9207000003082841",
+     "label": "Cancelada",
+     "stage": "closed",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000003082857",
+     "label": "Pendiente de terceros",
+     "stage": "closed",
+     "category": "stop_timer"
+    },
+    {
+     "key": "9207000003082869",
+     "label": "Resuelta",
+     "stage": "resolved",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000003082885",
+     "label": "Trabajando",
+     "stage": "open",
+     "category": "in_progress"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "9207000003082987",
+     "name": "Abierta - Trabajando",
+     "from": "9207000003082829",
+     "to": "9207000003082885"
+    },
+    {
+     "id": "9207000003083045",
+     "name": "Pendiente 3º - Cancelada",
+     "from": "9207000003082857",
+     "to": "9207000003082841"
+    },
+    {
+     "id": "9207000003083063",
+     "name": "Pendiente 3º - Trabajando",
+     "from": "9207000003082857",
+     "to": "9207000003082885"
+    },
+    {
+     "id": "9207000003083081",
+     "name": "Trabajando - Cancelada",
+     "from": "9207000003082885",
+     "to": "9207000003082841"
+    },
+    {
+     "id": "9207000003083099",
+     "name": "Trabajando - Pendiente de terceros",
+     "from": "9207000003082885",
+     "to": "9207000003082857"
+    },
+    {
+     "id": "9207000003083117",
+     "name": "Trabajando - Resuelta",
+     "from": "9207000003082885",
+     "to": "9207000003082869"
+    }
+   ]
+  },
+  {
+   "_id": "9207000003083634",
+   "id": "9207000003083634",
+   "name": "Baja de usuarios",
+   "version": "1",
+   "published": true,
+   "type": "service_request",
+   "states": [
+    {
+     "key": "9207000003083638",
+     "label": "Abierta",
+     "stage": "open",
+     "category": "in_progress",
+     "isInitial": true
+    },
+    {
+     "key": "9207000003083642",
+     "label": "Cancelada",
+     "stage": "closed",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000003083650",
+     "label": "Pendiente de terceros",
+     "stage": "closed",
+     "category": "stop_timer"
+    },
+    {
+     "key": "9207000003083654",
+     "label": "Resuelta",
+     "stage": "resolved",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000003083662",
+     "label": "Trabajando",
+     "stage": "open",
+     "category": "in_progress"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "9207000003083672",
+     "name": "Abierta - Trabajando",
+     "from": "9207000003083638",
+     "to": "9207000003083662"
+    },
+    {
+     "id": "9207000003083694",
+     "name": "Pendiente 3º - Cancelada",
+     "from": "9207000003083650",
+     "to": "9207000003083642"
+    },
+    {
+     "id": "9207000003083700",
+     "name": "Pendiente 3º - Trabajando",
+     "from": "9207000003083650",
+     "to": "9207000003083662"
+    },
+    {
+     "id": "9207000003083706",
+     "name": "Trabajando - Cancelada",
+     "from": "9207000003083662",
+     "to": "9207000003083642"
+    },
+    {
+     "id": "9207000003083712",
+     "name": "Trabajando - Pendiente de terceros",
+     "from": "9207000003083662",
+     "to": "9207000003083650"
+    },
+    {
+     "id": "9207000003083718",
+     "name": "Trabajando - Resuelta",
+     "from": "9207000003083662",
+     "to": "9207000003083654"
+    }
+   ]
+  },
+  {
+   "_id": "9207000008125300",
+   "id": "9207000008125300",
+   "name": "RLC - Aprobaciones",
+   "version": "1",
+   "published": true,
+   "type": "service_request",
+   "states": [
+    {
+     "key": "9207000008125328",
+     "label": "Cancelada",
+     "stage": "closed",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000008125324",
+     "label": "Cerrada",
+     "stage": "closed",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000008125414",
+     "label": "Pendiente Aprobación",
+     "stage": "closed",
+     "category": "stop_timer",
+     "isInitial": true
+    },
+    {
+     "key": "9207000008125320",
+     "label": "Resuelta",
+     "stage": "resolved",
+     "category": "completed",
+     "isTerminal": true
+    },
+    {
+     "key": "9207000008125316",
+     "label": "Trabajando",
+     "stage": "open",
+     "category": "in_progress"
+    }
+   ],
+   "transitions": [
+    {
+     "id": "9207000008125472",
+     "name": "p.aprobacion-to-Cerrada",
+     "from": "9207000008125414",
+     "to": "9207000008125324"
+    },
+    {
+     "id": "9207000008125494",
+     "name": "p.aprobacion-to-trabajando",
+     "from": "9207000008125414",
+     "to": "9207000008125316"
+    },
+    {
+     "id": "9207000008125362",
+     "name": "trabajando-to-cancelada",
+     "from": "9207000008125316",
+     "to": "9207000008125328"
+    },
+    {
+     "id": "9207000008125344",
+     "name": "trabajando-to-resuelta",
+     "from": "9207000008125316",
+     "to": "9207000008125320"
+    }
+   ]
+  }
+ ],
+ "slas": [
+  {
+   "_id": "9207000000152163",
+   "id": "9207000000152163",
+   "name": "Low SLA",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000000152167",
+   "id": "9207000000152167",
+   "name": "Medium SLA",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000000152169",
+   "id": "9207000000152169",
+   "name": "High SLA",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000002970202",
+   "id": "9207000002970202",
+   "name": "SLA Operaciones",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000007012533",
+   "id": "9207000007012533",
+   "name": "SLA Reclamaciones",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000007030145",
+   "id": "9207000007030145",
+   "name": "SLA Reclamaciones 3",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000007030173",
+   "id": "9207000007030173",
+   "name": "SLA Reclamaciones 5",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000007030201",
+   "id": "9207000007030201",
+   "name": "SLA Reclamaciones 10",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000007030229",
+   "id": "9207000007030229",
+   "name": "SLA Reclamaciones 20",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000007030257",
+   "id": "9207000007030257",
+   "name": "SLA Reclamaciones 30",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000007030285",
+   "id": "9207000007030285",
+   "name": "SLA Reclamaciones Vacio",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000007068488",
+   "id": "9207000007068488",
+   "name": "Activar SLA1",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "9207000007833153",
+   "id": "9207000007833153",
+   "name": "SLA Reclamaciones Siniestros",
+   "responseMins": 0,
+   "resolveMins": 0
+  },
+  {
+   "_id": "sla-high",
+   "id": "sla-high",
+   "name": "Alta (High)",
+   "responseMins": 30,
+   "resolveMins": 120
+  },
+  {
+   "_id": "sla-low",
+   "id": "sla-low",
+   "name": "Baja (Low)",
+   "responseMins": 240,
+   "resolveMins": 2880
+  },
+  {
+   "_id": "sla-med",
+   "id": "sla-med",
+   "name": "Media (Medium)",
+   "responseMins": 60,
+   "resolveMins": 360
+  }
+ ],
+ "groups": [
+  {
+   "_id": "9207000000208233",
+   "id": "9207000000208233",
+   "name": "CAU"
+  },
+  {
+   "_id": "9207000000208255",
+   "id": "9207000000208255",
+   "name": "CAU L2"
+  },
+  {
+   "_id": "9207000000208697",
+   "id": "9207000000208697",
+   "name": "Tecnicos de Sistemas/Servidores"
+  },
+  {
+   "_id": "9207000000292091",
+   "id": "9207000000292091",
+   "name": "IT"
+  },
+  {
+   "_id": "9207000000387257",
+   "id": "9207000000387257",
+   "name": "Tecnicos REO"
+  },
+  {
+   "_id": "9207000000392153",
+   "id": "9207000000392153",
+   "name": "Seguimiento Infoser/Diglo"
+  },
+  {
+   "_id": "9207000000690768",
+   "id": "9207000000690768",
+   "name": "Tecnicos BI"
+  },
+  {
+   "_id": "9207000000954578",
+   "id": "9207000000954578",
+   "name": "Tecnicos PD"
+  },
+  {
+   "_id": "9207000000954612",
+   "id": "9207000000954612",
+   "name": "Tecnicos NPL"
+  },
+  {
+   "_id": "9207000001900239",
+   "id": "9207000001900239",
+   "name": "Tecnicos REO - CRM"
+  },
+  {
+   "_id": "9207000001900291",
+   "id": "9207000001900291",
+   "name": "Tecnicos REO - WEB"
+  },
+  {
+   "_id": "9207000001900318",
+   "id": "9207000001900318",
+   "name": "Tecnicos REO - PRINEX"
+  },
+  {
+   "_id": "9207000001963083",
+   "id": "9207000001963083",
+   "name": "Tecnicos ITSM BI"
+  },
+  {
+   "_id": "9207000002865920",
+   "id": "9207000002865920",
+   "name": "Tecnicos Operaciones"
+  },
+  {
+   "_id": "9207000004309017",
+   "id": "9207000004309017",
+   "name": "Técnicos Informes Looker"
+  },
+  {
+   "_id": "9207000004633490",
+   "id": "9207000004633490",
+   "name": "Técnicos GCP"
+  },
+  {
+   "_id": "9207000006425538",
+   "id": "9207000006425538",
+   "name": "Tecnicos Recovery"
+  },
+  {
+   "_id": "9207000006980269",
+   "id": "9207000006980269",
+   "name": "Tecnicos ReclamacionesAlquileres"
+  },
+  {
+   "_id": "9207000006980306",
+   "id": "9207000006980306",
+   "name": "Tecnicos ReclamacionesReparaciones"
+  },
+  {
+   "_id": "9207000006980879",
+   "id": "9207000006980879",
+   "name": "Tecnicos ReclamacionesAtenciónComercial"
+  },
+  {
+   "_id": "9207000006980902",
+   "id": "9207000006980902",
+   "name": "Tecnicos ReclamacionesReservas"
+  },
+  {
+   "_id": "9207000006980925",
+   "id": "9207000006980925",
+   "name": "Tecnicos ReclamacionesOperaciones"
+  },
+  {
+   "_id": "9207000006980948",
+   "id": "9207000006980948",
+   "name": "Tecnicos ReclamacionesDeuda"
+  },
+  {
+   "_id": "9207000006982053",
+   "id": "9207000006982053",
+   "name": "Tecnicos ReclamacionesCompras"
+  },
+  {
+   "_id": "9207000006982088",
+   "id": "9207000006982088",
+   "name": "Tecnicos ReclamacionesEscritura"
+  },
+  {
+   "_id": "9207000006982117",
+   "id": "9207000006982117",
+   "name": "Tecnicos ReclamacionesOcupacionesIlegales"
+  },
+  {
+   "_id": "9207000006999282",
+   "id": "9207000006999282",
+   "name": "Tecnicos ReclamacionesProyectos"
+  },
+  {
+   "_id": "9207000008489081",
+   "id": "9207000008489081",
+   "name": "IT - Aprobadores"
+  },
+  {
+   "_id": "9207000009179564",
+   "id": "9207000009179564",
+   "name": "Tecnicos Gemini"
+  },
+  {
+   "_id": "9207000009666327",
+   "id": "9207000009666327",
+   "name": "Tecnicos ReclamacionesTHPBahamas"
+  },
+  {
+   "_id": "9207000011592193",
+   "id": "9207000011592193",
+   "name": "Tecnicos ReclamacionesVentadeCredito"
+  },
+  {
+   "_id": "g-n1",
+   "id": "g-n1",
+   "name": "Soporte N1"
+  },
+  {
+   "_id": "g-n2",
+   "id": "g-n2",
+   "name": "Soporte N2"
+  },
+  {
+   "_id": "g-red",
+   "id": "g-red",
+   "name": "Redes"
+  }
+ ],
+ "members": [
+  {
+   "_id": "74B1FOmgLaOKkrnsuXzt7QVXfub2",
+   "uid": "74B1FOmgLaOKkrnsuXzt7QVXfub2",
+   "userGroups": [
+    "IT",
+    "Usuarios Recovery"
+   ],
+   "external": false,
+   "site": "CENTRAL",
+   "role": "technician",
+   "color": "#4f46e5",
+   "groupIds": [
+    "9207000000292091",
+    "9207000004633490",
+    "9207000006980269",
+    "9207000006980879",
+    "9207000006982053",
+    "9207000006980948",
+    "9207000006982088",
+    "9207000006982117",
+    "9207000006980925",
+    "9207000006999282",
+    "9207000006980306",
+    "9207000006980902",
+    "9207000009666327",
+    "9207000011592193",
+    "9207000006425538",
+    "9207000000387257",
+    "9207000001900239",
+    "9207000001900318",
+    "9207000001900291"
+   ],
+   "name": "Elena Andrés Andrés",
+   "department": "ITO - IT",
+   "email": "eandres@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000154918",
+   "uid": "9207000000154918",
+   "name": "info",
+   "email": "info@infosernt.com",
+   "role": "technician",
+   "status": "active",
+   "external": true,
+   "color": "#7c3aed",
+   "site": "Base Site"
+  },
+  {
+   "_id": "9207000000177075",
+   "uid": "9207000000177075",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Marcos Díaz Hidalgo",
+   "email": "mdh2258j@externo.yeraservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000183138",
+   "uid": "9207000000183138",
+   "external": false,
+   "role": "technician",
+   "name": "Nuria Imedio Martínez",
+   "email": "nimedio@digloservicer.com",
+   "status": "active",
+   "groupIds": [
+    "9207000000208255",
+    "9207000000292091",
+    "9207000008489081",
+    "9207000000392153",
+    "9207000000690768",
+    "9207000004633490",
+    "9207000009179564",
+    "9207000001963083",
+    "9207000000954612",
+    "9207000000954578",
+    "9207000006425538",
+    "9207000000387257",
+    "9207000001900239",
+    "9207000001900318",
+    "9207000001900291"
+   ],
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000000186015",
+   "uid": "9207000000186015",
+   "external": true,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Sergio Velasco Ulloa",
+   "email": "svu4713t@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000193648",
+   "uid": "9207000000193648",
+   "name": "NGS OCUPACIONES ILEGALES",
+   "email": "ngs.ocupacionesilegales@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "Base Site",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000000193960",
+   "uid": "9207000000193960",
+   "name": "Rocío Crespo Tejero",
+   "email": "rcrespo@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT ANDALUCIA ORIENTAL",
+   "department": "NPL - Centro TD",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000000196012",
+   "uid": "9207000000196012",
+   "name": "Alvaro Heredia Gamero",
+   "email": "ahg6475z@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "NPL - AGENCIAS EXTERNAS_EXTERNO",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000000196044",
+   "uid": "9207000000196044",
+   "name": "Juana Moreno Orellana",
+   "email": "jmo6627b@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "NPL - AGENCIAS EXTERNAS_EXTERNO",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000000196124",
+   "uid": "9207000000196124",
+   "name": "Isabel Garcia Delgado",
+   "email": "igd6556n@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "NPL - AGENCIAS EXTERNAS_EXTERNO",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000196132",
+   "uid": "9207000000196132",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Ieltzu Irazu Otaduy",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196162",
+   "uid": "9207000000196162",
+   "name": "Sara Lozano Perez",
+   "email": "slp8224k@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "NPL - AGENCIAS EXTERNAS_EXTERNO",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000196190",
+   "uid": "9207000000196190",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Enrique Arnoso Álvarez",
+   "email": "earnoso@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196198",
+   "uid": "9207000000196198",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Maria Rosa Arocha Roson",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196206",
+   "uid": "9207000000196206",
+   "name": "Nuria María Iglesias Díaz",
+   "email": "nmiglesias@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT ANDALUCIA OCCIDENTAL",
+   "department": "NPL - Andalucía TD",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000000196214",
+   "uid": "9207000000196214",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Rafael Usero Reina",
+   "email": "rusero@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196222",
+   "uid": "9207000000196222",
+   "name": "Jose Enrique Sánchez Jiménez",
+   "email": "jesanchezj@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT ANDALUCIA ORIENTAL",
+   "department": "NPL - Singular Assets",
+   "userGroups": [
+    "Usuarios Operaciones"
+   ],
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000196246",
+   "uid": "9207000000196246",
+   "name": "María De Los Ángeles Lozano García",
+   "email": "malozano@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "ITO - Transformation & Projects",
+   "userGroups": [
+    "Usuarios Recovery",
+    "Usuarios REO"
+   ],
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000196270",
+   "uid": "9207000000196270",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "José María Gómez Perea",
+   "email": "jmgomez@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196278",
+   "uid": "9207000000196278",
+   "name": "Sara Argentina Pascual García",
+   "email": "sapascual@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "SS.JJ.- Third Party Portfolios",
+   "userGroups": [
+    "Usuarios Recovery"
+   ],
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000196286",
+   "uid": "9207000000196286",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Julio Fernández De Henestrosa Gómez",
+   "email": "jfernandez@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196320",
+   "uid": "9207000000196320",
+   "name": "Julia Esperanza Barrasa Shaw",
+   "email": "jebarrasa@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "REO - Pricing",
+   "userGroups": [
+    "Managers de departamentos"
+   ],
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000000196328",
+   "uid": "9207000000196328",
+   "name": "Esperanza Jímenez García",
+   "email": "ejimenezg@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT CATALUÑA Y BALEARES",
+   "department": "NPL - Cataluña&Levante TD",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000000196336",
+   "uid": "9207000000196336",
+   "name": "Alfonso García de Guadiana Pérez-Aloe",
+   "email": "amgarciag@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#b45309",
+   "groupIds": [
+    "9207000006980269",
+    "9207000006980879",
+    "9207000006982053",
+    "9207000006980948",
+    "9207000006982088",
+    "9207000006982117",
+    "9207000006980925",
+    "9207000006999282",
+    "9207000006980306",
+    "9207000009666327",
+    "9207000011592193"
+   ],
+   "site": "CENTRAL",
+   "department": "SS.JJ. - Onboarding & Transactions",
+   "userGroups": [
+    "Managers de departamentos"
+   ]
+  },
+  {
+   "_id": "9207000000196344",
+   "uid": "9207000000196344",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "María Alba Puertolas Peña",
+   "email": "mapuertolas@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196352",
+   "uid": "9207000000196352",
+   "name": "Marta Cubillo Ramiro",
+   "email": "mcubillo@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#15803d",
+   "groupIds": [
+    "9207000006980269",
+    "9207000006980879",
+    "9207000006982053",
+    "9207000006980948",
+    "9207000006982088",
+    "9207000006982117",
+    "9207000006980925",
+    "9207000006999282",
+    "9207000006980306",
+    "9207000006980902",
+    "9207000009666327",
+    "9207000011592193"
+   ],
+   "site": "CENTRAL",
+   "department": "SS.JJ. - Onboarding & Transactions",
+   "userGroups": [
+    "UsuariosReclamaciones"
+   ]
+  },
+  {
+   "_id": "9207000000196360",
+   "uid": "9207000000196360",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "María Jesús Gracia Escriche",
+   "email": "mjgracia@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196368",
+   "uid": "9207000000196368",
+   "name": "Javier Cabanas Morales",
+   "email": "jcabanas@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT NORTE",
+   "department": "NPL - Norte TD",
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000000196384",
+   "uid": "9207000000196384",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Manuel Pérez López",
+   "email": "maperez@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196408",
+   "uid": "9207000000196408",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Blanca Nadal Garrigos",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196416",
+   "uid": "9207000000196416",
+   "external": false,
+   "role": "requester",
+   "name": "Francisco Javier Palacios De La Torre",
+   "email": "fjpalacios@digloservicer.com",
+   "status": "active",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000000196424",
+   "uid": "9207000000196424",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Yolanda Burguillo Vázquez",
+   "email": "yburguillo@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196432",
+   "uid": "9207000000196432",
+   "external": false,
+   "role": "requester",
+   "name": "Jose Basilio Toledo Muñoz",
+   "email": "jbtoledo@digloservicer.com",
+   "status": "active",
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000000196440",
+   "uid": "9207000000196440",
+   "name": "Sandra Medina Montoya",
+   "email": "smedina@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT ANDALUCIA ORIENTAL",
+   "department": "THP",
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000000196448",
+   "uid": "9207000000196448",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Germán María Benítez Alba",
+   "email": "gbenitez@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196456",
+   "uid": "9207000000196456",
+   "name": "Alfonso Pecero Águila",
+   "email": "apecero@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT ANDALUCIA OCCIDENTAL",
+   "department": "NPL - Andalucía TD",
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000000196477",
+   "uid": "9207000000196477",
+   "name": "Stephane Boggetto",
+   "email": "sboggetto@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "groupIds": [
+    "9207000006980879",
+    "9207000006982053",
+    "9207000006980902"
+   ],
+   "site": "CENTRAL",
+   "department": "REO - Dirección Comercial",
+   "userGroups": [
+    "Managers de departamentos"
+   ],
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000196485",
+   "uid": "9207000000196485",
+   "name": "María Victoria Paredes Liceras",
+   "email": "vparedes@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT ANDALUCIA ORIENTAL",
+   "department": "NPL - Centralizado TD",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000000196503",
+   "uid": "9207000000196503",
+   "name": "María Trinidad Martín Sonseca Lopez",
+   "email": "mtmartin@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "REO - Control&Operations",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000000196527",
+   "uid": "9207000000196527",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Nuria Aparicio Bueno",
+   "email": "naparicio@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000196543",
+   "uid": "9207000000196543",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "María Nuria Gómez Amo",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197127",
+   "uid": "9207000000197127",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Alvaro Vaquero Polan",
+   "email": "avp2629n@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197145",
+   "uid": "9207000000197145",
+   "name": "Álvaro Sánchez Carril",
+   "email": "asanchezc@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "SS.JJ. - NPLs Litigation",
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000197161",
+   "uid": "9207000000197161",
+   "name": "Sandra María López Ruano",
+   "email": "slopez@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "groupIds": [
+    "9207000006980925"
+   ],
+   "site": "CENTRAL",
+   "department": "ITO - Operations",
+   "userGroups": [
+    "Usuarios REO"
+   ],
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000000197187",
+   "uid": "9207000000197187",
+   "name": "Estrella María López Díaz",
+   "email": "emlopez@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "NPL - SGM",
+   "userGroups": [
+    "Managers de departamentos"
+   ],
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000000197197",
+   "uid": "9207000000197197",
+   "name": "Maria Cristina Segura Fernandez De Vega",
+   "email": "mcsegura@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT CENTRO",
+   "department": "NPL - Centro TD",
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000197213",
+   "uid": "9207000000197213",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Alejandro Grundell Arvilla",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197229",
+   "uid": "9207000000197229",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Alexandra Muñoz Burgueño",
+   "email": "amunozb@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197237",
+   "uid": "9207000000197237",
+   "external": false,
+   "role": "technician",
+   "color": "#0891b2",
+   "groupIds": [
+    "9207000000292091",
+    "9207000000690768",
+    "9207000004633490",
+    "9207000000387257",
+    "9207000001900239",
+    "9207000001900318",
+    "9207000001900291"
+   ],
+   "name": "Javier Quesada Muñoz",
+   "email": "jquesadam@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197245",
+   "uid": "9207000000197245",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Nieves Rodriguez Rancaño",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197253",
+   "uid": "9207000000197253",
+   "name": "Paula Gil Rodríguez",
+   "email": "pgil@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "ITO - Operations",
+   "userGroups": [
+    "Managers de departamentos",
+    "Usuarios Operaciones",
+    "Usuarios PD"
+   ],
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000000197261",
+   "uid": "9207000000197261",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Miguel Castro Navarro",
+   "email": "mcnavarro@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197269",
+   "uid": "9207000000197269",
+   "name": "Virginia Torralba García Rama",
+   "email": "vtorralba@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "groupIds": [
+    "9207000000690768",
+    "9207000009179564",
+    "9207000001963083"
+   ],
+   "site": "CENTRAL",
+   "department": "ITO - Data Office",
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000000197367",
+   "uid": "9207000000197367",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Rafael Lacalle Sigüenza",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197385",
+   "uid": "9207000000197385",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Barbara De Los Reyes Tejada",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197403",
+   "uid": "9207000000197403",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Nuria Campo Vaquero",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197447",
+   "uid": "9207000000197447",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Sabela Pavón Guede",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197463",
+   "uid": "9207000000197463",
+   "name": "María José Ordoñez García",
+   "email": "mjordonez@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "REO - Centro TD",
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000000197471",
+   "uid": "9207000000197471",
+   "name": "Beatríz Isabel Moreno Sardá",
+   "email": "bimoreno@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#be185d",
+   "groupIds": [
+    "9207000006980269",
+    "9207000006980879",
+    "9207000006982053",
+    "9207000006980948",
+    "9207000006982088",
+    "9207000006982117",
+    "9207000006980925",
+    "9207000006999282",
+    "9207000006980306",
+    "9207000006980902",
+    "9207000009666327",
+    "9207000011592193"
+   ],
+   "site": "CENTRAL",
+   "department": "SS.JJ. - Onboarding & Transactions",
+   "userGroups": [
+    "UsuariosReclamaciones"
+   ]
+  },
+  {
+   "_id": "9207000000197479",
+   "uid": "9207000000197479",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Juan Luis Luna Medina",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197561",
+   "uid": "9207000000197561",
+   "external": true,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Raul De La Iglesia Albareda",
+   "email": "ria4883k@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197569",
+   "uid": "9207000000197569",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Ángela Pascual Pérez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197577",
+   "uid": "9207000000197577",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Celia García Donday",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197601",
+   "uid": "9207000000197601",
+   "name": "Blas Marcolongo",
+   "email": "bmarcolongo@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "NPL - Analysis & Control",
+   "userGroups": [
+    "Managers de departamentos"
+   ],
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000000197609",
+   "uid": "9207000000197609",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Miguel Ángel Fuentes Moncayo",
+   "email": "mafuentes@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197617",
+   "uid": "9207000000197617",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Jose Alberto Lardies Morer",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197625",
+   "uid": "9207000000197625",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Jose Oscar Regueiro Seren",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197633",
+   "uid": "9207000000197633",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Francisco Jose Cid Quintana",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197649",
+   "uid": "9207000000197649",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Daniel Mercado Izquierdo",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197677",
+   "uid": "9207000000197677",
+   "external": false,
+   "role": "requester",
+   "name": "Antonio Herrera Márquez",
+   "email": "aherrera@digloservicer.com",
+   "status": "active",
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000197685",
+   "uid": "9207000000197685",
+   "name": "Javier Morilla Morales",
+   "email": "jmorilla@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#15803d",
+   "groupIds": [
+    "9207000000690768",
+    "9207000009179564",
+    "9207000001963083"
+   ],
+   "site": "CENTRAL",
+   "department": "ITO Area",
+   "userGroups": [
+    "IT",
+    "Managers de departamentos",
+    "Vips"
+   ]
+  },
+  {
+   "_id": "9207000000197693",
+   "uid": "9207000000197693",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Miriam González González",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197709",
+   "uid": "9207000000197709",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Sara Pérez Pérez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197717",
+   "uid": "9207000000197717",
+   "external": true,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Jose Vazquez Charlo",
+   "email": "jvc7751j@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197733",
+   "uid": "9207000000197733",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Javier Rios Martin",
+   "email": "jrm7737b@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197823",
+   "uid": "9207000000197823",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Rosa Maria Martinez Moreno",
+   "email": "rmmm668l@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197839",
+   "uid": "9207000000197839",
+   "external": true,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Jessica Toledo Sanchez",
+   "email": "jts6242c@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197865",
+   "uid": "9207000000197865",
+   "external": true,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Amparo Samper Segovia",
+   "email": "ass4436d@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197873",
+   "uid": "9207000000197873",
+   "name": "María Eulalia Sánchez Martínez",
+   "email": "mesanchezm@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "REO - MARKETING",
+   "userGroups": [
+    "Managers de departamentos",
+    "Usuarios REO"
+   ],
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000000197907",
+   "uid": "9207000000197907",
+   "external": true,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Fernando Sanchez Martin",
+   "email": "fsm2999e@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197915",
+   "uid": "9207000000197915",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Inmaculada Oliva Carretero",
+   "email": "ioliva@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197933",
+   "uid": "9207000000197933",
+   "name": "Maria Isabel Juan Gonzalez",
+   "email": "mijg685h@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "ITO - OPERACIONES_EXTERNO",
+   "userGroups": [
+    "Usuarios Recovery"
+   ],
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000000197941",
+   "uid": "9207000000197941",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Antonio González De Mendoza Villace",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197949",
+   "uid": "9207000000197949",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Javier Román Palero",
+   "email": "jroman@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197957",
+   "uid": "9207000000197957",
+   "name": "Susana Manso Expósito",
+   "email": "smanso@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "ITO - Operations",
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000000197965",
+   "uid": "9207000000197965",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Javier Salas Ramírez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197981",
+   "uid": "9207000000197981",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Juan Jose Gonzalez De Marco",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197989",
+   "uid": "9207000000197989",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Juan Rodríguez Ortega",
+   "email": "jrodriguezo@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000197997",
+   "uid": "9207000000197997",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Ngs canal API",
+   "email": "ngs.canalapi@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198013",
+   "uid": "9207000000198013",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Javier Esteban Arribas Rosendo",
+   "email": "jearribas@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198042",
+   "uid": "9207000000198042",
+   "external": false,
+   "role": "technician",
+   "name": "Óscar Igualada Aguilar",
+   "email": "oigualada@digloservicer.com",
+   "status": "active",
+   "groupIds": [
+    "9207000000292091",
+    "9207000000690768",
+    "9207000004633490",
+    "9207000000954612",
+    "9207000000954578",
+    "9207000006425538",
+    "9207000000387257",
+    "9207000001900239"
+   ],
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000000198050",
+   "uid": "9207000000198050",
+   "name": "María Pilar García Santamaría",
+   "email": "mpgarcia@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "ITO - Operations",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000000198065",
+   "uid": "9207000000198065",
+   "name": "Elena Fernández De Velasco Pérez",
+   "email": "efernandez@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#0f766e",
+   "groupIds": [
+    "9207000006980306"
+   ],
+   "site": "CENTRAL",
+   "department": "REO - Technical",
+   "userGroups": [
+    "Managers de departamentos"
+   ]
+  },
+  {
+   "_id": "9207000000198083",
+   "uid": "9207000000198083",
+   "name": "Fernando Marín Abasolo",
+   "email": "fmarin@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT CATALUÑA Y BALEARES",
+   "department": "NPL - Cataluña&Levante TD",
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000000198091",
+   "uid": "9207000000198091",
+   "name": "Ignacio Romero Dorado",
+   "email": "iromero@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "SS.JJ. - NPLs Litigation & REOs Adequacy",
+   "userGroups": [
+    "Managers de departamentos"
+   ],
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000000198141",
+   "uid": "9207000000198141",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Maria Isabel Gonzalez Jimenez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198149",
+   "uid": "9207000000198149",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Alvaro Asoroy Gonzalez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198175",
+   "uid": "9207000000198175",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Blanca Costero Morales",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198203",
+   "uid": "9207000000198203",
+   "external": true,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Marta Sanchez Correa",
+   "email": "msc1614h@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198315",
+   "uid": "9207000000198315",
+   "name": "Eduardo Cruz Diaz",
+   "email": "ecd1771k@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "NPL - AGENCIAS EXTERNAS_EXTERNO",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000198323",
+   "uid": "9207000000198323",
+   "name": "Antonio Garrido",
+   "email": "agarrido@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT LEVANTE",
+   "department": "NPL - Cataluña&Levante TD",
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000198331",
+   "uid": "9207000000198331",
+   "name": "Oscar Puchades Pérez",
+   "email": "opuchades@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT LEVANTE",
+   "department": "NPL - Cataluña&Levante TD",
+   "userGroups": [
+    "Managers de departamentos"
+   ],
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000000198339",
+   "uid": "9207000000198339",
+   "name": "Laura María Portugal Cantera",
+   "email": "lportugal@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "SS.JJ. - AML",
+   "userGroups": [
+    "Managers de departamentos"
+   ],
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000198347",
+   "uid": "9207000000198347",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Jaume Vidal Plaza",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198355",
+   "uid": "9207000000198355",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Raul Dominguez Aguinaga",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198371",
+   "uid": "9207000000198371",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Carolina Campos Rodríguez",
+   "email": "ccamposr@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198379",
+   "uid": "9207000000198379",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Patricia Nieto García",
+   "email": "pnieto@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198387",
+   "uid": "9207000000198387",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Antonio Alba García",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198415",
+   "uid": "9207000000198415",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Silvia Flores Molina",
+   "email": "sflores@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198423",
+   "uid": "9207000000198423",
+   "name": "Ignacio José Micó Faus",
+   "email": "ijmico@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "SS.JJ. - REOs Adequacy",
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000198431",
+   "uid": "9207000000198431",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Jose Cubells Puchades",
+   "email": "jcubells@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198526",
+   "uid": "9207000000198526",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Rocio Rosendo Vazquez",
+   "email": "rrv5108s@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198560",
+   "uid": "9207000000198560",
+   "name": "Antonio Esquinas Rodríguez",
+   "email": "aer0844l@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "CENTRAL",
+   "department": "NPL - Centralizado TD",
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000000198596",
+   "uid": "9207000000198596",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Paloma Martínez Montalvo",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198624",
+   "uid": "9207000000198624",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Laura Sanchez Lopez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198660",
+   "uid": "9207000000198660",
+   "name": "Laura Ávila López",
+   "email": "lmavila@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#0f766e",
+   "groupIds": [
+    "9207000011592193"
+   ],
+   "site": "CENTRAL",
+   "department": "NPL - VI",
+   "userGroups": [
+    "Managers de departamentos"
+   ]
+  },
+  {
+   "_id": "9207000000198730",
+   "uid": "9207000000198730",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Miguel Angel Marco Cabañas",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000198738",
+   "uid": "9207000000198738",
+   "name": "Gonzalo Mato Barreiro",
+   "email": "gmb1161p@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "NPL - RED_EXTERNO",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery",
+    "Usuarios REO"
+   ],
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000000198756",
+   "uid": "9207000000198756",
+   "name": "Eduardo Rubio Colilla",
+   "email": "erc9783p@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "DT LEVANTE",
+   "department": "NPL - Cataluña&Levante TD",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000000198764",
+   "uid": "9207000000198764",
+   "external": false,
+   "role": "requester",
+   "name": "Esther Villar Calabuig",
+   "email": "evillar@digloservicer.com",
+   "status": "active",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000000198774",
+   "uid": "9207000000198774",
+   "external": true,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Santiago Baños Loureiro",
+   "email": "sbl1139x@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199346",
+   "uid": "9207000000199346",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Maria Victoria Barbeito Barbeito",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199364",
+   "uid": "9207000000199364",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Ángel Francisco De Miguel Dueñas",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199372",
+   "uid": "9207000000199372",
+   "name": "David Álvarez Fernandez Amaro",
+   "email": "dalvarezf@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#15803d",
+   "groupIds": [
+    "9207000006982117"
+   ],
+   "site": "CENTRAL",
+   "department": "SS.JJ. - REOs Adequacy",
+   "userGroups": [
+    "Usuarios Recovery"
+   ]
+  },
+  {
+   "_id": "9207000000199380",
+   "uid": "9207000000199380",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Eva Navarrete Macias",
+   "email": "enm4280j@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199388",
+   "uid": "9207000000199388",
+   "name": "Rosa María Rosales López",
+   "email": "rmrosales@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "REO - Control&Operations",
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000199406",
+   "uid": "9207000000199406",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Ana Silva Ruiz del Olmo",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199414",
+   "uid": "9207000000199414",
+   "external": false,
+   "role": "requester",
+   "name": "Fidel Martí Arrufat",
+   "email": "fmartia@digloservicer.com",
+   "status": "active",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000000199438",
+   "uid": "9207000000199438",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "David Vega Santos",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199446",
+   "uid": "9207000000199446",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Denielle Porto Rodriguez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199454",
+   "uid": "9207000000199454",
+   "name": "Pedro Rosillo Cortijo",
+   "email": "prosillo@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT CENTRO",
+   "department": "THP",
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000199462",
+   "uid": "9207000000199462",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Salvador Marqués Ramírez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199470",
+   "uid": "9207000000199470",
+   "name": "Emma Perulero Pardo Balmonte",
+   "email": "eperulero@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#b45309",
+   "groupIds": [
+    "9207000000690768",
+    "9207000009179564",
+    "9207000001963083"
+   ],
+   "site": "CENTRAL",
+   "department": "ITO - Data Office"
+  },
+  {
+   "_id": "9207000000199478",
+   "uid": "9207000000199478",
+   "name": "María Eugenia Blanco Barahona",
+   "email": "meblanco@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "REO - Closing",
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000000199516",
+   "uid": "9207000000199516",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Consolacion Lopez Moreno",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199526",
+   "uid": "9207000000199526",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Olga Mejias Vazquez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199534",
+   "uid": "9207000000199534",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Almudena Naranjo Orellana",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199542",
+   "uid": "9207000000199542",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Daniel García De La Cruz",
+   "email": "dgarciac@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199552",
+   "uid": "9207000000199552",
+   "name": "Marina Morilla Mancebo",
+   "email": "mmm0320s@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "ITO - OPERACIONES_EXTERNO",
+   "userGroups": [
+    "Usuarios Recovery"
+   ],
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000000199562",
+   "uid": "9207000000199562",
+   "external": true,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Isabel Maria Paya Sanchez",
+   "email": "imps845p@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199570",
+   "uid": "9207000000199570",
+   "name": "Inmaculada Llamas Macias",
+   "email": "ilm7124x@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "ITO - OPERACIONES_EXTERNO",
+   "userGroups": [
+    "Usuarios Recovery"
+   ],
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000000199578",
+   "uid": "9207000000199578",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Denisse Matamoros Vinces",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199596",
+   "uid": "9207000000199596",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Marcos Díaz (ADM)",
+   "email": "admmdh2258j@externo.yeraservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199604",
+   "uid": "9207000000199604",
+   "name": "Elena González Molero",
+   "email": "megonzalez@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT CENTRO",
+   "department": "NPL - Centro TD",
+   "userGroups": [
+    "Managers de departamentos"
+   ],
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000000199612",
+   "uid": "9207000000199612",
+   "external": true,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Vicente Javier Navarro (ADM)",
+   "email": "admvjnh393t@yeraservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199620",
+   "uid": "9207000000199620",
+   "name": "Beatríz Cabado Domingo",
+   "email": "bcabado@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#0369a1",
+   "site": "CENTRAL",
+   "department": "ITO - IT",
+   "userGroups": [
+    "IT",
+    "Usuarios Recovery"
+   ],
+   "groupIds": [
+    "9207000000292091",
+    "9207000000690768",
+    "9207000004633490",
+    "9207000009179564",
+    "9207000000954612"
+   ]
+  },
+  {
+   "_id": "9207000000199636",
+   "uid": "9207000000199636",
+   "name": "Jose María Rodríguez Ganfornina",
+   "email": "jmrodriguez@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "DT ANDALUCIA ORIENTAL",
+   "department": "NPL - Andalucía TD",
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000000199644",
+   "uid": "9207000000199644",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Javier Salvador Salvador",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199654",
+   "uid": "9207000000199654",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Antonio Fernandez Martin",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199704",
+   "uid": "9207000000199704",
+   "name": "Blas Simón González",
+   "email": "bsimon@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#7c3aed",
+   "groupIds": [
+    "9207000006980879",
+    "9207000006980902"
+   ],
+   "site": "CENTRAL",
+   "department": "REO - Control&Operations",
+   "userGroups": [
+    "Usuarios REO"
+   ]
+  },
+  {
+   "_id": "9207000000199712",
+   "uid": "9207000000199712",
+   "external": false,
+   "role": "requester",
+   "name": "Ignacio Del Hoyo De Andrés",
+   "email": "ihoyo@digloservicer.com",
+   "status": "active",
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000199720",
+   "uid": "9207000000199720",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Maria Carrasco Ortega",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199728",
+   "uid": "9207000000199728",
+   "external": true,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Sergio Velasco (ADM)",
+   "email": "admsvu4713t@externo.yeraservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199738",
+   "uid": "9207000000199738",
+   "external": true,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Silvia Fernandez Delgado-Corredor",
+   "email": "sfdc143b@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199768",
+   "uid": "9207000000199768",
+   "external": true,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Lucia Moyano Olmedo",
+   "email": "lmo6190c@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199786",
+   "uid": "9207000000199786",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Lara Cordoba Silva",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199836",
+   "uid": "9207000000199836",
+   "external": true,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Ruben Lanza Vera",
+   "email": "rlv0535s@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199860",
+   "uid": "9207000000199860",
+   "external": true,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Santiago Garcia Gamez",
+   "email": "sgg9359w@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199876",
+   "uid": "9207000000199876",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Marta Garcia Drake Garcia Barberena",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199884",
+   "uid": "9207000000199884",
+   "name": "Virginia Nef Murillo",
+   "email": "vnef@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "groupIds": [
+    "9207000006980269",
+    "9207000006980879",
+    "9207000006982053",
+    "9207000006980948",
+    "9207000006982088",
+    "9207000006982117",
+    "9207000006980925",
+    "9207000006999282",
+    "9207000006980306",
+    "9207000006980902",
+    "9207000009666327",
+    "9207000011592193"
+   ],
+   "site": "CENTRAL",
+   "department": "ITO - Transformation & Projects",
+   "userGroups": [
+    "Managers de departamentos",
+    "Usuarios Recovery",
+    "Usuarios REO"
+   ],
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000000199892",
+   "uid": "9207000000199892",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Belén Ramos Tordesillas",
+   "email": "bramos@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000199900",
+   "uid": "9207000000199900",
+   "external": true,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Alfredo Pastor Gomez",
+   "email": "apg0372x@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000229012",
+   "uid": "9207000000229012",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Verónica Pérez Balirac",
+   "email": "vperez@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000229084",
+   "uid": "9207000000229084",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Jose Antonio Vicente San Ceferino",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000230041",
+   "uid": "9207000000230041",
+   "name": "Anastasia Rojo González",
+   "email": "arojo@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "SS.JJ. - AML",
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000230285",
+   "uid": "9207000000230285",
+   "name": "Patricia Gladymar Saá Mora",
+   "email": "pgladymar@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "SS.JJ. - AML",
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000230367",
+   "uid": "9207000000230367",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Vanesa Mir Manzano",
+   "email": "vmir@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000230416",
+   "uid": "9207000000230416",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Sergio Pozo Martin (Adm)",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000230426",
+   "uid": "9207000000230426",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Sergio Pozo Martin",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000230442",
+   "uid": "9207000000230442",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Gerardo Antonio Fernández Céspedes",
+   "email": "gafernandez@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000230458",
+   "uid": "9207000000230458",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Rocio Diaz Garzon",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000235033",
+   "uid": "9207000000235033",
+   "name": "David Durán Álvarez",
+   "email": "",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000000239443",
+   "uid": "9207000000239443",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Anxela Folgar Toimil",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000253644",
+   "uid": "9207000000253644",
+   "name": "Marcos Díaz Hidalgo",
+   "email": "mdh2258j@externo.digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": true,
+   "color": "#0369a1",
+   "groupIds": [
+    "9207000000208255",
+    "9207000000392153"
+   ],
+   "site": "PROVEEDOR",
+   "department": "ITO - IT_EXTERNO",
+   "userGroups": [
+    "CAU",
+    "Infoser",
+    "Usuarios Recovery"
+   ]
+  },
+  {
+   "_id": "9207000000270189",
+   "uid": "9207000000270189",
+   "name": "David Lozano Puerto",
+   "email": "dlozano@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "REO - MARKETING",
+   "userGroups": [
+    "Usuarios REO",
+    "Usuarios Responsable"
+   ],
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000000270197",
+   "uid": "9207000000270197",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Aitor García De Viedma Rol",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000320747",
+   "uid": "9207000000320747",
+   "external": true,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Ana Maria Espejo Duran",
+   "email": "amed0473n@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000337390",
+   "uid": "9207000000337390",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "VIRGINIA TORRALBA GARCIA-RAMA",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000340654",
+   "uid": "9207000000340654",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Marina Antonia Gonzalez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000380179",
+   "uid": "9207000000380179",
+   "external": false,
+   "role": "requester",
+   "name": "Nuria Lázaro Sola",
+   "email": "nlazaro@digloservicer.com",
+   "status": "active",
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000000380195",
+   "uid": "9207000000380195",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Eva Coral Sanchís Checa",
+   "email": "echeca@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000398782",
+   "uid": "9207000000398782",
+   "external": true,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Diana Martinez Gonzalez",
+   "email": "dmg1076n@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000415417",
+   "uid": "9207000000415417",
+   "external": false,
+   "role": "technician",
+   "color": "#0891b2",
+   "groupIds": [
+    "9207000000292091",
+    "9207000000690768",
+    "9207000001963083"
+   ],
+   "name": "David Durán Álvarez",
+   "email": "dduran@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000415459",
+   "uid": "9207000000415459",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "VIRGINIA NEF",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000415537",
+   "uid": "9207000000415537",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "MARIA ELENA GONZALEZ",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000415685",
+   "uid": "9207000000415685",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "LAURA PORTUGAL",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000415829",
+   "uid": "9207000000415829",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "OSCAR IGUALADA",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000415857",
+   "uid": "9207000000415857",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "JUAN JOSE CASADO",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000418285",
+   "uid": "9207000000418285",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "GERARDO ANTONIO",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000418355",
+   "uid": "9207000000418355",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "ENRIQUE ARNOSO ",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000418597",
+   "uid": "9207000000418597",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "JAVIER MORILLA",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000462357",
+   "uid": "9207000000462357",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Angel Luque Casanas",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000489399",
+   "uid": "9207000000489399",
+   "external": true,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Juan Jose Casado (ADM)",
+   "email": "admjjcf277p@yeraservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000501371",
+   "uid": "9207000000501371",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Minia Naya Varela",
+   "email": "mnaya@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000575145",
+   "uid": "9207000000575145",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Juan José Casado Fernández",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000671136",
+   "uid": "9207000000671136",
+   "name": "Elena Andrés Andrés",
+   "email": "eandres@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#4f46e5",
+   "groupIds": [
+    "9207000000292091",
+    "9207000004633490",
+    "9207000006980269",
+    "9207000006980879",
+    "9207000006982053",
+    "9207000006980948",
+    "9207000006982088",
+    "9207000006982117",
+    "9207000006980925",
+    "9207000006999282",
+    "9207000006980306",
+    "9207000006980902",
+    "9207000009666327",
+    "9207000011592193",
+    "9207000006425538",
+    "9207000000387257",
+    "9207000001900239",
+    "9207000001900318",
+    "9207000001900291"
+   ],
+   "site": "CENTRAL",
+   "department": "ITO - IT",
+   "userGroups": [
+    "IT",
+    "Usuarios Recovery"
+   ]
+  },
+  {
+   "_id": "9207000000706464",
+   "uid": "9207000000706464",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Ana Belén Blázquez Escosa",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000716270",
+   "uid": "9207000000716270",
+   "name": "María Del Carmen Corral Aumente",
+   "email": "",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000000841879",
+   "uid": "9207000000841879",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Sara San Deogracias Martin",
+   "email": "ssdm259a@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000898134",
+   "uid": "9207000000898134",
+   "external": true,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Carmen Rodriguez Menendez",
+   "email": "crm2378a@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000000905350",
+   "uid": "9207000000905350",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Manuel Llano Chavero",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001129904",
+   "uid": "9207000001129904",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Melinda-Kinga Kerekes",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001255140",
+   "uid": "9207000001255140",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Martina Gavino Vibora",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001310051",
+   "uid": "9207000001310051",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Jose Luis Molina Ruiz",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001357320",
+   "uid": "9207000001357320",
+   "name": "Fernando Ruíz Gutierrez",
+   "email": "frg8448r@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "CENTRAL",
+   "department": "REO - Technical",
+   "userGroups": [
+    "Usuarios Responsable"
+   ],
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000001374869",
+   "uid": "9207000001374869",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Rocio Aviles Orgaz",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001374882",
+   "uid": "9207000001374882",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Cristina Perez Lobo",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001466091",
+   "uid": "9207000001466091",
+   "external": true,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Oscar Raul Jove Blanco",
+   "email": "ojb8542e@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001513820",
+   "uid": "9207000001513820",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Antonio Jesus Mantis Benitez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001720021",
+   "uid": "9207000001720021",
+   "external": true,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Elena Fernández Utrera",
+   "email": "elena.fernandez@bdo.es",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001762249",
+   "uid": "9207000001762249",
+   "external": true,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "pramos",
+   "email": "pramos@mbravoabogados.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001838151",
+   "uid": "9207000001838151",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Diglo support Emergya",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001892140",
+   "uid": "9207000001892140",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Violeta De Oliveira Bosques",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000001997483",
+   "uid": "9207000001997483",
+   "name": "Ángel Boyano De Paz",
+   "email": "aboyano@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "NPL - Centralizado TD",
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000002197454",
+   "uid": "9207000002197454",
+   "external": true,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Andreia Cristina da Cunha Rodrigues",
+   "email": "acrodrigues@omegacrmconsulting.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002332279",
+   "uid": "9207000002332279",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Francisco Javier Gonzalez Fuertes",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002406295",
+   "uid": "9207000002406295",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Ignacio Jose Palmero Martin",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002464558",
+   "uid": "9207000002464558",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Javier Espina Salazar (ADM)",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002464570",
+   "uid": "9207000002464570",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Javier Espina Salazar",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002466005",
+   "uid": "9207000002466005",
+   "name": "Rocío Rosendo Vázquez",
+   "email": "rrosendo@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "NPL - SGM",
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000002629035",
+   "uid": "9207000002629035",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Upgrade SCCM",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002663093",
+   "uid": "9207000002663093",
+   "name": "Fabián García Tijero",
+   "email": "fgt5085x@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#0369a1",
+   "groupIds": [
+    "9207000006980948"
+   ],
+   "site": "CENTRAL",
+   "department": "NPL - Analysis & Control"
+  },
+  {
+   "_id": "9207000002663105",
+   "uid": "9207000002663105",
+   "external": false,
+   "role": "requester",
+   "name": "Ángela Mª Cadena Lozano",
+   "email": "amcadena@digloservicer.com",
+   "status": "active",
+   "site": "DT CENTRO",
+   "department": "NPL - Centro TD",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000002679071",
+   "uid": "9207000002679071",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "1",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002739215",
+   "uid": "9207000002739215",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Victoria Rodriguez Sanchez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002817085",
+   "uid": "9207000002817085",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Daniel Navarro Hernandez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002863236",
+   "uid": "9207000002863236",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Carmen San Miguel Beltran",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002863248",
+   "uid": "9207000002863248",
+   "name": "Eleuterio Luceno Cabrera",
+   "email": "elc8235c@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "NPL - AGENCIAS EXTERNAS_EXTERNO",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000002863260",
+   "uid": "9207000002863260",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Keren Gomez Leon",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002863272",
+   "uid": "9207000002863272",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Maria del Carmen Guareño Gomez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002863284",
+   "uid": "9207000002863284",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Raquel Ramos Lopez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002863296",
+   "uid": "9207000002863296",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Rosa Maria Fuentes Otero",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002865815",
+   "uid": "9207000002865815",
+   "name": "Operaciones-ITSM",
+   "email": "operaciones-itsm@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "groupIds": [
+    "9207000002865920"
+   ],
+   "site": "Base Site",
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000002890598",
+   "uid": "9207000002890598",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Ángel Rubio Burgos",
+   "email": "arubio@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002894400",
+   "uid": "9207000002894400",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Carlos José Poyán Alonso",
+   "email": "cjpoyan@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002927447",
+   "uid": "9207000002927447",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Franco Bruno Arias",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002982217",
+   "uid": "9207000002982217",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Antonio Cano Muñoz",
+   "email": "acm0426y@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000002983354",
+   "uid": "9207000002983354",
+   "name": "Miguel Ángel Marín Guzmán",
+   "email": "mamg819s@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "NPL - VI",
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000003030101",
+   "uid": "9207000003030101",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Pablo Reigadas De La Vega",
+   "email": "preigadas@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003030113",
+   "uid": "9207000003030113",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Alberto Mateos Gómez",
+   "email": "amateos@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003030217",
+   "uid": "9207000003030217",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Oliver Juan Cavaco Benítez",
+   "email": "ocavaco@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003160395",
+   "uid": "9207000003160395",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Mariana Marin Piedad",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003160407",
+   "uid": "9207000003160407",
+   "external": true,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Diego Toribio Adame",
+   "email": "dta5612p@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003343495",
+   "uid": "9207000003343495",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Javier Sánchez Bernabé",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003435311",
+   "uid": "9207000003435311",
+   "name": "Laura Porras Tirado",
+   "email": "lpt6193c@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "PROVEEDOR",
+   "department": "ITO - OPERACIONES_EXTERNO",
+   "userGroups": [
+    "Usuarios Recovery"
+   ],
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000003453152",
+   "uid": "9207000003453152",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Jose Antonio Alburjas Hidalgo",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003456339",
+   "uid": "9207000003456339",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Alvaro Noria Ruiz",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003563821",
+   "uid": "9207000003563821",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Jose Manuel Ortuno Lorente",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003749099",
+   "uid": "9207000003749099",
+   "external": true,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Carlota Cores Benito",
+   "email": "ccb7655k@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003904399",
+   "uid": "9207000003904399",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Raul Delgado Hernández",
+   "email": "rdelgado@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003904429",
+   "uid": "9207000003904429",
+   "external": true,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Samuel Fernandez Novoa",
+   "email": "sfn1164j@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003904802",
+   "uid": "9207000003904802",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Gabriela Beltrán Villalba",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003911319",
+   "uid": "9207000003911319",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Adrián Ortuño Ruiz",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003916687",
+   "uid": "9207000003916687",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Lorena Fernandez Vidal",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003916696",
+   "uid": "9207000003916696",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "María de la Paz Iturrieta",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000003988125",
+   "uid": "9207000003988125",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Antonio Iraberri Montero",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004022145",
+   "uid": "9207000004022145",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Jesús Ortiz López",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004034695",
+   "uid": "9207000004034695",
+   "name": "Pablo Fernandez de la Vega",
+   "email": "pfernandez@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "NPL - Singular Assets",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000004034719",
+   "uid": "9207000004034719",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Maria Lourdes Goitia Vázquez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004054387",
+   "uid": "9207000004054387",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Marcos Vinicius Bulnes Alcántara",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004054395",
+   "uid": "9207000004054395",
+   "external": false,
+   "role": "requester",
+   "name": "Matilde Valle Marcos",
+   "email": "mvalle@digloservicer.com",
+   "status": "active",
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000004144041",
+   "uid": "9207000004144041",
+   "name": "David Lozano",
+   "email": "davidlozano@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "Base Site",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000004144073",
+   "uid": "9207000004144073",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Javier Salvador",
+   "email": "javiersalvador@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004144101",
+   "uid": "9207000004144101",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Julia Conde Aguilera",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004162122",
+   "uid": "9207000004162122",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Alexander Fernandez Farfan",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004179229",
+   "uid": "9207000004179229",
+   "name": "Ignacio Alcor Fernández",
+   "email": "ialcor@digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": false,
+   "color": "#be185d",
+   "groupIds": [
+    "9207000009666327",
+    "9207000011592193"
+   ],
+   "site": "CENTRAL",
+   "department": "THP"
+  },
+  {
+   "_id": "9207000004242619",
+   "uid": "9207000004242619",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Javier Alvarez Alonso",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004449147",
+   "uid": "9207000004449147",
+   "name": "Victor Perez Vaquerizo",
+   "email": "vperezv@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "THP",
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000004541363",
+   "uid": "9207000004541363",
+   "name": "Daniel Monforte Perez",
+   "email": "dmonforte@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "NPL - Centralizado TD",
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000004608262",
+   "uid": "9207000004608262",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Ángel Antonio Hidalgo Ponce",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004615108",
+   "uid": "9207000004615108",
+   "name": "Ana Requero Bravo",
+   "email": "arb1111p@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "CENTRAL",
+   "department": "NPL - CONTROL DE GESTIÓN EXTERNO",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000004615115",
+   "uid": "9207000004615115",
+   "name": "Patricia Esparza Herraiz",
+   "email": "pesparza@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "THP",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000004766283",
+   "uid": "9207000004766283",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Vicente Tomas Ana",
+   "email": "vtomas@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004871083",
+   "uid": "9207000004871083",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Luis Alfonso Romo Pérez",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004899071",
+   "uid": "9207000004899071",
+   "name": "Manuel Mayo",
+   "email": "manuel.mayo@devoteam.com",
+   "role": "technician",
+   "status": "active",
+   "external": true,
+   "color": "#b45309",
+   "groupIds": [
+    "9207000006980879",
+    "9207000009666327",
+    "9207000000387257",
+    "9207000001900291"
+   ],
+   "site": "Base Site",
+   "userGroups": [
+    "UsuariosReclamaciones"
+   ]
+  },
+  {
+   "_id": "9207000004923095",
+   "uid": "9207000004923095",
+   "name": "Jonatan Agudelo M",
+   "email": "jam1721z@externo.digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": true,
+   "color": "#4f46e5",
+   "groupIds": [
+    "9207000000208233",
+    "9207000000392153"
+   ],
+   "site": "CENTRAL_EXTERNO",
+   "department": "ITO - IT_EXTERNO",
+   "userGroups": [
+    "CAU",
+    "Usuarios Recovery"
+   ]
+  },
+  {
+   "_id": "9207000004945209",
+   "uid": "9207000004945209",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Edgar Villa Puente",
+   "email": "evilla@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000004945215",
+   "uid": "9207000004945215",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Maria Rosa de los Santos Alvarez",
+   "email": "mrsantos@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005005153",
+   "uid": "9207000005005153",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Jenniffer Johanna Colina Cabanillas",
+   "email": "jjcolina@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005005504",
+   "uid": "9207000005005504",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Prudencio Santaeularia Bosser",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005143087",
+   "uid": "9207000005143087",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Alejandro Cochón López",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005241077",
+   "uid": "9207000005241077",
+   "name": "Franca Vitale Cova",
+   "email": "",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000005325035",
+   "uid": "9207000005325035",
+   "name": "Gonzalo Gainza Moreno",
+   "email": "",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000005407017",
+   "uid": "9207000005407017",
+   "name": "Jose Ignacio Ortega Gonzalez-Gallego",
+   "email": "jortega@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "NPL - Centro TD",
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000005494210",
+   "uid": "9207000005494210",
+   "external": false,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "Patricia Gonzalez Fonta",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005520057",
+   "uid": "9207000005520057",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Miguel Ángel Hijano Vega",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005520066",
+   "uid": "9207000005520066",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Nuria Velasco Arribas",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005520072",
+   "uid": "9207000005520072",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Pilar Rein del Cuvillo",
+   "email": "prc7749m@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005522229",
+   "uid": "9207000005522229",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Verónica Jezabel Gallegos Casillas",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005522302",
+   "uid": "9207000005522302",
+   "external": true,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Diego Martinez Majano",
+   "email": "dmm5822q@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005543054",
+   "uid": "9207000005543054",
+   "external": true,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Gerardo Jimena De Pablo",
+   "email": "gjp9521w@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005567297",
+   "uid": "9207000005567297",
+   "name": "Miguel Moya García",
+   "email": "mmg1305p@externo.digloservicer.com",
+   "role": "technician",
+   "status": "active",
+   "external": true,
+   "color": "#0891b2",
+   "groupIds": [
+    "9207000000208255",
+    "9207000000392153"
+   ],
+   "site": "PROVEEDOR",
+   "department": "ITO - IT_EXTERNO",
+   "userGroups": [
+    "CAU",
+    "Usuarios Recovery"
+   ]
+  },
+  {
+   "_id": "9207000005728003",
+   "uid": "9207000005728003",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Carlos Mario Bocanegra Soto",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000005782063",
+   "uid": "9207000005782063",
+   "external": true,
+   "role": "requester",
+   "name": "Maria Del Mar Leon Escudero",
+   "email": "mmle879b@externo.digloservicer.com",
+   "status": "active",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000005882297",
+   "uid": "9207000005882297",
+   "name": "Juan Jose Esteban Tena",
+   "email": "",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000006087219",
+   "uid": "9207000006087219",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Sara Martin Latorre",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000006109116",
+   "uid": "9207000006109116",
+   "external": true,
+   "role": "requester",
+   "name": "Carlos Martin Gonzalez",
+   "email": "cmg5980x@externo.digloservicer.com",
+   "status": "active",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "site": "PROVEEDOR",
+   "department": "NPL - AGENCIAS EXTERNAS_EXTERNO",
+   "color": "#0891b2"
+  },
+  {
+   "_id": "9207000006393087",
+   "uid": "9207000006393087",
+   "external": true,
+   "role": "requester",
+   "name": "Felipe Jorge Del Busto Chocano",
+   "email": "fjbc298h@externo.digloservicer.com",
+   "status": "active",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "site": "PROVEEDOR",
+   "department": "NPL - AGENCIAS EXTERNAS",
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000006393094",
+   "uid": "9207000006393094",
+   "external": true,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Brian Reyes Quiros",
+   "email": "brq9864e@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000006393101",
+   "uid": "9207000006393101",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Miguel Garcia Polo Garcia",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000006765401",
+   "uid": "9207000006765401",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "alquileres.reclamaciones",
+   "email": "alquileres.reclamaciones@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000006765407",
+   "uid": "9207000006765407",
+   "name": "reparaciones.reclamaciones",
+   "email": "reparaciones.reclamaciones@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "Base Site",
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000006765413",
+   "uid": "9207000006765413",
+   "name": "atencioncomercial.reclamaciones",
+   "email": "atencioncomercial.reclamaciones@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "Base Site",
+   "color": "#4f46e5"
+  },
+  {
+   "_id": "9207000006765419",
+   "uid": "9207000006765419",
+   "name": "reservas.reclamaciones",
+   "email": "reservas.reclamaciones@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "Base Site",
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000006765425",
+   "uid": "9207000006765425",
+   "name": "operaciones.reclamaciones",
+   "email": "operaciones.reclamaciones@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "Base Site",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000006765431",
+   "uid": "9207000006765431",
+   "name": "compras.reclamaciones",
+   "email": "compras.reclamaciones@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "Base Site",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000006765437",
+   "uid": "9207000006765437",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "escritura.reclamaciones",
+   "email": "escritura.reclamaciones@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000006765573",
+   "uid": "9207000006765573",
+   "name": "Deuda",
+   "email": "deuda.reclamaciones@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "Base Site",
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000007075673",
+   "uid": "9207000007075673",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Silvia Blanco González",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000007273237",
+   "uid": "9207000007273237",
+   "external": false,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Ignacio Romero Dorado",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000007339441",
+   "uid": "9207000007339441",
+   "name": "Elena Delgado Carbellido",
+   "email": "edelgado@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "CENTRAL",
+   "department": "SS.JJ. - NPLs Litigation",
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000007462615",
+   "uid": "9207000007462615",
+   "external": true,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Marta Pérez Nuñez",
+   "email": "mpn1996v@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000007462623",
+   "uid": "9207000007462623",
+   "external": true,
+   "role": "requester",
+   "name": "Macarena Vega Muñoz",
+   "email": "mvm4104t@externo.digloservicer.com",
+   "status": "active",
+   "color": "#b45309"
+  },
+  {
+   "_id": "9207000007722893",
+   "uid": "9207000007722893",
+   "external": false,
+   "role": "technician",
+   "groupIds": [
+    "9207000000292091",
+    "9207000000690768",
+    "9207000004633490"
+   ],
+   "name": "Sergio Frias Nisa",
+   "email": "sfrias@digloservicer.com",
+   "status": "active",
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000007725604",
+   "uid": "9207000007725604",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Ana Isabel Ramos Garcelán",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000007725612",
+   "uid": "9207000007725612",
+   "external": false,
+   "role": "requester",
+   "color": "#be185d",
+   "name": "Oliver Joel Mejía Marte",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000007728554",
+   "uid": "9207000007728554",
+   "external": false,
+   "role": "requester",
+   "name": "María Sánchez Perea",
+   "email": "msanchez@digloservicer.com",
+   "status": "active",
+   "color": "#0f766e"
+  },
+  {
+   "_id": "9207000007920425",
+   "uid": "9207000007920425",
+   "external": false,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Raúl Pauner Simó",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000008049175",
+   "uid": "9207000008049175",
+   "external": true,
+   "role": "requester",
+   "name": "María del Carmen Villa Polvillo",
+   "email": "mcvp501c@externo.digloservicer.com",
+   "status": "active",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000008090715",
+   "uid": "9207000008090715",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Maribel Suarez Reyes",
+   "email": "msr1433c@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000008092210",
+   "uid": "9207000008092210",
+   "external": true,
+   "role": "requester",
+   "name": "Leticia López Fernández",
+   "email": "llf0370x@externo.digloservicer.com",
+   "status": "active",
+   "site": "Base Site",
+   "color": "#0369a1"
+  },
+  {
+   "_id": "9207000008274422",
+   "uid": "9207000008274422",
+   "external": true,
+   "role": "requester",
+   "color": "#0369a1",
+   "name": "Rafael Enrique Ruiz Herbello",
+   "email": "rerh301n@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000008860125",
+   "uid": "9207000008860125",
+   "external": false,
+   "role": "requester",
+   "color": "#0891b2",
+   "name": "Manuel Jesús Rodríguez Lozano",
+   "email": "mrodriguez@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000008930205",
+   "uid": "9207000008930205",
+   "external": false,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "David García Pavón",
+   "email": "dgarcia@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000009003809",
+   "uid": "9207000009003809",
+   "name": "3party Reclamaciones",
+   "email": "3party.reclamaciones@digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": false,
+   "site": "Base Site",
+   "color": "#be185d"
+  },
+  {
+   "_id": "9207000009143579",
+   "uid": "9207000009143579",
+   "external": false,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "Vicente Navarro (GCP)",
+   "email": "vnavarro@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000009234295",
+   "uid": "9207000009234295",
+   "external": true,
+   "role": "requester",
+   "color": "#15803d",
+   "name": "María Belén López Izquierdo",
+   "email": "mbli255a@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000009286345",
+   "uid": "9207000009286345",
+   "external": true,
+   "role": "requester",
+   "color": "#b45309",
+   "name": "María Esther Morales Perez",
+   "email": "memp082x@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000009614701",
+   "uid": "9207000009614701",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Hugo Gabriel Narvaez Chachalo",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000009767352",
+   "uid": "9207000009767352",
+   "external": true,
+   "role": "requester",
+   "color": "#0f766e",
+   "name": "Sthefany Anabel Mejía Baculima",
+   "email": "samb4587q@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000010256397",
+   "uid": "9207000010256397",
+   "external": false,
+   "role": "requester",
+   "color": "#7c3aed",
+   "name": "Mario Grau Garcia",
+   "email": "",
+   "status": "active"
+  },
+  {
+   "_id": "9207000010370001",
+   "uid": "9207000010370001",
+   "name": "Mario Grau Garcia",
+   "email": "marioalberto.grau@omegacrmconsulting.com",
+   "role": "technician",
+   "status": "active",
+   "external": true,
+   "color": "#7c3aed",
+   "groupIds": [
+    "9207000000387257",
+    "9207000001900239"
+   ],
+   "site": "Base Site"
+  },
+  {
+   "_id": "9207000010777006",
+   "uid": "9207000010777006",
+   "name": "Adrian Alejandro Calderon Quineche",
+   "email": "aacq658k@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "Base Site",
+   "department": "NPL - AGENCIAS EXTERNAS",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "color": "#15803d"
+  },
+  {
+   "_id": "9207000011076301",
+   "uid": "9207000011076301",
+   "external": true,
+   "role": "requester",
+   "color": "#4f46e5",
+   "name": "Andrea Elisabeth Jiménez Guamán",
+   "email": "aejg622k@externo.digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "9207000011389395",
+   "uid": "9207000011389395",
+   "name": "Franca Vitale Cova",
+   "email": "fvc5701t@externo.digloservicer.com",
+   "role": "requester",
+   "status": "active",
+   "external": true,
+   "site": "Base Site",
+   "department": "NPL - AGENCIAS EXTERNAS_EXTERNO",
+   "userGroups": [
+    "Usuarios NPL",
+    "Usuarios Recovery"
+   ],
+   "color": "#7c3aed"
+  },
+  {
+   "_id": "9207000011550009",
+   "uid": "9207000011550009",
+   "name": "Adrián Orduña",
+   "email": "adrian.orduna@omegacrmconsulting.com",
+   "role": "technician",
+   "status": "active",
+   "external": true,
+   "color": "#4f46e5",
+   "groupIds": [
+    "9207000001900239"
+   ],
+   "site": "Base Site"
+  },
+  {
+   "_id": "9207000011550012",
+   "status": "active",
+   "site": "Base Site",
+   "role": "technician",
+   "color": "#be185d",
+   "external": true,
+   "uid": "9207000011550012",
+   "email": "marcos.villagrasa@omegacrmconsulting.com",
+   "name": "Marcos Villagrasa",
+   "groupIds": [
+    "9207000000387257",
+    "9207000001900239"
+   ],
+   "caps": [
+    "viewAllTickets",
+    "assign",
+    "changeStatus",
+    "close",
+    "viewReports"
+   ]
+  },
+  {
+   "_id": "9207000011582165",
+   "uid": "9207000011582165",
+   "name": "Adrián Ortuño Ruiz",
+   "email": "aortuno@omegacrmconsulting.com",
+   "role": "technician",
+   "status": "active",
+   "external": true,
+   "color": "#0f766e",
+   "groupIds": [
+    "9207000001900239"
+   ],
+   "site": "Base Site"
+  },
+  {
+   "_id": "9207000011754007",
+   "uid": "9207000011754007",
+   "external": true,
+   "role": "technician",
+   "color": "#4f46e5",
+   "email": "miguel.perez@devoteam.com",
+   "status": "active",
+   "groupIds": [
+    "9207000000387257",
+    "9207000001900291"
+   ],
+   "name": "Miguel Pérez"
+  },
+  {
+   "_id": "CGDUyi18zkUh9CdHffNGtE7ADzD2",
+   "uid": "CGDUyi18zkUh9CdHffNGtE7ADzD2",
+   "userGroups": [
+    "IT",
+    "Usuarios Recovery"
+   ],
+   "external": false,
+   "site": "CENTRAL",
+   "role": "technician",
+   "color": "#0891b2",
+   "groupIds": [
+    "9207000000292091",
+    "9207000000690768",
+    "9207000001963083"
+   ],
+   "name": "David Durán Álvarez",
+   "department": "ITO - IT",
+   "email": "dduran@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "QzdANMSSOuTQJWF9h18gaV0TRwo2",
+   "uid": "QzdANMSSOuTQJWF9h18gaV0TRwo2",
+   "email": "vnavarro@digloservicer.com",
+   "name": "Vicente Navarro",
+   "color": "#4f46e5",
+   "role": "tenant_admin",
+   "status": "active",
+   "external": false,
+   "groupIds": [
+    "9207000000292091",
+    "9207000008489081",
+    "9207000000392153",
+    "9207000000690768",
+    "9207000004633490",
+    "9207000009179564"
+   ]
+  },
+  {
+   "_id": "U9eCOKzXwRUHpvZ8aoRVtYQzlC42",
+   "uid": "U9eCOKzXwRUHpvZ8aoRVtYQzlC42",
+   "userGroups": [
+    "IT",
+    "Usuarios Recovery"
+   ],
+   "external": false,
+   "site": "CENTRAL",
+   "role": "technician",
+   "color": "#be185d",
+   "groupIds": [
+    "9207000000292091",
+    "9207000000690768",
+    "9207000004633490"
+   ],
+   "name": "Sergio Frias Nisa",
+   "department": "ITO - IT",
+   "email": "sfrias@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "UiNbYZCSWyd87fYiOwPDkqaYg2H2",
+   "uid": "UiNbYZCSWyd87fYiOwPDkqaYg2H2",
+   "userGroups": [
+    "Usuarios Recovery"
+   ],
+   "external": false,
+   "site": "CENTRAL",
+   "role": "technician",
+   "color": "#b45309",
+   "groupIds": [
+    "9207000000292091",
+    "9207000000690768",
+    "9207000004633490",
+    "9207000000954612",
+    "9207000000954578",
+    "9207000006425538",
+    "9207000000387257",
+    "9207000001900239"
+   ],
+   "name": "Óscar Igualada Aguilar",
+   "department": "ITO - IT",
+   "email": "oigualada@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "Z4AGvVXogdSsWeAuahLrhbcIP1b2",
+   "uid": "Z4AGvVXogdSsWeAuahLrhbcIP1b2",
+   "userGroups": [
+    "IT",
+    "Managers de departamentos",
+    "Usuarios Recovery"
+   ],
+   "external": false,
+   "site": "CENTRAL",
+   "role": "technician",
+   "color": "#4f46e5",
+   "groupIds": [
+    "9207000000208255",
+    "9207000000292091",
+    "9207000008489081",
+    "9207000000392153",
+    "9207000000690768",
+    "9207000004633490",
+    "9207000009179564",
+    "9207000001963083",
+    "9207000000954612",
+    "9207000000954578",
+    "9207000006425538",
+    "9207000000387257",
+    "9207000001900239",
+    "9207000001900318",
+    "9207000001900291"
+   ],
+   "name": "Nuria Imedio Martínez",
+   "department": "ITO - IT",
+   "email": "nimedio@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "lQXPo1IGlnYwdsmt9NPxN8fDUjS2",
+   "uid": "lQXPo1IGlnYwdsmt9NPxN8fDUjS2",
+   "userGroups": [
+    "IT",
+    "Usuarios Recovery"
+   ],
+   "external": false,
+   "site": "CENTRAL",
+   "role": "technician",
+   "color": "#0891b2",
+   "groupIds": [
+    "9207000000292091",
+    "9207000000690768",
+    "9207000004633490",
+    "9207000000387257",
+    "9207000001900239",
+    "9207000001900318",
+    "9207000001900291"
+   ],
+   "name": "Javier Quesada Muñoz",
+   "department": "ITO - IT",
+   "email": "jquesadam@digloservicer.com",
+   "status": "active"
+  },
+  {
+   "_id": "u-bea",
+   "uid": "u-bea",
+   "email": "bcabado@digloservicer.com",
+   "name": "Beatriz Cabado",
+   "color": "#be185d",
+   "role": "technician",
+   "status": "active",
+   "external": false
+  },
+  {
+   "_id": "u-laura",
+   "uid": "u-laura",
+   "email": "laura.gomez@digloservicer.com",
+   "name": "Laura Gómez",
+   "color": "#7c3aed",
+   "role": "requester",
+   "status": "active",
+   "external": false
+  }
+ ],
+ "idmap": [
+  {
+   "_id": "9207000000183138",
+   "uid": "Z4AGvVXogdSsWeAuahLrhbcIP1b2",
+   "email": "nimedio@digloservicer.com"
+  },
+  {
+   "_id": "9207000000197237",
+   "uid": "lQXPo1IGlnYwdsmt9NPxN8fDUjS2",
+   "email": "jquesadam@digloservicer.com"
+  },
+  {
+   "_id": "9207000000198042",
+   "uid": "UiNbYZCSWyd87fYiOwPDkqaYg2H2",
+   "email": "oigualada@digloservicer.com"
+  },
+  {
+   "_id": "9207000000198722",
+   "uid": "QzdANMSSOuTQJWF9h18gaV0TRwo2",
+   "email": "vjnavarroh@digloservicer.com"
+  },
+  {
+   "_id": "9207000000415417",
+   "uid": "CGDUyi18zkUh9CdHffNGtE7ADzD2",
+   "email": "dduran@digloservicer.com"
+  },
+  {
+   "_id": "9207000000671136",
+   "uid": "74B1FOmgLaOKkrnsuXzt7QVXfub2",
+   "email": "eandres@digloservicer.com"
+  },
+  {
+   "_id": "9207000007722893",
+   "uid": "U9eCOKzXwRUHpvZ8aoRVtYQzlC42",
+   "email": "sfrias@digloservicer.com"
+  },
+  {
+   "_id": "u-oscar",
+   "uid": "UiNbYZCSWyd87fYiOwPDkqaYg2H2",
+   "email": "oigualada@digloservicer.com"
+  },
+  {
+   "_id": "u-sergio",
+   "uid": "U9eCOKzXwRUHpvZ8aoRVtYQzlC42",
+   "email": "sfrias@digloservicer.com"
+  }
+ ]
+}

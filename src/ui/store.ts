@@ -213,6 +213,31 @@ const genId = (t: TenantData): string => {
   // prefijo propio INC-/SR- para no colisionar con los «#» que aún genera SDP.
   return t.idContinuity ? '#' + n : (t.id === 'leasys' ? 'SR-' : 'INC-') + n;
 };
+
+// Cuerpo HTML de marca para los correos de notificación (table-based + estilos en línea, para
+// clientes de correo). Acento VERDE si es Petición (service_request) y ROJO si es Incidencia.
+function ticketMailHtml(eventLabel: string, ticket: StoredTicket, testMode: boolean, who: string[]): string {
+  const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const isPet = ticket.type === 'service_request';
+  const accent = isPet ? '#0f9d58' : '#d23b3b';           // verde petición / rojo incidencia
+  const tipoLabel = isPet ? 'Petición' : 'Incidencia';
+  const navy = '#1b2a4a';
+  const fact = (k: string, v: unknown) => (v ? `<td style="padding:6px 16px 6px 0"><div style="font-size:11px;color:#98a1b2;text-transform:uppercase;letter-spacing:.04em">${k}</div><div style="font-size:14px;color:${navy};font-weight:600">${esc(v)}</div></td>` : '');
+  return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f6f9">`
+    + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 12px"><tr><td align="center">`
+    + `<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;box-shadow:0 1px 4px rgba(20,30,60,.08)">`
+    + `<tr><td style="background:${navy};padding:15px 26px"><span style="color:#fff;font-size:17px;font-weight:800;letter-spacing:.2px">${NOMBRE_PRODUCTO}</span><span style="color:#9fb3d1;font-size:13px;margin-left:8px">· Mesa de servicio Diglo</span></td></tr>`
+    + `<tr><td style="height:5px;background:${accent};font-size:0;line-height:0">&nbsp;</td></tr>`
+    + `<tr><td style="padding:22px 26px 6px">`
+    + `<span style="display:inline-block;background:${accent};color:#fff;font-size:12px;font-weight:700;padding:3px 11px;border-radius:999px">${tipoLabel}</span>`
+    + `<h1 style="margin:12px 0 4px;font-size:19px;color:${navy}">${esc(eventLabel)}</h1>`
+    + `<p style="margin:0;color:#6b7688;font-size:14px"><b style="color:${navy}">${esc(ticket.id)}</b> · ${esc(ticket.subject)}</p>`
+    + `</td></tr>`
+    + `<tr><td style="padding:8px 26px 18px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${fact('Prioridad', ticket.priority)}${fact('Estado', ticket.status)}</tr></table></td></tr>`
+    + (testMode ? `<tr><td style="padding:0 26px 16px"><div style="background:#fff8e1;border:1px solid #f3e2b8;border-radius:8px;padding:10px 12px;color:#8a5406;font-size:12.5px">Aviso de prueba. Destinatarios reales (no notificados en pruebas): ${esc(who.join(' · '))}.</div></td></tr>` : '')
+    + `<tr><td style="padding:14px 26px;border-top:1px solid #eef0f4;color:#9aa3b2;font-size:11.5px">Enviado automáticamente por <b>${NOMBRE_PRODUCTO}</b> · Mesa de servicio Diglo. No respondas a este correo.</td></tr>`
+    + `</table></td></tr></table></body></html>`;
+}
 function editLc(t: TenantData, idx: number, fn: (lc: Lifecycle) => Lifecycle): TenantData {
   return { ...t, lifecycles: t.lifecycles.map((lc, i) => (i === idx ? fn(lc) : lc)) };
 }
@@ -222,9 +247,9 @@ const errlog = (e: unknown) => console.error('[cloud write]', e);
 let unsubs: Array<() => void> = [];
 let notifSeq = 0;
 let auditSeq = 0;
-// FASE DE PRUEBAS: todo correo se redirige a este usuario (candado también en las
-// reglas de Firestore: la colección `mail` solo admite `to` == este valor).
-const MAIL_TEST_MODE = true;
+// Correo: en pruebas se puede redirigir todo a TEST_EMAIL (candado en las reglas de Firestore).
+// Puesto en false para las pruebas de campo → los correos van a los destinatarios REALES.
+const MAIL_TEST_MODE = false;
 const TEST_EMAIL = 'vnavarro@digloservicer.com';
 
 export const useStore = create<State>()(

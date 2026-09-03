@@ -98,12 +98,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Cola de correo de la extensión Trigger Email. CANDADO DE FASE DE PRUEBAS:
-    // solo se pueden encolar emails dirigidos al usuario de pruebas — ni un
-    // cliente mal comportado puede enviar a terceros. La lee la extensión (admin).
-    // En producción: mover el envío a una Cloud Function y relajar esta regla.
+    // Cola de correo de la extensión Trigger Email (la lee la extensión con admin).
+    // FASE DE PRUEBAS DE CAMPO: se permite a cualquier usuario autenticado encolar correo
+    // (los destinatarios reales de las notificaciones). En producción: mover el envío a una
+    // Cloud Function y volver a cerrar esta regla (p. ej. exigir dominio corporativo).
     match /mail/{id} {
-      allow create: if signedIn() && request.resource.data.to == 'vnavarro@digloservicer.com';
+      allow create: if signedIn();
       allow read, update, delete: if false;
     }
 

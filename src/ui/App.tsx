@@ -1807,7 +1807,8 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
         {req?.department && <div><div className="k">Departamento</div><span style={{ fontSize: 13 }}>{req.department}</span></div>}
         {t.notifyEmails && <div><div className="k">Correos a notificar</div><span style={{ fontSize: 13 }}>{t.notifyEmails}</span></div>}
       </div>
-      {(canAct || (t.assetIds ?? []).length > 0 || t.assets) && <div style={{ marginTop: 8 }}>
+      {/* Activos afectados: OCULTOS temporalmente (para reactivar, quitar `false &&`). */}
+      {false && (canAct || (t.assetIds ?? []).length > 0 || t.assets) && <div style={{ marginTop: 8 }}>
         <div className="k">Activos afectados</div>
         <AssetPicker tenant={tenant} value={t.assetIds ?? []} onChange={(ids) => setTicketAssets(t.id, ids)} disabled={!canAct} />
         {t.assets && !(t.assetIds ?? []).length && <div className="soft" style={{ fontSize: 12, marginTop: 4 }}>Texto importado: {t.assets}</div>}
@@ -2064,7 +2065,7 @@ function TicketDetail({ tenant, t, canAct, caps, readOnly, meName, meUid }: { te
 function NewTicketSimplified({ tenant, role, user, readOnly, onClose }: { tenant: TenantData; role: Role; user: ReturnType<typeof buildUser>; readOnly?: boolean; onClose: () => void }) {
   const create = useStore((s) => s.createTicket);
   const pls = tenant.picklists;
-  const [tipo, setTipo] = useState<'incident' | 'service_request' | ''>('');
+  const [tipo, setTipo] = useState<'incident' | 'service_request' | ''>('service_request'); // por defecto Petición
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState(pls?.priority.some((p) => p.name === 'Media') ? 'Media' : pls?.priority[0]?.name ?? 'Media');
