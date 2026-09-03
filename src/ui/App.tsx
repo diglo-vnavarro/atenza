@@ -5,7 +5,8 @@ import {
 } from '@xyflow/react';
 import { useStore, buildUser, tenantsForUser, lifecycleOfTicket, type Role } from './store.js';
 import { firebaseEnabled } from '../firebase.js';
-import { useAuth, doSignOut } from '../auth/auth.js';
+import { useAuth, doSignOut, mfaGateForCurrentUser } from '../auth/auth.js';
+import { MfaEnrollGate } from './MfaGate.js';
 import { Login } from './Login.js';
 import { Glifo } from './brand/Glifo.js';
 import { NOMBRE_PRODUCTO } from '../lib/marca.js';
@@ -534,6 +535,15 @@ export function App() {
   const authReady = useAuth((s) => s.ready);
   useEffect(() => { void useAuth.getState().init(); }, []);
   useEffect(() => { if (firebaseEnabled && authUser) void startCloud(authUser.uid); }, [authUser?.uid, startCloud]);
+  // MFA (2º factor obligatorio para externos): tras autenticar, si el usuario entró por email
+  // y no tiene 2º factor, se fuerza el enrolamiento antes de dejar usar la app.
+  const [mfaEnroll, setMfaEnroll] = useState<{ qrUrl: string; secretKey: string } | null | 'checking'>('checking');
+  useEffect(() => {
+    if (!firebaseEnabled || !authUser) { setMfaEnroll(null); return; }
+    setMfaEnroll('checking'); let cancel = false;
+    void mfaGateForCurrentUser().then((r) => { if (!cancel) setMfaEnroll(r); }).catch(() => { if (!cancel) setMfaEnroll(null); });
+    return () => { cancel = true; };
+  }, [authUser?.uid]);
   const [, setTheme] = useState<'light' | 'dark' | null>(null);
   const [view, setView] = useState<'home' | 'tickets' | 'assigned' | 'requests' | 'kb' | 'admin' | 'archivo' | 'activos' | 'informes'>('home');
   const [dismissedAnn, setDismissedAnn] = useState<string[]>([]);
@@ -572,6 +582,8 @@ export function App() {
   // Gates de sesión (solo en la nube).
   if (firebaseEnabled && !authReady) return card('Cargando…');
   if (firebaseEnabled && !authUser) return <Login />;
+  if (firebaseEnabled && authUser && mfaEnroll === 'checking') return card('Verificando seguridad…');
+  if (firebaseEnabled && authUser && mfaEnroll && mfaEnroll !== 'checking') return <MfaEnrollGate data={mfaEnroll} email={authUser.email} onEnrolled={() => setMfaEnroll(null)} />;
   if (firebaseEnabled && !cloudReady) return card('Conectando con la nube…');
   if (firebaseEnabled && !hasAccess) return (
     <div className="login-wrap"><div className="login-card" style={{ textAlign: 'center' }}>

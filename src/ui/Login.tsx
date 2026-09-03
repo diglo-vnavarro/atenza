@@ -6,7 +6,7 @@
 // contraseña, y crear cuenta con nombre. Aquí solo cambia la presentación; nada de MFA ni de flujos
 // nuevos que no exista detrás.
 import { useState, type FormEvent } from 'react';
-import { useAuth, signInGoogle, signInEmail, signUpEmail } from '../auth/auth.js';
+import { useAuth, signInGoogle, signInEmail, signUpEmail, completarReto, cancelMfa } from '../auth/auth.js';
 import { DiglosferaMark, DiglosferaLogo } from './brand/Diglosfera.js';
 import { NOMBRE_PRODUCTO, NOMBRE_COMPLETO } from '../lib/marca.js';
 import './login.css';
@@ -14,7 +14,7 @@ import './login.css';
 const NARANJA = '#f5a623';
 const VERSION = import.meta.env.VITE_APP_VERSION as string | undefined;
 
-type Modo = 'inicio' | 'entrar' | 'crear';
+type Modo = 'inicio' | 'entrar' | 'crear' | 'mfa_reto';
 
 function GoogleG({ size = 18 }: { size?: number }) {
   return (
@@ -43,14 +43,30 @@ export function Login() {
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
   const [name, setName] = useState('');
+  const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
 
   // Las funciones de auth ya capturan el error y lo dejan en el store; aquí solo el «ocupado».
   const run = (fn: () => Promise<void>) => { setBusy(true); void fn().finally(() => setBusy(false)); };
-  const ir = (m: Modo) => { setError(null); setModo(m); };
-  const enviar = (e: FormEvent) => {
+  const ir = (m: Modo) => { setError(null); if (m === 'inicio') { cancelMfa(); setCode(''); } setModo(m); };
+  const enviar = async (e: FormEvent) => {
     e.preventDefault();
-    run(modo === 'crear' ? () => signUpEmail(email.trim(), pw, name.trim()) : () => signInEmail(email.trim(), pw));
+    setBusy(true);
+    try {
+      if (modo === 'crear') {
+        await signUpEmail(email.trim(), pw, name.trim()); // el enrol del 2º factor lo fuerza la app tras el alta
+      } else {
+        const step = await signInEmail(email.trim(), pw);
+        if (step?.step === 'challenge') { setCode(''); setModo('mfa_reto'); } // 'enroll'/'done' → los gestiona la app
+      }
+    } finally { setBusy(false); }
+  };
+  const retar = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const ok = await completarReto(code);
+    setBusy(false);
+    if (!ok) setCode(''); // si va bien → sesión abierta y la app toma el control
   };
 
   return (
@@ -101,7 +117,7 @@ export function Login() {
           </>
         )}
 
-        {modo !== 'inicio' && (
+        {(modo === 'entrar' || modo === 'crear') && (
           <form onSubmit={enviar}>
             <button type="button" className="login-crumb" onClick={() => ir('inicio')}>
               <IcoBack /> Volver
@@ -138,6 +154,24 @@ export function Login() {
                 <>¿Ya tienes cuenta? <button type="button" className="login-link" onClick={() => ir('entrar')}>Entrar</button>.</>
               )}
             </div>
+          </form>
+        )}
+
+        {modo === 'mfa_reto' && (
+          <form onSubmit={retar}>
+            <button type="button" className="login-crumb" onClick={() => ir('inicio')}>
+              <IcoBack /> Volver
+            </button>
+            <p className="login-lead" style={{ marginTop: 4 }}>
+              <b>Verificación en dos pasos.</b> Introduce el código de tu app de autenticación.
+            </p>
+            <label className="login-lbl" htmlFor="lg-code">Código de 6 dígitos</label>
+            <input id="lg-code" className="login-input" inputMode="numeric" autoComplete="one-time-code" autoFocus
+              maxLength={6} value={code} placeholder="000000"
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} />
+            <button className="login-btn login-btn-primary" type="submit" disabled={busy || code.length < 6}>
+              {busy ? 'Verificando…' : 'Verificar'}
+            </button>
           </form>
         )}
 
