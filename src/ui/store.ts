@@ -230,6 +230,8 @@ function ticketMailHtml(eventLabel: string, ticket: StoredTicket, tenant: Tenant
     ? [a?.name ?? ticket.area, s?.name ?? ticket.service].filter(Boolean).join(' › ')
     : [ticket.category, ticket.subcategory, ticket.item].filter(Boolean).join(' › ');
   const requester = (tenant.members ?? []).find((m) => m.uid === ticket.requesterId)?.name ?? '';
+  const technician = (tenant.members ?? []).find((m) => m.uid === ticket.technicianId)?.name ?? '';
+  const fecha = ticket.createdAt ? new Date(ticket.createdAt).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
   // Descripción: llega como HTML enriquecido → a texto plano legible y acotado.
   const descText = String(ticket.description ?? '')
     .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n')
@@ -252,8 +254,10 @@ function ticketMailHtml(eventLabel: string, ticket: StoredTicket, tenant: Tenant
     +   row('Asunto', ticket.subject)
     +   row('Clasificación', classPath)
     +   row('Solicitante', requester)
+    +   row('Técnico asignado', technician || 'Sin asignar')
     +   row('Prioridad', ticket.priority)
     +   row('Estado', ticket.status)
+    +   row('Fecha', fecha)
     + `</table></td></tr>`
     + (descText ? `<tr><td style="padding:4px 26px 18px">`
         + `<div style="font-size:11px;color:#98a1b2;text-transform:uppercase;letter-spacing:.04em;margin:6px 0 6px">Descripción</div>`
