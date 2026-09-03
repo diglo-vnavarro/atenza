@@ -102,11 +102,12 @@ export async function signInEmail(email: string, password: string): Promise<Logi
     const cred = await mod.signInWithEmailAndPassword(a, email.trim(), password);
     const mf = mod.multiFactor(cred.user);
     if (mf.enrolledFactors.length === 0) {
-      // Externo sin 2º factor → generar secreto y forzar enrolamiento.
-      const secret = await mod.TotpMultiFactorGenerator.generateSecret(await mf.getSession());
-      mfaUser = cred.user; mfaSecret = secret;
+      // Sin 2º factor: NO generamos el secreto aquí. El gate de la app (mfaGateForCurrentUser)
+      // es la ÚNICA fuente del secreto de enrol. Generarlo también aquí creaba una CARRERA
+      // (dos secretos distintos escribiendo `mfaSecret`): el QR mostrado no coincidía con el
+      // secreto validado → «código siempre incorrecto». El gate lo gestiona tras el login.
       useAuth.getState().setError(null);
-      return { step: 'enroll', qrUrl: secret.generateQrCodeUrl(email.trim(), ISSUER), secretKey: secret.secretKey };
+      return { step: 'done' };
     }
     useAuth.getState().setError(null);
     return { step: 'done' };
