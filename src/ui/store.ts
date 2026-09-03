@@ -221,12 +221,12 @@ function ticketMailHtml(eventLabel: string, ticket: StoredTicket, testMode: bool
   const isPet = ticket.type === 'service_request';
   const accent = isPet ? '#0f9d58' : '#d23b3b';           // verde petición / rojo incidencia
   const tipoLabel = isPet ? 'Petición' : 'Incidencia';
-  const navy = '#1b2a4a';
+  const navy = '#004B7A'; // azul corporativo Diglo
   const fact = (k: string, v: unknown) => (v ? `<td style="padding:6px 16px 6px 0"><div style="font-size:11px;color:#98a1b2;text-transform:uppercase;letter-spacing:.04em">${k}</div><div style="font-size:14px;color:${navy};font-weight:600">${esc(v)}</div></td>` : '');
   return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f6f9">`
     + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 12px"><tr><td align="center">`
     + `<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;box-shadow:0 1px 4px rgba(20,30,60,.08)">`
-    + `<tr><td style="background:${navy};padding:15px 26px"><span style="color:#fff;font-size:17px;font-weight:800;letter-spacing:.2px">${NOMBRE_PRODUCTO}</span><span style="color:#9fb3d1;font-size:13px;margin-left:8px">· Mesa de servicio Diglo</span></td></tr>`
+    + `<tr><td style="background:${navy};padding:15px 26px"><span style="color:#fff;font-size:17px;font-weight:800;letter-spacing:.2px">${NOMBRE_PRODUCTO}</span><span style="color:#9fb3d1;font-size:13px;margin-left:8px">· ITSM Diglo</span></td></tr>`
     + `<tr><td style="height:5px;background:${accent};font-size:0;line-height:0">&nbsp;</td></tr>`
     + `<tr><td style="padding:22px 26px 6px">`
     + `<span style="display:inline-block;background:${accent};color:#fff;font-size:12px;font-weight:700;padding:3px 11px;border-radius:999px">${tipoLabel}</span>`
@@ -235,7 +235,7 @@ function ticketMailHtml(eventLabel: string, ticket: StoredTicket, testMode: bool
     + `</td></tr>`
     + `<tr><td style="padding:8px 26px 18px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${fact('Prioridad', ticket.priority)}${fact('Estado', ticket.status)}</tr></table></td></tr>`
     + (testMode ? `<tr><td style="padding:0 26px 16px"><div style="background:#fff8e1;border:1px solid #f3e2b8;border-radius:8px;padding:10px 12px;color:#8a5406;font-size:12.5px">Aviso de prueba. Destinatarios reales (no notificados en pruebas): ${esc(who.join(' · '))}.</div></td></tr>` : '')
-    + `<tr><td style="padding:14px 26px;border-top:1px solid #eef0f4;color:#9aa3b2;font-size:11.5px">Enviado automáticamente por <b>${NOMBRE_PRODUCTO}</b> · Mesa de servicio Diglo. No respondas a este correo.</td></tr>`
+    + `<tr><td style="padding:14px 26px;border-top:1px solid #eef0f4;color:#9aa3b2;font-size:11.5px">Enviado automáticamente por <b>${NOMBRE_PRODUCTO}</b> · ITSM Diglo. No respondas a este correo.</td></tr>`
     + `</table></td></tr></table></body></html>`;
 }
 function editLc(t: TenantData, idx: number, fn: (lc: Lifecycle) => Lifecycle): TenantData {
@@ -251,6 +251,11 @@ let auditSeq = 0;
 // Puesto en false para las pruebas de campo → los correos van a los destinatarios REALES.
 const MAIL_TEST_MODE = false;
 const TEST_EMAIL = 'vnavarro@digloservicer.com';
+// Seguro de la fase de pruebas: el correo SOLO se emite para tickets NATIVOS (INC-/SR-/PRUEBA-),
+// nunca para los sincronizados de SDP («#…»), aunque un técnico los trabaje en la app. Así el
+// histórico y el doble censado no molestan a clientes reales. (Poner false al hacer el corte.)
+const MAIL_ONLY_NATIVE = true;
+const isSyncedTicket = (id: unknown) => /^#/.test(String(id ?? ''));
 
 export const useStore = create<State>()(
   persist(
@@ -334,7 +339,7 @@ export const useStore = create<State>()(
           const extra = (ticket.notifyEmails ?? '').split(/[;,\s]+/).map((s) => s.trim()).filter((s) => /.@./.test(s));
           if (anyMail) for (const e of extra) to.add(e);
           if (anyMail && extra.length) who.push(`Correos a notificar (${extra.join(', ')})`);
-          if (anyMail && to.size) {
+          if (anyMail && to.size && !(MAIL_ONLY_NATIVE && isSyncedTicket(ticket.id))) {
             const subject = `[${NOMBRE_PRODUCTO}${MAIL_TEST_MODE ? ' · PRUEBA' : ''}] ${NOTIF_LABEL[event]} · ${ticket.id}`;
             const html = `<p><b>${NOTIF_LABEL[event]}</b> — ${ticket.id}: ${ticket.subject}</p>`
               + (MAIL_TEST_MODE ? `<p style="color:#888;font-size:13px">Aviso de prueba. Destinatarios reales (no notificados en pruebas): ${who.join(' · ')}.</p>` : '');
