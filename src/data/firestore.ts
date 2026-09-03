@@ -30,7 +30,15 @@ let _fs: Awaited<ReturnType<typeof loadFs>> | null = null;
 async function loadFs() {
   const app = getFirebaseApp()!;
   const m = await import('firebase/firestore');
-  return { m, db: m.getFirestore(app) };
+  // `ignoreUndefinedProperties`: Firestore descarta los campos `undefined` en vez de RECHAZAR
+  // la escritura entera. Sin esto, un solo campo undefined (p. ej. `category`/`impact` que el
+  // formulario v3 no rellena) rompía el alta del ticket: quedaba en local (saltaba la
+  // notificación) pero nunca se persistía. `initializeFirestore` debe ir antes de cualquier
+  // `getFirestore`; si ya estuviera inicializado en otro punto, caemos a `getFirestore`.
+  let db;
+  try { db = m.initializeFirestore(app, { ignoreUndefinedProperties: true }); }
+  catch { db = m.getFirestore(app); }
+  return { m, db };
 }
 async function fs() { return (_fs ??= await loadFs()); }
 
