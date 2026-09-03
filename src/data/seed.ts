@@ -63,7 +63,7 @@ export const DEFAULT_REPLY_TEMPLATES: ReplyTemplate[] = [
 // Reglas de notificación por defecto (evento → canal por destinatario).
 const S = { screen: true }, SM = { screen: true, mail: true }, X = {};
 export const DEFAULT_NOTIF_RULES: NotifRule[] = [
-  { event: 'created', requester: SM, technician: S, group: S },
+  { event: 'created', requester: SM, technician: SM, group: S },
   { event: 'assigned', requester: X, technician: SM, group: X },
   { event: 'status', requester: S, technician: S, group: X },
   { event: 'resolved', requester: SM, technician: X, group: X },
