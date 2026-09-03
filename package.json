@@ -24,6 +24,8 @@
     "enrich:members:dry": "tsx scripts/enrich-members.ts --dry-run",
     "enrich:catalog": "tsx scripts/enrich-catalog.ts",
     "enrich:catalog:dry": "tsx scripts/enrich-catalog.ts --dry-run",
+    "clean:pruebas:dry": "tsx scripts/clean-pruebas.ts",
+    "clean:pruebas": "tsx scripts/clean-pruebas.ts --apply",
     "import:layouts": "tsx scripts/import-layouts.ts",
     "import:layouts:dry": "tsx scripts/import-layouts.ts --dry-run",
     "sync:organizate": "tsx scripts/sync-organizate.ts",
