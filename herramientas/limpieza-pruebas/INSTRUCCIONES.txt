@@ -1,0 +1,64 @@
+========================================================================
+  LIMPIEZA DE TICKETS DE PRUEBA  ·  Atenza / ticketIN
+========================================================================
+
+QUÉ HACE
+--------
+Borra los tickets NATIVOS de prueba (los que empiezan por INC-, SR- o
+PRUEBA-), creados en la app durante la fase de pruebas.
+
+NUNCA toca los tickets sincronizados desde SDP (los que empiezan por «#»).
+Borra cada ticket y todo lo que cuelga de él (comentarios, trabajo,
+tareas, adjuntos registrados).
+
+
+REQUISITOS (una sola vez)
+-------------------------
+1) Tener Node instalado y estar situado en la carpeta del proyecto:
+     cd C:/CoreVN/apps/github/organizate-ticketing
+
+2) Estar autenticado en Google Cloud con permisos sobre el proyecto
+   diglo-desk-pd, y fijar el "quota project":
+     gcloud auth application-default login
+     gcloud auth application-default set-quota-project diglo-desk-pd
+
+
+CÓMO LANZARLO
+-------------
+Desde la carpeta del proyecto (C:/CoreVN/apps/github/organizate-ticketing):
+
+  PASO 1 — VER qué se borraría (no borra nada, es seguro):
+     node herramientas/limpieza-pruebas/limpiar-pruebas.mjs
+
+     -> Muestra la lista de tickets de prueba y cuántos hay.
+        Revisa que son los que esperas.
+
+  PASO 2 — BORRAR de verdad:
+     node herramientas/limpieza-pruebas/limpiar-pruebas.mjs --apply
+
+  (Opcional) BORRAR y además reiniciar la numeración a 1:
+     RESET_COUNTER=1 node herramientas/limpieza-pruebas/limpiar-pruebas.mjs --apply
+     (en Windows PowerShell:  $env:RESET_COUNTER=1;  node herramientas/limpieza-pruebas/limpiar-pruebas.mjs --apply)
+
+
+OPCIONES
+--------
+  TENANT=diglo-it        Instancia a limpiar (por defecto diglo-it).
+  PREFIXES="INC-,SR-"    Prefijos a borrar (por defecto INC-,SR-,PRUEBA-).
+                         Sirve para acotar (p. ej. borrar solo INC-).
+
+
+SEGURIDAD
+---------
+- Por defecto NO borra: sin  --apply  solo lista (modo prueba).
+- Solo actúa sobre los prefijos indicados; los «#» de SDP quedan intactos.
+- El borrado es permanente. Ejecuta siempre antes el PASO 1 y comprueba
+  la lista.
+
+
+DUDAS / GO-LIVE
+---------------
+La numeración definitiva (continuar la secuencia de SDP con «#») se
+activa en el corte con el script cutover-ids.ts. Antes de ese momento se
+recomienda limpiar los tickets de prueba con esta herramienta.
+========================================================================
