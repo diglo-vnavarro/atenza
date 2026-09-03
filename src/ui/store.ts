@@ -216,24 +216,49 @@ const genId = (t: TenantData): string => {
 
 // Cuerpo HTML de marca para los correos de notificación (table-based + estilos en línea, para
 // clientes de correo). Acento VERDE si es Petición (service_request) y ROJO si es Incidencia.
-function ticketMailHtml(eventLabel: string, ticket: StoredTicket, testMode: boolean, who: string[]): string {
+function ticketMailHtml(eventLabel: string, ticket: StoredTicket, tenant: TenantData, testMode: boolean, who: string[]): string {
   const esc = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const isPet = ticket.type === 'service_request';
   const accent = isPet ? '#0f9d58' : '#d23b3b';           // verde petición / rojo incidencia
   const tipoLabel = isPet ? 'Petición' : 'Incidencia';
   const navy = '#004B7A'; // azul corporativo Diglo
-  const fact = (k: string, v: unknown) => (v ? `<td style="padding:6px 16px 6px 0"><div style="font-size:11px;color:#98a1b2;text-transform:uppercase;letter-spacing:.04em">${k}</div><div style="font-size:14px;color:${navy};font-weight:600">${esc(v)}</div></td>` : '');
+  // Clasificación: v3 (Área › Servicio) o legacy (Categoría › Subcategoría › Artículo).
+  const tree = tenant.classificationTree ?? [];
+  const a = tree.find((x) => x.id === ticket.area);
+  const s = a?.services?.find((y) => y.id === ticket.service);
+  const classPath = (ticket.area || ticket.service)
+    ? [a?.name ?? ticket.area, s?.name ?? ticket.service].filter(Boolean).join(' › ')
+    : [ticket.category, ticket.subcategory, ticket.item].filter(Boolean).join(' › ');
+  const requester = (tenant.members ?? []).find((m) => m.uid === ticket.requesterId)?.name ?? '';
+  // Descripción: llega como HTML enriquecido → a texto plano legible y acotado.
+  const descText = String(ticket.description ?? '')
+    .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>')
+    .replace(/\n{3,}/g, '\n\n').trim().slice(0, 900);
+  const row = (label: string, value: unknown) => (value ? `<tr>`
+    + `<td style="padding:9px 16px 9px 0;vertical-align:top;white-space:nowrap;font-size:11px;color:#98a1b2;text-transform:uppercase;letter-spacing:.04em;border-top:1px solid #eef0f4">${label}</td>`
+    + `<td style="padding:9px 0;vertical-align:top;font-size:14px;color:${navy};font-weight:600;border-top:1px solid #eef0f4">${esc(value)}</td></tr>` : '');
   return `<!doctype html><html><body style="margin:0;padding:0;background:#f4f6f9">`
     + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 12px"><tr><td align="center">`
     + `<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#fff;border-radius:12px;overflow:hidden;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;box-shadow:0 1px 4px rgba(20,30,60,.08)">`
     + `<tr><td style="background:${navy};padding:15px 26px"><span style="color:#fff;font-size:17px;font-weight:800;letter-spacing:.2px">${NOMBRE_PRODUCTO}</span><span style="color:#9fb3d1;font-size:13px;margin-left:8px">· ITSM Diglo</span></td></tr>`
     + `<tr><td style="height:5px;background:${accent};font-size:0;line-height:0">&nbsp;</td></tr>`
-    + `<tr><td style="padding:22px 26px 6px">`
+    + `<tr><td style="padding:22px 26px 4px">`
     + `<span style="display:inline-block;background:${accent};color:#fff;font-size:12px;font-weight:700;padding:3px 11px;border-radius:999px">${tipoLabel}</span>`
-    + `<h1 style="margin:12px 0 4px;font-size:19px;color:${navy}">${esc(eventLabel)}</h1>`
-    + `<p style="margin:0;color:#6b7688;font-size:14px"><b style="color:${navy}">${esc(ticket.id)}</b> · ${esc(ticket.subject)}</p>`
+    + `<h1 style="margin:12px 0 2px;font-size:19px;color:${navy}">${esc(eventLabel)}</h1>`
+    + `<p style="margin:0;color:#6b7688;font-size:13px">Referencia <b style="color:${navy}">${esc(ticket.id)}</b></p>`
     + `</td></tr>`
-    + `<tr><td style="padding:8px 26px 18px"><table role="presentation" cellpadding="0" cellspacing="0"><tr>${fact('Prioridad', ticket.priority)}${fact('Estado', ticket.status)}</tr></table></td></tr>`
+    + `<tr><td style="padding:6px 26px 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">`
+    +   row('Asunto', ticket.subject)
+    +   row('Clasificación', classPath)
+    +   row('Solicitante', requester)
+    +   row('Prioridad', ticket.priority)
+    +   row('Estado', ticket.status)
+    + `</table></td></tr>`
+    + (descText ? `<tr><td style="padding:4px 26px 18px">`
+        + `<div style="font-size:11px;color:#98a1b2;text-transform:uppercase;letter-spacing:.04em;margin:6px 0 6px">Descripción</div>`
+        + `<div style="background:#f7f9fb;border:1px solid #eef0f4;border-radius:8px;padding:12px 14px;font-size:14px;color:#3a4457;line-height:1.5">${esc(descText).replace(/\n/g, '<br>')}</div>`
+        + `</td></tr>` : '')
     + (testMode ? `<tr><td style="padding:0 26px 16px"><div style="background:#fff8e1;border:1px solid #f3e2b8;border-radius:8px;padding:10px 12px;color:#8a5406;font-size:12.5px">Aviso de prueba. Destinatarios reales (no notificados en pruebas): ${esc(who.join(' · '))}.</div></td></tr>` : '')
     + `<tr><td style="padding:14px 26px;border-top:1px solid #eef0f4;color:#9aa3b2;font-size:11.5px">Enviado automáticamente por <b>${NOMBRE_PRODUCTO}</b> · ITSM Diglo. No respondas a este correo.</td></tr>`
     + `</table></td></tr></table></body></html>`;
@@ -341,8 +366,7 @@ export const useStore = create<State>()(
           if (anyMail && extra.length) who.push(`Correos a notificar (${extra.join(', ')})`);
           if (anyMail && to.size && !(MAIL_ONLY_NATIVE && isSyncedTicket(ticket.id))) {
             const subject = `[${NOMBRE_PRODUCTO}${MAIL_TEST_MODE ? ' · PRUEBA' : ''}] ${NOTIF_LABEL[event]} · ${ticket.id}`;
-            const html = `<p><b>${NOTIF_LABEL[event]}</b> — ${ticket.id}: ${ticket.subject}</p>`
-              + (MAIL_TEST_MODE ? `<p style="color:#888;font-size:13px">Aviso de prueba. Destinatarios reales (no notificados en pruebas): ${who.join(' · ')}.</p>` : '');
+            const html = ticketMailHtml(NOTIF_LABEL[event], ticket, t, MAIL_TEST_MODE, who);
             void cloud.enqueueMail(MAIL_TEST_MODE ? TEST_EMAIL : [...to], subject, html).catch(errlog);
           }
         }
