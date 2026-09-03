@@ -154,22 +154,45 @@ export async function completarReto(codigo: string): Promise<boolean> {
 /** Cancela un flujo MFA en curso (p. ej. al pulsar «Volver»). */
 export function cancelMfa() { clearMfa(); useAuth.getState().setError(null); }
 
-/** GATE de la app: si el usuario ACTUAL entró por email (externo) y NO tiene 2º factor,
- *  prepara el enrol y devuelve {qrUrl, secretKey} para forzarlo antes de usar la app; si no
- *  aplica (Google, o ya enrolado), devuelve null. Cubre el alta de cuenta y sesiones abiertas
- *  sin MFA (Firebase deja entrar con un solo factor; el 2º factor lo exige la app). */
-export async function mfaGateForCurrentUser(): Promise<{ qrUrl: string; secretKey: string } | null> {
+/** Resultado del GATE de la app para el usuario actual (email/externo). */
+export type MfaGate =
+  | { step: 'verify'; email: string | null }               // debe verificar el correo primero
+  | { step: 'enroll'; qrUrl: string; secretKey: string };   // debe enrolar el 2º factor
+
+/** GATE de la app: si el usuario ACTUAL entró por email (externo), fuerza —en orden— verificar
+ *  el correo y enrolar el 2º factor antes de usar la app; si no aplica (Google, ya verificado y
+ *  enrolado), devuelve null. Cubre el alta de cuenta y sesiones abiertas sin MFA. Firebase EXIGE
+ *  email verificado antes de enrolar TOTP, de ahí el paso 'verify'. */
+export async function mfaGateForCurrentUser(): Promise<MfaGate | null> {
   if (!firebaseEnabled) return null;
   const { mod, auth: a } = await auth();
   const u = a.currentUser;
   if (!u) return null;
   const byPassword = u.providerData.some((p) => p.providerId === 'password');
   if (!byPassword) return null; // internos (Google): su MFA lo impone Workspace, no la app
+  if (!u.emailVerified) return { step: 'verify', email: u.email }; // Firebase exige correo verificado
   const mf = mod.multiFactor(u);
   if (mf.enrolledFactors.length > 0) return null; // ya tiene 2º factor
   const secret = await mod.TotpMultiFactorGenerator.generateSecret(await mf.getSession());
   mfaUser = u; mfaSecret = secret;
-  return { qrUrl: secret.generateQrCodeUrl(u.email ?? 'usuario', ISSUER), secretKey: secret.secretKey };
+  return { step: 'enroll', qrUrl: secret.generateQrCodeUrl(u.email ?? 'usuario', ISSUER), secretKey: secret.secretKey };
+}
+
+/** Envía el correo de verificación al usuario actual. */
+export async function sendVerification(): Promise<boolean> {
+  try {
+    const { mod, auth: a } = await auth();
+    if (!a.currentUser) return false;
+    await mod.sendEmailVerification(a.currentUser);
+    useAuth.getState().setError(null);
+    return true;
+  } catch (e) { useAuth.getState().setError(friendly(e)); return false; }
+}
+
+/** Recarga el usuario (para re-comprobar `emailVerified` tras pulsar el enlace del correo). */
+export async function reloadUser(): Promise<void> {
+  const { auth: a } = await auth();
+  if (a.currentUser) await a.currentUser.reload();
 }
 
 export async function signUpEmail(email: string, password: string, name: string): Promise<void> {
