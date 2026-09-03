@@ -253,7 +253,7 @@ export const useStore = create<State>()(
       // queda pendiente de la extensión Trigger Email (ver README).
       const NOTIF_LABEL: Record<NotifEvent, string> = {
         created: 'Nueva solicitud', assigned: 'Te han asignado una solicitud', status: 'Cambio de estado',
-        resolved: 'Solicitud resuelta', comment: 'Nuevo comentario', internal_note: 'Nueva nota interna', sla_breach: 'SLA incumplido',
+        resolved: 'Solicitud resuelta', closed: 'Solicitud cerrada', comment: 'Nuevo comentario', internal_note: 'Nueva nota interna', sla_breach: 'SLA incumplido',
         approval: 'Aprobación',
       };
       // Aviso dirigido a uids concretos (aprobaciones): no pasa por la matriz de
@@ -274,7 +274,10 @@ export const useStore = create<State>()(
         for (const h of webhooksFor(t.webhooks, event)) {
           void fetch(h.url, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ event, ticketId: ticket.id, subject: ticket.subject, at: Date.now(), tenant: t.id }) }).catch(() => { /* best-effort */ });
         }
-        const rule = (t.notifRules ?? []).find((r) => r.event === event);
+        // El evento `closed` (cierre) reutiliza la regla de `resolved` si el tenant no tiene
+        // una propia — así el correo de cierre funciona sin definir una regla nueva por tenant.
+        const rule = (t.notifRules ?? []).find((r) => r.event === event)
+          ?? (event === 'closed' ? (t.notifRules ?? []).find((r) => r.event === 'resolved') : undefined);
         if (!rule) return;
         const actor = get().currentUserId;
         const targets = new Set<string>();
@@ -565,7 +568,7 @@ export const useStore = create<State>()(
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist, archived: arch } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist, archived: arch }).catch(errlog);
-          emitNotifs(t, 'status', { ...tk, status: to, statusHistory: hist });
+          emitNotifs(t, to === 'Resuelta' ? 'resolved' : isClosingStatus(t.statuses, to) ? 'closed' : 'status', { ...tk, status: to, statusHistory: hist });
           logAudit(t, to === 'Resuelta' ? 'ticket.resolve' : 'ticket.status', `${tk.id} → ${to}`, tk.id);
         },
         // Cambio de estado directo al catálogo (sin exigir transición del ciclo).
@@ -577,7 +580,7 @@ export const useStore = create<State>()(
           const hist = [...(tk.statusHistory ?? []).map((h) => (h.to == null ? { ...h, to: now } : h)), { state: to, from: now, to: null }];
           set((st) => ({ db: mapTenant(st.db, t.id, (tt) => ({ ...tt, tickets: tt.tickets.map((x) => (x.id === ticketId ? { ...x, status: to, statusHistory: hist, archived: arch } : x)) })) }));
           if (CLOUD) void cloud.patchTicket(t.id, ticketId, { status: to, statusHistory: hist, archived: arch }).catch(errlog);
-          emitNotifs(t, to === 'Resuelta' ? 'resolved' : 'status', { ...tk, status: to, statusHistory: hist });
+          emitNotifs(t, to === 'Resuelta' ? 'resolved' : isClosingStatus(t.statuses, to) ? 'closed' : 'status', { ...tk, status: to, statusHistory: hist });
           logAudit(t, to === 'Resuelta' ? 'ticket.resolve' : 'ticket.status', `${tk.id} → ${to}`, tk.id);
         },
         setStatuses: (list) => {

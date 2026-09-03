@@ -302,7 +302,7 @@ export interface StatusDef {
 // Reglas de notificación: qué avisos se emiten en cada evento del ticket, por
 // qué canal (pantalla / correo) y a quién (solicitante / técnico / grupo).
 // ---------------------------------------------------------------------------
-export type NotifEvent = 'created' | 'assigned' | 'status' | 'resolved' | 'comment' | 'internal_note' | 'sla_breach' | 'approval';
+export type NotifEvent = 'created' | 'assigned' | 'status' | 'resolved' | 'closed' | 'comment' | 'internal_note' | 'sla_breach' | 'approval';
 export interface NotifChannel { screen?: boolean; mail?: boolean }
 export interface NotifRule {
   event: NotifEvent;

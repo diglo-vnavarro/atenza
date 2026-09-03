@@ -67,6 +67,7 @@ export const DEFAULT_NOTIF_RULES: NotifRule[] = [
   { event: 'assigned', requester: X, technician: SM, group: X },
   { event: 'status', requester: S, technician: S, group: X },
   { event: 'resolved', requester: SM, technician: X, group: X },
+  { event: 'closed', requester: SM, technician: X, group: X },
   { event: 'comment', requester: SM, technician: S, group: X },
   { event: 'internal_note', requester: X, technician: S, group: S },
   { event: 'sla_breach', requester: X, technician: SM, group: SM },
