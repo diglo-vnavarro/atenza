@@ -20,6 +20,13 @@ locals {
     "secretmanager.googleapis.com",
     "cloudbuild.googleapis.com",
     "artifactregistry.googleapis.com",
+    # Cloud Functions 2ª gen (auto-alta de acceso, correo): las habilitaba a mano la
+    # primera `firebase deploy --only functions` en prod; en dv las despliega el CI, cuya
+    # SA no puede habilitar APIs. Así el proyecto nace completo.
+    "cloudfunctions.googleapis.com",
+    "eventarc.googleapis.com",
+    "pubsub.googleapis.com",
+    "logging.googleapis.com",
   ]
 }
 
