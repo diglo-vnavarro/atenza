@@ -29,6 +29,21 @@ resource "google_identity_platform_config" "default" {
     }
   }
 
+  # MFA (2º factor TOTP) para los usuarios externos (email/contraseña); Google (internos)
+  # lo cubre Workspace. state=ENABLED (opcional a nivel de IP: la app lo hace obligatorio
+  # para externos en src/ui/MfaGate.tsx). En pd se activó por la Admin API el 2026-09-03
+  # con estos mismos valores; aquí queda declarado para que dv y cualquier proyecto nuevo
+  # nazcan igual. adjacent_intervals=5 = tolerancia de ±5 ventanas de 30 s.
+  mfa {
+    state = "ENABLED"
+    provider_configs {
+      state = "ENABLED"
+      totp_provider_config {
+        adjacent_intervals = 5
+      }
+    }
+  }
+
   # Multi-tenancy NATIVA de Identity Platform desactivada: el aislamiento entre
   # clientes de ticketIN vive en firestore.rules (tenants/{id}), no en IP.
   multi_tenant {
