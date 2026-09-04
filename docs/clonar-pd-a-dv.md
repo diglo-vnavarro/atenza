@@ -63,6 +63,16 @@ GOOGLE_CLOUD_PROJECT=diglo-desk-dv APPLY=1 npx tsx scripts/provision-access.ts #
 y crear `platformAdmins/<tu uid de dv>` (`{ email }`) si no existe (el bootstrap de demo ya lo creó;
 la importación no lo toca porque en pd ese doc está bajo otro uid).
 
+## 5b. Cola de correo heredada
+
+La copia trae los documentos pendientes de `mail` de producción. Antes de instalar la extensión de
+correo en `dv` (con SMTP sandbox), vacíala para que no los reenvíe:
+
+```bash
+GOOGLE_CLOUD_PROJECT=diglo-desk-dv npx tsx scripts/purge-mail.ts           # dry-run
+GOOGLE_CLOUD_PROJECT=diglo-desk-dv APPLY=1 npx tsx scripts/purge-mail.ts   # borra
+```
+
 ## 6. Adjuntos (opcional, ~8 GB)
 
 Los iconos/branding de las instancias viven en Firestore (`tenants/{id}.branding`, data URI o URL) y
