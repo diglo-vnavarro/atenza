@@ -1,4 +1,5 @@
 :root{
+  --banner-h:0px; /* alto del aviso de entorno (EnvBanner); 28px en dv */
   --paper:#f5f6f8; --surface:#fff; --surface-2:#fbfcfd; --raise:#fbfcfd; --sink:#eef1f5;
   --ink:#1a1d23; --ink-soft:#566070; --ink-faint:#8b93a1; --line:#e4e7ec; --line-2:#d3d8e0;
   --accent:#2f6bff; --accent-ink:#fff; --accent-soft:#eaf0fe; --accent-deep:#1e4fd6;
@@ -33,7 +34,7 @@ button{font-family:inherit; cursor:pointer;}
 select{font-family:var(--sans); font-size:12px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:5px 7px;}
 input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:6px 9px;}
 
-.top{display:flex; align-items:center; gap:10px; padding:0 12px; height:46px; background:var(--surface); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:10;}
+.top{display:flex; align-items:center; gap:10px; padding:0 12px; height:46px; background:var(--surface); border-bottom:1px solid var(--line); position:sticky; top:var(--banner-h); z-index:10;}
 .brand{display:flex; align-items:center; gap:8px; font-weight:650; letter-spacing:-.01em; font-size:13.5px;}
 .brand .glyph{width:22px; height:22px; border-radius:6px; background:var(--accent); color:var(--accent-ink); display:grid; place-items:center; font-weight:800; font-size:12px;}
 .brand small{font-family:var(--mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-faint); background:var(--surface-2); padding:2px 6px; border-radius:5px;}
@@ -60,13 +61,13 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .listwrap{border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--surface); box-shadow:var(--sh);}
 .wsplit{display:flex; gap:14px; align-items:flex-start;}
 .wsplit-list{flex:1; min-width:0;}
-.detailpane{width:404px; flex:none; position:sticky; top:0; max-height:calc(100vh - 76px); overflow:auto; background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--sh);}
+.detailpane{width:404px; flex:none; position:sticky; top:var(--banner-h); max-height:calc(100vh - 76px); overflow:auto; background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--sh);}
 .detailpane .drawer-h{position:sticky; top:0; background:var(--surface); z-index:1;}
 .det-empty{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:11px; height:280px; color:var(--ink-faint); font-size:12.5px; text-align:center; padding:20px;}
 @media (max-width:1100px){ .wsplit{flex-direction:column;} .detailpane{width:100%; position:static; max-height:none;} }
 /* Administración: dos paneles */
 .adm{display:flex; gap:14px; align-items:flex-start;}
-.adm-nav{width:232px; flex:none; background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--sh); padding:8px 8px 14px; position:sticky; top:0; max-height:calc(100vh - 76px); overflow-y:auto;}
+.adm-nav{width:232px; flex:none; background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:var(--sh); padding:8px 8px 14px; position:sticky; top:var(--banner-h); max-height:calc(100vh - 76px); overflow-y:auto;}
 .adm-g{display:flex; align-items:center; gap:6px; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700; padding:12px 8px 5px;}
 .adm-ic{display:inline-flex; align-items:center; color:var(--ink-soft);}
 .adm-i{display:flex; align-items:center; gap:6px; width:100%; text-align:left; border:none; background:none; padding:6px 9px; border-radius:6px; font-size:12.5px; color:var(--ink-soft); margin-bottom:1px;}
@@ -960,3 +961,12 @@ input,textarea{font-family:var(--sans); font-size:12.5px; color:var(--ink); back
 .bsw-glyph{width:26px; height:26px; border-radius:7px; display:grid; place-items:center; color:#fff; font-weight:800; font-size:12px; flex:none;}
 .bsw-name{flex:1; font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .bsw-check{color:var(--accent-deep); font-weight:700;}
+/* --- aviso de entorno de desarrollo (EnvBanner), igual que en OrganiZate --- */
+:root[data-env="dv"]{--banner-h:28px;}
+.env-banner{position:sticky; top:0; z-index:70; height:var(--banner-h); display:flex; align-items:center; justify-content:center; gap:8px; padding:0 12px; background:#059669; color:#fff; font-size:12px; font-weight:500; box-shadow:0 1px 2px rgba(0,0,0,.12);}
+.env-banner-text{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.env-banner-text strong{font-weight:600; text-transform:uppercase; letter-spacing:.03em;}
+.env-banner-link{margin-left:4px; border-radius:4px; background:rgba(255,255,255,.15); padding:2px 6px; font-size:11px; color:#fff; text-decoration:none;}
+.env-banner-link:hover{background:rgba(255,255,255,.25);}
+@media (max-width:640px){.env-banner-more,.env-banner-link{display:none;}}
+
