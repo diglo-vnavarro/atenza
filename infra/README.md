@@ -137,6 +137,10 @@ terraform output workload_identity_provider     # → WIF_PROVIDER
 > `-reconfigure` cambia de backend sin migrar estado. **Comprueba siempre** con
 > `terraform state list` contra qué proyecto estás antes de `apply`.
 
+`functions_iam.tf` deja concedidos los roles a los service agents (Pub/Sub, Eventarc, SA de runtime)
+que `firebase deploy --only functions` exige: sin ellos el deploy desde CI falla en un proyecto nuevo
+(«We failed to modify the IAM policy»), porque la SA de CI no puede tocar la política IAM.
+
 `dev.tfvars` pone `enable_sync_jobs = false` (sin Schedulers ni Jobs de sincronización en dv) y
 `organizate_project_id = diglo-organizate-dv` (la SA del puente solo tendría acceso al OrganiZate de dev).
 

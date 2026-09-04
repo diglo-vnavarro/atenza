@@ -27,6 +27,9 @@ locals {
     "eventarc.googleapis.com",
     "pubsub.googleapis.com",
     "logging.googleapis.com",
+    # firebase.json declara la extensión de correo: el CLI consulta las extensiones
+    # instaladas en cada deploy (aunque no las despliegue) y necesita esta API.
+    "firebaseextensions.googleapis.com",
   ]
 }
 
