@@ -5,7 +5,7 @@ name: Deploy app (dv)
 # push a `main` despliega a dv. La promoción a producción se hace por fast-forward de
 # `main` → `release/pd` (ver docs/git-workflow.md), que dispara deploy-app-pd.yml.
 #
-# Despliega hosting + reglas de Firestore/Storage + Cloud Functions. Los deploy targets
+# Despliega hosting + reglas de Firestore/Storage + índices de Firestore + Cloud Functions. Los deploy targets
 # `app` (hosting) y `attachments` (bucket) se resuelven por proyecto en .firebaserc.
 # dv no tiene datos ni tenants: el acceso lo decide la pertenencia a un tenant
 # (firestore.rules), así que solo entra quien se dé de alta a mano (infra/README.md §5).
@@ -73,6 +73,6 @@ jobs:
           GOOGLE_CLOUD_QUOTA_PROJECT: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
         run: >
           npx --yes firebase-tools deploy
-          --only functions,hosting,firestore:rules,storage
+          --only functions,hosting,firestore,storage
           --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
           --non-interactive --force
