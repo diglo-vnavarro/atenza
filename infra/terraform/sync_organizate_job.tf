@@ -79,6 +79,7 @@ resource "google_project_iam_member" "org_invoker_run" {
 
 # --- Cloud Scheduler: dispara el job por HTTP (API run v2 :run) ---
 resource "google_cloud_scheduler_job" "org_sync" {
+  count     = var.enable_sync_jobs ? 1 : 0
   project   = var.project_id
   region    = var.region
   name      = "atenza-sync-organizate"

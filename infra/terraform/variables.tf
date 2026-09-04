@@ -27,6 +27,14 @@ variable "github_repo" {
   default     = "diglo-vnavarro/atenza"
 }
 
+# Sincronizaciones periódicas (SDP→ticketIN, ticketIN→OrganiZate). Solo en producción:
+# en dv se ponen a false para no crear los Cloud Schedulers (los Jobs no existen allí).
+variable "enable_sync_jobs" {
+  type        = bool
+  description = "Crear los Cloud Schedulers que disparan los Jobs de sincronización."
+  default     = true
+}
+
 variable "web_app_display_name" {
   type        = string
   description = "Nombre visible de la app web en Firebase."

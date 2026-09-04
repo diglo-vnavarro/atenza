@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "diglo-desk-pd",
+    "target": "app",
     "public": "dist",
     "ignore": [
       "firebase.json",
@@ -53,7 +53,7 @@
   },
   "storage": [
     {
-      "bucket": "diglo-desk-pd-atenza-files",
+      "target": "attachments",
       "rules": "storage.rules"
     }
   ],

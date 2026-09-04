@@ -1,0 +1,78 @@
+name: Deploy app (dv)
+
+# Entorno de DESARROLLO (proyecto diglo-desk-dv).
+# Modelo común Diglosfera/HUB360: `main` es la rama integrada de desarrollo; cada
+# push a `main` despliega a dv. La promoción a producción se hace por fast-forward de
+# `main` → `release/pd` (ver docs/git-workflow.md), que dispara deploy-app-pd.yml.
+#
+# Despliega hosting + reglas de Firestore/Storage + Cloud Functions. Los deploy targets
+# `app` (hosting) y `attachments` (bucket) se resuelven por proyecto en .firebaserc.
+# dv no tiene datos ni tenants: el acceso lo decide la pertenencia a un tenant
+# (firestore.rules), así que solo entra quien se dé de alta a mano (infra/README.md §5).
+# Autenticación sin claves: Workload Identity Federation (OIDC de GitHub → GCP).
+# Secrets: entorno de GitHub `development` (ver infra/README.md §5).
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # necesario para Workload Identity Federation
+
+concurrency:
+  group: deploy-dv
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+        run: npm run build
+
+      - name: Autenticación GCP (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.DEPLOY_SA_EMAIL }}
+
+      # Dependencias de las Cloud Functions (el predeploy de firebase.json compila con tsc).
+      - name: Install functions deps
+        run: npm ci --prefix functions
+
+      # NO se despliegan extensiones (firestore-send-email solo existe en pd y nunca se
+      # despliega con --force). `--force` aquí solo evita prompts de functions (borrado
+      # de funciones eliminadas del código y política de limpieza de artefactos).
+      - name: Deploy a Firebase (dv)
+        env:
+          GOOGLE_CLOUD_QUOTA_PROJECT: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+        run: >
+          npx --yes firebase-tools deploy
+          --only functions,hosting,firestore:rules,storage
+          --project "${{ secrets.VITE_FIREBASE_PROJECT_ID }}"
+          --non-interactive --force

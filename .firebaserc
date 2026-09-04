@@ -1,0 +1,32 @@
+{
+  "projects": {
+    "default": "diglo-desk-pd",
+    "prod": "diglo-desk-pd",
+    "dev": "diglo-desk-dv"
+  },
+  "targets": {
+    "diglo-desk-pd": {
+      "hosting": {
+        "app": ["diglo-desk-pd"]
+      },
+      "storage": {
+        "attachments": ["diglo-desk-pd-atenza-files"]
+      }
+    },
+    "diglo-desk-dv": {
+      "hosting": {
+        "app": ["diglo-desk-dv"]
+      },
+      "storage": {
+        "attachments": ["diglo-desk-dv-atenza-files"]
+      }
+    }
+  },
+  "etags": {
+    "diglo-desk-pd": {
+      "extensionInstances": {
+        "firestore-send-email": "68cf7d25a400e02a256380ef57e28ab7fbd5de271769856921e57793d51d5594"
+      }
+    }
+  }
+}

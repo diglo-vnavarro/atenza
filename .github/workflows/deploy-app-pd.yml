@@ -1,12 +1,24 @@
-name: Deploy
+name: Deploy app (pd)
 
-# Despliega a Firebase (hosting + reglas de Firestore/Storage) al hacer push a main.
+# PRODUCCIÓN (proyecto diglo-desk-pd).
+# Modelo común Diglosfera/HUB360: `release/pd` es una rama de despliegue, no de
+# desarrollo. Solo avanza por fast-forward desde `main` (ver docs/git-workflow.md):
+#   git switch release/pd && git pull --ff-only origin release/pd
+#   git merge --ff-only origin/main && git push origin release/pd
+# Cada push a `release/pd` despliega a producción. `workflow_dispatch` permite
+# redesplegar el estado actual de la rama (p. ej. tras un rollback de la rama al tag
+# rollback/release-pd-<fecha>).
+#
+# Despliega hosting + reglas de Firestore/Storage (mismo alcance que el antiguo
+# deploy.yml). Las Cloud Functions y la extensión de correo se despliegan a mano en pd
+# (infra/README.md §4). El Job de la sync lo despliega deploy-sync.yml.
 # Autenticación sin claves: Workload Identity Federation (OIDC de GitHub → GCP).
-# Requiere los secrets listados en infra/README.md.
+# Secrets: entorno de GitHub `production` (ver infra/README.md §4).
 
 on:
   push:
-    branches: [main]
+    branches:
+      - release/pd
   workflow_dispatch:
 
 permissions:
@@ -14,18 +26,18 @@ permissions:
   id-token: write # necesario para Workload Identity Federation
 
 concurrency:
-  group: deploy-${{ github.ref }}
-  cancel-in-progress: true
+  group: deploy-pd
+  cancel-in-progress: false # nunca cancelar un despliegue a producción a medias
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
@@ -46,19 +58,13 @@ jobs:
           VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
         run: npm run build
 
-      # Deploy automático desactivado por defecto: el SA por WIF da 400
-      # "project not found" en las APIs de Firebase (pendiente de afinar el SA).
-      # Mientras, el deploy se hace manual con ADC de owner (ver infra/README).
-      # Actívalo poniendo la variable de repo CI_DEPLOY=true.
       - name: Autenticación GCP (WIF)
-        if: ${{ vars.CI_DEPLOY == 'true' }}
-        uses: google-github-actions/auth@v3
+        uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.DEPLOY_SA_EMAIL }}
 
-      - name: Deploy a Firebase
-        if: ${{ vars.CI_DEPLOY == 'true' }}
+      - name: Deploy a Firebase (pd)
         env:
           GOOGLE_CLOUD_QUOTA_PROJECT: diglo-desk-pd
         run: >

@@ -11,8 +11,11 @@ construye del `Dockerfile` de la raíz: `CMD npm run sync:job` = `importer/etl.t
   `ZOHO_CLIENT_SECRET`. Env: `TENANT=diglo-it`, `IDENTITY_MAP_JSON` (fallback; hoy la
   fuente de verdad del idmap es la subcolección Firestore `tenants/diglo-it/idmap`).
 
-> El CI de `deploy.yml` **solo** despliega Firebase (hosting + reglas). El Job de la
+> El CI de `deploy-app-pd.yml` **solo** despliega Firebase (hosting + reglas). El Job de la
 > sync NO se despliega ahí: usa el workflow `deploy-sync.yml` o los pasos manuales.
+>
+> La sync solo existe en **producción**: en `dv` (`diglo-desk-dv`) Terraform no crea los
+> Schedulers (`enable_sync_jobs = false`) y no hay Job. Ver `docs/git-workflow.md`.
 
 ## Despliegue manual (fallback, requiere `gcloud` con permisos de owner/editor)
 
@@ -40,9 +43,9 @@ gcloud logging read \
 
 - **Manual**: pestaña *Actions → Deploy sync job → Run workflow* (opción `execute`
   para lanzarlo tras desplegar).
-- **En push a `main`** (si cambian `Dockerfile`/`scripts`/`importer`/`src`): solo si
-  la variable de repo `CI_DEPLOY_SYNC=true`.
-- Autenticación por **Workload Identity Federation** (igual que `deploy.yml`).
+- **En push a `release/pd`** (la rama de producción, fast-forward desde `main`; si cambian
+  `Dockerfile`/`scripts`/`importer`/`src`): solo si la variable de repo `CI_DEPLOY_SYNC=true`.
+- Autenticación por **Workload Identity Federation** (igual que `deploy-app-pd.yml`).
   El SA usado (`secrets.SYNC_DEPLOY_SA_EMAIL`, o reutilizar `DEPLOY_SA_EMAIL` si tiene
   permisos) necesita los roles:
   - `roles/cloudbuild.builds.editor` (Cloud Build)

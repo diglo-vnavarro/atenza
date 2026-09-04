@@ -1,0 +1,55 @@
+name: CI
+
+# Quality gate (modelo común de los repos Diglosfera/HUB360): corre typecheck + tests +
+# build en cada PR a `main` y a la rama de release, y en cada push a `main`.
+# Es puramente protectora: no despliega ni cambia nada en runtime. Para que sea un
+# gate duro, la protección de rama de `main` y `release/pd` exige estos checks.
+
+on:
+  pull_request:
+    branches:
+      - main
+      - release/pd
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: app · typecheck + tests + build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install deps
+        run: npm ci
+      - name: Lint (typecheck)
+        run: npm run lint
+      - name: Tests
+        run: npm test
+      # Sin variables VITE_FIREBASE_* el build queda en modo local-first: basta para
+      # comprobar que compila (tsc + vite).
+      - name: Build
+        run: npm run build
+
+  functions:
+    name: functions · typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install deps
+        working-directory: functions
+        run: npm ci
+      - name: Typecheck (tsc)
+        working-directory: functions
+        run: npm run build
