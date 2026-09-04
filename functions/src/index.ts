@@ -19,7 +19,8 @@
 // Despliegue (requiere Firebase CLI; es un trigger de fondo, sin problema de
 // audiencia como el bloqueante):
 //   cd functions && npm install && npm run build
-//   firebase deploy --only functions:autoProvisionOnRequest --project diglo-desk-pd
+//   firebase deploy --only functions:autoProvisionOnRequest --project prod   # alias .firebaserc (dev = dv)
+// En dv las functions las despliega el CI (deploy-app.yml) con cada push a main.
 // Requiere el índice de collection-group sobre members.email (ya en
 // firestore.indexes.json). El acceso sigue funcionando por aprobación manual
 // aunque este trigger no esté desplegado.

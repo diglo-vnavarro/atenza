@@ -3,7 +3,6 @@ dist/
 .firebase/
 firebase-debug.log
 firestore-debug.log
-.firebaserc
 *.local
 .env
 scripts/backups/
@@ -27,3 +26,4 @@ importer/leasys-tenant.json
 
 # Secretos locales de las extensiones de Firebase (los lee el CLI al desplegar).
 *.secret.local
+infra/terraform/*.tfplan

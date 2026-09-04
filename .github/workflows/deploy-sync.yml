@@ -1,8 +1,11 @@
 name: Deploy sync job
 
 # Construye y despliega el Cloud Run Job `sync-sdp` (sync SDP → ticketIN).
-# El CI de deploy.yml solo hace Firebase (hosting/reglas); esto es el Job de la sync.
-# Ver docs/deploy-sync.md. Autenticación sin claves: Workload Identity Federation.
+# El CI de deploy-app-pd.yml solo hace Firebase (hosting/reglas); esto es el Job de la sync.
+# Es infraestructura de PRODUCCIÓN: se dispara desde la rama de release (`release/pd`,
+# que solo avanza por fast-forward desde `main`; ver docs/git-workflow.md), no desde
+# `main` (= dv, donde los Jobs no existen). Ver docs/deploy-sync.md.
+# Autenticación sin claves: Workload Identity Federation.
 
 on:
   workflow_dispatch:
@@ -12,7 +15,7 @@ on:
         type: boolean
         default: false
   push:
-    branches: [main]
+    branches: [release/pd]
     paths:
       - 'Dockerfile'
       - 'scripts/**'
@@ -38,7 +41,7 @@ env:
 
 jobs:
   deploy-sync:
-    # En push, solo si CI_DEPLOY_SYNC=true (como CI_DEPLOY en deploy.yml). Manual: siempre.
+    # En push a release/pd, solo si la variable de repo CI_DEPLOY_SYNC=true. Manual: siempre.
     if: ${{ github.event_name == 'workflow_dispatch' || vars.CI_DEPLOY_SYNC == 'true' }}
     runs-on: ubuntu-latest
     environment: production

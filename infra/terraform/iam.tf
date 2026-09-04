@@ -15,6 +15,12 @@ resource "google_project_iam_member" "deployer_roles" {
     "roles/firebaserules.admin",
     "roles/firebase.developAdmin",
     "roles/serviceusage.serviceUsageConsumer",
+    # Cloud Functions 2ª gen vía `firebase deploy --only functions` (deploy-app.yml en dv):
+    "roles/cloudfunctions.developer",   # crear/actualizar/borrar funciones
+    "roles/run.admin",                  # servicios Cloud Run subyacentes
+    "roles/iam.serviceAccountUser",     # desplegar funciones que corren como la SA de runtime
+    "roles/eventarc.admin",             # triggers de Firestore (onDocumentCreated)
+    "roles/artifactregistry.repoAdmin", # repositorio gcf-artifacts + política de limpieza
   ])
   project = var.project_id
   role    = each.value

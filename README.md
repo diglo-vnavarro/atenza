@@ -6,6 +6,9 @@ y que las **identidades externas al dominio** funcionan sin el candado corporati
 
 No es la app: es el esqueleto de seguridad y datos.
 
+> **Cómo se trabaja en el repo** (ramas, PRs, promoción `main` → `dv` y `release/pd` → `pd`):
+> [`docs/git-workflow.md`](docs/git-workflow.md). Infraestructura y entornos: [`infra/README.md`](infra/README.md).
+
 ## Qué hay aquí
 
 | Fichero | Qué es |
